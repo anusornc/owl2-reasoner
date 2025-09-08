@@ -1,0 +1,210 @@
+//! Common parsing utilities and helpers
+
+use crate::error::{OwlError, OwlResult};
+use crate::iri::IRI;
+use std::collections::HashMap;
+
+/// Common RDF/OWL vocabulary terms
+pub static RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+pub static RDFS_SUBCLASSOF: &str = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+pub static RDFS_DOMAIN: &str = "http://www.w3.org/2000/01/rdf-schema#domain";
+pub static RDFS_RANGE: &str = "http://www.w3.org/2000/01/rdf-schema#range";
+pub static OWL_ONTOLOGY: &str = "http://www.w3.org/2002/07/owl#Ontology";
+pub static OWL_IMPORTS: &str = "http://www.w3.org/2002/07/owl#imports";
+pub static OWL_CLASS: &str = "http://www.w3.org/2002/07/owl#Class";
+pub static OWL_OBJECT_PROPERTY: &str = "http://www.w3.org/2002/07/owl#ObjectProperty";
+pub static OWL_DATA_PROPERTY: &str = "http://www.w3.org/2002/07/owl#DataProperty";
+pub static OWL_NAMED_INDIVIDUAL: &str = "http://www.w3.org/2002/07/owl#NamedIndividual";
+pub static OWL_ANNOTATION_PROPERTY: &str = "http://www.w3.org/2002/07/owl#AnnotationProperty";
+pub static OWL_EQUIVALENT_CLASS: &str = "http://www.w3.org/2002/07/owl#equivalentClass";
+pub static OWL_DISJOINT_WITH: &str = "http://www.w3.org/2002/07/owl#disjointWith";
+pub static OWL_SAME_AS: &str = "http://www.w3.org/2002/07/owl#sameAs";
+pub static OWL_DIFFERENT_FROM: &str = "http://www.w3.org/2002/07/owl#differentFrom";
+
+/// Parse a literal value with optional datatype or language tag
+pub fn parse_literal(value: &str, datatype: Option<&str>, language: Option<&str>) -> OwlResult<crate::entities::Literal> {
+    match (datatype, language) {
+        (Some(dt), None) => {
+            let iri = IRI::new(dt)?;
+            Ok(crate::entities::Literal::typed(value, iri))
+        }
+        (None, Some(lang)) => {
+            Ok(crate::entities::Literal::lang_tagged(value, lang))
+        }
+        (None, None) => {
+            Ok(crate::entities::Literal::simple(value))
+        }
+        (Some(_), Some(_)) => {
+            Err(OwlError::ParseError("Literal cannot have both datatype and language tag".to_string()))
+        }
+    }
+}
+
+/// Parse a CURIE (Compact URI) like "owl:Class"
+pub fn parse_curie(curie: &str, prefixes: &HashMap<String, String>) -> OwlResult<IRI> {
+    if let Some(colon_pos) = curie.find(':') {
+        let prefix = &curie[..colon_pos];
+        let local = &curie[colon_pos + 1..];
+        
+        if let Some(namespace) = prefixes.get(prefix) {
+            let iri_str = format!("{}{}", namespace, local);
+            return IRI::new(iri_str);
+        }
+    }
+    
+    // If no colon or prefix not found, treat as full IRI
+    IRI::new(curie)
+}
+
+/// Normalize a whitespace string
+pub fn normalize_whitespace(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Parse a boolean string
+pub fn parse_bool(s: &str) -> OwlResult<bool> {
+    match s.to_lowercase().as_str() {
+        "true" | "1" | "yes" => Ok(true),
+        "false" | "0" | "no" => Ok(false),
+        _ => Err(OwlError::ParseError(format!("Invalid boolean value: {}", s))),
+    }
+}
+
+/// Parse an integer string
+pub fn parse_int(s: &str) -> OwlResult<i64> {
+    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid integer value: {}", s)))
+}
+
+/// Parse a float string
+pub fn parse_float(s: &str) -> OwlResult<f64> {
+    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid float value: {}", s)))
+}
+
+/// Validate IRI syntax
+pub fn validate_iri(iri: &str) -> OwlResult<()> {
+    if iri.is_empty() {
+        return Err(OwlError::InvalidIRI("Empty IRI".to_string()));
+    }
+    
+    // Basic validation - check for invalid characters
+    if iri.contains(' ') || iri.contains('<') || iri.contains('>') {
+        return Err(OwlError::InvalidIRI(format!("Invalid characters in IRI: {}", iri)));
+    }
+    
+    // Check for valid scheme
+    if !iri.contains(':') {
+        return Err(OwlError::InvalidIRI(format!("Missing scheme in IRI: {}", iri)));
+    }
+    
+    // TODO: Add more thorough IRI validation according to RFC 3987
+    
+    Ok(())
+}
+
+/// Escape XML special characters
+pub fn escape_xml(s: &str) -> String {
+    s.replace("&", "&amp;")
+     .replace("<", "&lt;")
+     .replace(">", "&gt;")
+     .replace("\"", "&quot;")
+     .replace("'", "&apos;")
+}
+
+/// Unescape XML special characters
+pub fn unescape_xml(s: &str) -> String {
+    s.replace("&lt;", "<")
+     .replace("&gt;", ">")
+     .replace("&quot;", "\"")
+     .replace("&apos;", "'")
+     .replace("&amp;", "&")
+}
+
+/// Parse a list of IRIs from a string (space or comma separated)
+pub fn parse_iri_list(s: &str, prefixes: &HashMap<String, String>) -> OwlResult<Vec<IRI>> {
+    let items: Vec<&str> = s.split([',', ' '])
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    let mut iris = Vec::new();
+    for item in items {
+        iris.push(parse_curie(item, prefixes)?);
+    }
+    
+    Ok(iris)
+}
+
+/// Get the local name from an IRI
+pub fn get_local_name(iri: &str) -> &str {
+    if let Some(hash_pos) = iri.rfind('#') {
+        &iri[hash_pos + 1..]
+    } else if let Some(slash_pos) = iri.rfind('/') {
+        &iri[slash_pos + 1..]
+    } else {
+        iri
+    }
+}
+
+/// Get the namespace from an IRI
+pub fn get_namespace(iri: &str) -> &str {
+    if let Some(hash_pos) = iri.rfind('#') {
+        &iri[..hash_pos + 1]
+    } else if let Some(slash_pos) = iri.rfind('/') {
+        &iri[..slash_pos + 1]
+    } else {
+        ""
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_literal() {
+        let simple = parse_literal("hello", None, None).unwrap();
+        assert!(simple.is_plain());
+        
+        let typed = parse_literal("42", Some("http://www.w3.org/2001/XMLSchema#integer"), None).unwrap();
+        assert!(typed.is_typed());
+        
+        let lang = parse_literal("bonjour", None, Some("fr")).unwrap();
+        assert!(lang.is_lang_tagged());
+    }
+
+    #[test]
+    fn test_parse_curie() {
+        let mut prefixes = HashMap::new();
+        prefixes.insert("owl".to_string(), "http://www.w3.org/2002/07/owl#".to_string());
+        
+        let iri = parse_curie("owl:Class", &prefixes).unwrap();
+        assert_eq!(iri.as_str(), "http://www.w3.org/2002/07/owl#Class");
+    }
+
+    #[test]
+    fn test_parse_bool() {
+        assert!(parse_bool("true").unwrap());
+        assert!(!parse_bool("false").unwrap());
+        assert!(parse_bool("1").unwrap());
+        assert!(parse_bool("yes").unwrap());
+    }
+
+    #[test]
+    fn test_normalize_whitespace() {
+        let result = normalize_whitespace("  hello   world  ");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn test_escape_xml() {
+        let result = escape_xml("<script>alert('test');</script>");
+        assert_eq!(result, "&lt;script&gt;alert(&apos;test&apos;);&lt;/script&gt;");
+    }
+
+    #[test]
+    fn test_get_local_name() {
+        assert_eq!(get_local_name("http://example.org/Person"), "Person");
+        assert_eq!(get_local_name("http://example.org#Person"), "Person");
+        assert_eq!(get_local_name("Person"), "Person");
+    }
+}
