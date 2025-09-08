@@ -22,6 +22,9 @@ pub mod ontology;
 /// Storage backends for OWL2 ontologies
 pub mod storage;
 
+/// OWL2 syntax parsers
+pub mod parser;
+
 // Re-export common types for convenience
 pub use error::{OwlError, OwlResult};
 pub use iri::{IRI, IRIRef};
@@ -29,3 +32,4 @@ pub use entities::*;
 pub use axioms::*;
 pub use ontology::*;
 pub use storage::*;
+pub use parser::*;
