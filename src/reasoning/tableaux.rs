@@ -1,0 +1,530 @@
+//! OWL2 Tableaux Reasoning Engine
+//! 
+//! Implements a tableaux-based reasoning algorithm for OWL2 ontologies
+//! based on SROIQ(D) description logic.
+
+use crate::ontology::Ontology;
+use crate::iri::IRI;
+use crate::entities::*;
+use crate::axioms::*;
+use crate::error::OwlResult;
+use crate::error::OwlError;
+
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::Arc;
+
+/// Tableaux reasoning engine for OWL2 ontologies
+pub struct TableauxReasoner {
+    ontology: Arc<Ontology>,
+    rules: ReasoningRules,
+    cache: ReasoningCache,
+}
+
+/// Reasoning configuration options
+#[derive(Debug, Clone)]
+pub struct ReasoningConfig {
+    /// Maximum depth for tableaux expansion
+    pub max_depth: usize,
+    /// Enable debugging output
+    pub debug: bool,
+    /// Enable incremental reasoning
+    pub incremental: bool,
+    /// Timeout in milliseconds
+    pub timeout: Option<u64>,
+}
+
+impl Default for ReasoningConfig {
+    fn default() -> Self {
+        ReasoningConfig {
+            max_depth: 1000,
+            debug: false,
+            incremental: true,
+            timeout: Some(30000), // 30 seconds default
+        }
+    }
+}
+
+/// Individual node in the tableaux
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TableauxNode {
+    id: NodeId,
+    concepts: HashSet<ClassExpression>,
+    labels: HashSet<String>,
+    blocked_by: Option<NodeId>,
+}
+
+/// Node identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct NodeId(usize);
+
+/// Tableaux graph structure
+#[derive(Debug)]
+pub struct TableauxGraph {
+    nodes: HashMap<NodeId, TableauxNode>,
+    edges: HashMap<NodeId, HashMap<IRI, HashSet<NodeId>>>,
+    root: NodeId,
+    next_id: usize,
+}
+
+/// Reasoning result
+#[derive(Debug, Clone)]
+pub struct ReasoningResult {
+    pub is_satisfiable: bool,
+    pub explanation: Option<String>,
+    pub model: Option<HashMap<IRI, HashSet<ClassExpression>>>,
+    pub stats: ReasoningStats,
+}
+
+/// Reasoning statistics
+#[derive(Debug, Clone)]
+pub struct ReasoningStats {
+    pub nodes_created: usize,
+    pub rules_applied: usize,
+    pub time_ms: u64,
+    pub cache_hits: usize,
+    pub backtracks: usize,
+}
+
+/// Reasoning cache for performance
+#[derive(Debug, Default)]
+struct ReasoningCache {
+    concept_satisfiability: HashMap<ClassExpression, bool>,
+    class_hierarchy: HashMap<IRI, HashSet<IRI>>,
+    property_hierarchy: HashMap<IRI, HashSet<IRI>>,
+}
+
+/// Built-in reasoning rules
+#[derive(Debug)]
+struct ReasoningRules {
+    // Rule implementations will be added here
+}
+
+impl TableauxReasoner {
+    /// Create a new tableaux reasoner
+    pub fn new(ontology: Ontology) -> Self {
+        Self::with_config(ontology, ReasoningConfig::default())
+    }
+    
+    /// Create a new tableaux reasoner with custom configuration
+    pub fn with_config(ontology: Ontology, config: ReasoningConfig) -> Self {
+        let ontology = Arc::new(ontology);
+        let rules = ReasoningRules::new(&ontology);
+        let cache = ReasoningCache::new(&ontology);
+        
+        TableauxReasoner {
+            ontology,
+            rules,
+            cache,
+        }
+    }
+    
+    /// Check if a class expression is satisfiable
+    pub fn is_satisfiable(&mut self, concept: &ClassExpression) -> OwlResult<bool> {
+        // Check cache first
+        if let Some(result) = self.cache.concept_satisfiability.get(concept) {
+            return Ok(*result);
+        }
+        
+        // Create tableaux graph
+        let mut graph = TableauxGraph::new();
+        let root = graph.add_node();
+        graph.add_concept(root, concept.clone());
+        
+        // Run tableaux algorithm
+        let result = self.run_tableaux(&mut graph, ReasoningConfig::default())?;
+        
+        // Cache result
+        self.cache.concept_satisfiability.insert(concept.clone(), result.is_satisfiable);
+        
+        Ok(result.is_satisfiable)
+    }
+    
+    /// Check if a class is satisfiable
+    pub fn is_class_satisfiable(&mut self, class: &IRI) -> OwlResult<bool> {
+        let concept = ClassExpression::Class(class.clone());
+        self.is_satisfiable(&concept)
+    }
+    
+    /// Check if one class is a subclass of another
+    pub fn is_subclass_of(&mut self, sub: &IRI, sup: &IRI) -> OwlResult<bool> {
+        let sub_concept = ClassExpression::Class(sub.clone());
+        let sup_concept = ClassExpression::Class(sup.clone());
+        
+        // A ⊑ B iff A ⊓ ¬B is unsatisfiable
+        let intersection = ClassExpression::ObjectIntersectionOf(vec![
+            sub_concept,
+            ClassExpression::ObjectComplementOf(Box::new(sup_concept)),
+        ]);
+        
+        Ok(!self.is_satisfiable(&intersection)?)
+    }
+    
+    /// Check if two classes are equivalent
+    pub fn are_equivalent_classes(&mut self, a: &IRI, b: &IRI) -> OwlResult<bool> {
+        Ok(self.is_subclass_of(a, b)? && self.is_subclass_of(b, a)?)
+    }
+    
+    /// Check if two classes are disjoint
+    pub fn are_disjoint_classes(&mut self, a: &IRI, b: &IRI) -> OwlResult<bool> {
+        let a_concept = ClassExpression::Class(a.clone());
+        let b_concept = ClassExpression::Class(b.clone());
+        
+        // A and B are disjoint iff A ⊓ B is unsatisfiable
+        let intersection = ClassExpression::ObjectIntersectionOf(vec![a_concept, b_concept]);
+        
+        Ok(!self.is_satisfiable(&intersection)?)
+    }
+    
+    /// Get all instances of a class
+    pub fn get_instances(&mut self, class: &IRI) -> OwlResult<HashSet<IRI>> {
+        let mut instances = HashSet::new();
+        
+        // Get named individuals from ontology
+        for individual in self.ontology.named_individuals() {
+            if self.is_instance_of(&individual.iri(), class)? {
+                instances.insert(individual.iri().clone());
+            }
+        }
+        
+        Ok(instances)
+    }
+    
+    /// Check if an individual is an instance of a class
+    pub fn is_instance_of(&mut self, individual: &IRI, class: &IRI) -> OwlResult<bool> {
+        // For now, check direct assertions in the ontology
+        // This will be enhanced with full reasoning later
+        for axiom in self.ontology.class_assertions() {
+            if axiom.individual() == individual && axiom.class_expr().contains_class(class) {
+                return Ok(true);
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    /// Run the tableaux algorithm
+    fn run_tableaux(&mut self, graph: &mut TableauxGraph, config: ReasoningConfig) -> OwlResult<ReasoningResult> {
+        let start_time = std::time::Instant::now();
+        let mut stats = ReasoningStats {
+            nodes_created: 1, // root node
+            rules_applied: 0,
+            time_ms: 0,
+            cache_hits: 0,
+            backtracks: 0,
+        };
+        
+        let mut queue = VecDeque::new();
+        queue.push_back(graph.root);
+        
+        while let Some(node_id) = queue.pop_front() {
+            if stats.nodes_created > config.max_depth {
+                return Ok(ReasoningResult {
+                    is_satisfiable: false,
+                    explanation: Some("Maximum depth exceeded".to_string()),
+                    model: None,
+                    stats,
+                });
+            }
+            
+            // Apply reasoning rules
+            let node = graph.nodes.get(&node_id).unwrap();
+            let mut new_nodes = Vec::new();
+            
+            for concept in &node.concepts {
+                if let Some((new_concepts, new_nodes_created)) = self.apply_rules(concept, node_id, graph)? {
+                    stats.rules_applied += 1;
+                    
+                    // Add new concepts to current node
+                    for new_concept in new_concepts {
+                        graph.add_concept(node_id, new_concept);
+                    }
+                    
+                    // Add new nodes to queue
+                    for new_node_id in new_nodes_created {
+                        queue.push_back(new_node_id);
+                        stats.nodes_created += 1;
+                    }
+                }
+            }
+            
+            // Check for contradictions
+            if self.has_contradiction(node) {
+                stats.backtracks += 1;
+                // Backtrack or return unsatisfiable
+                return Ok(ReasoningResult {
+                    is_satisfiable: false,
+                    explanation: Some("Contradiction found".to_string()),
+                    model: None,
+                    stats,
+                });
+            }
+        }
+        
+        stats.time_ms = start_time.elapsed().as_millis() as u64;
+        
+        // If we reach here, the tableau is complete and satisfiable
+        Ok(ReasoningResult {
+            is_satisfiable: true,
+            explanation: None,
+            model: Some(self.extract_model(graph)),
+            stats,
+        })
+    }
+    
+    /// Apply reasoning rules to a concept
+    fn apply_rules(&self, concept: &ClassExpression, node_id: NodeId, graph: &TableauxGraph) 
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>> 
+    {
+        match concept {
+            ClassExpression::ObjectIntersectionOf(operands) => {
+                // Decompose intersection: C ⊓ D → C, D
+                Ok(Some((operands.clone(), Vec::new())))
+            }
+            
+            ClassExpression::ObjectUnionOf(operands) => {
+                // Non-deterministic choice for union: C ⊔ D → C or D
+                // For now, choose the first operand
+                if !operands.is_empty() {
+                    Ok(Some((vec![operands[0].clone()], Vec::new())))
+                } else {
+                    Ok(None)
+                }
+            }
+            
+            ClassExpression::ObjectSomeValuesFrom(property, filler) => {
+                // ∃R.C → create new node with C and R-edge
+                if let Some(new_node_id) = self.create_successor_node(property, filler, graph) {
+                    Ok(Some((Vec::new(), vec![new_node_id])))
+                } else {
+                    Ok(None)
+                }
+            }
+            
+            ClassExpression::ObjectAllValuesFrom(_, _) => {
+                // ∀R.C → check all R-successors have C
+                // This is more complex and will be implemented later
+                Ok(None)
+            }
+            
+            ClassExpression::ObjectComplementOf(_) => {
+                // ¬C → check for contradiction with C
+                Ok(None)
+            }
+            
+            ClassExpression::Class(_) => {
+                // Atomic class - no decomposition needed
+                Ok(None)
+            }
+            
+            // More complex rules will be implemented later
+            _ => Ok(None),
+        }
+    }
+    
+    /// Create a successor node for existential restrictions
+    fn create_successor_node(&self, property: &IRI, filler: &ClassExpression, graph: &TableauxGraph) 
+        -> Option<NodeId> 
+    {
+        // This is a simplified version - in practice, we need to check
+        // if a suitable successor already exists
+        Some(NodeId(graph.next_id))
+    }
+    
+    /// Check if a node contains a contradiction
+    fn has_contradiction(&self, node: &TableauxNode) -> bool {
+        // Check for complementary concepts
+        let concepts: Vec<_> = node.concepts.iter().collect();
+        
+        for i in 0..concepts.len() {
+            for j in i + 1..concepts.len() {
+                if self.are_complementary(concepts[i], concepts[j]) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check for cardinality contradictions (to be implemented)
+        false
+    }
+    
+    /// Check if two concepts are complementary
+    fn are_complementary(&self, a: &ClassExpression, b: &ClassExpression) -> bool {
+        match (a, b) {
+            (ClassExpression::Class(iri_a), ClassExpression::ObjectComplementOf(box_b)) => {
+                if let ClassExpression::Class(iri_b) = box_b.as_ref() {
+                    return iri_a == iri_b;
+                }
+            }
+            (ClassExpression::ObjectComplementOf(box_a), ClassExpression::Class(iri_b)) => {
+                if let ClassExpression::Class(iri_a) = box_a.as_ref() {
+                    return iri_a == iri_b;
+                }
+            }
+            _ => {}
+        }
+        
+        false
+    }
+    
+    /// Extract a model from a completed tableau
+    fn extract_model(&self, graph: &TableauxGraph) -> HashMap<IRI, HashSet<ClassExpression>> {
+        let mut model = HashMap::new();
+        
+        for (node_id, node) in &graph.nodes {
+            // Create a dummy IRI for the node
+            let iri = IRI::new(&format!("http://example.org/node{}", node_id.0)).unwrap();
+            model.insert(iri, node.concepts.clone());
+        }
+        
+        model
+    }
+}
+
+impl TableauxGraph {
+    /// Create a new tableaux graph
+    pub fn new() -> Self {
+        let root = NodeId(0);
+        let mut nodes = HashMap::new();
+        nodes.insert(root, TableauxNode {
+            id: root,
+            concepts: HashSet::new(),
+            labels: HashSet::new(),
+            blocked_by: None,
+        });
+        
+        TableauxGraph {
+            nodes,
+            edges: HashMap::new(),
+            root,
+            next_id: 1,
+        }
+    }
+    
+    /// Add a new node to the graph
+    pub fn add_node(&mut self) -> NodeId {
+        let id = NodeId(self.next_id);
+        self.next_id += 1;
+        
+        self.nodes.insert(id, TableauxNode {
+            id,
+            concepts: HashSet::new(),
+            labels: HashSet::new(),
+            blocked_by: None,
+        });
+        
+        id
+    }
+    
+    /// Add a concept to a node
+    pub fn add_concept(&mut self, node_id: NodeId, concept: ClassExpression) {
+        if let Some(node) = self.nodes.get_mut(&node_id) {
+            node.concepts.insert(concept);
+        }
+    }
+    
+    /// Add an edge between nodes
+    pub fn add_edge(&mut self, from: NodeId, property: IRI, to: NodeId) {
+        self.edges.entry(from).or_insert_with(HashMap::new)
+            .entry(property).or_insert_with(HashSet::new)
+            .insert(to);
+    }
+    
+    /// Get all successors of a node via a property
+    pub fn get_successors(&self, node_id: NodeId, property: &IRI) -> Option<&HashSet<NodeId>> {
+        self.edges.get(&node_id).and_then(|edges| edges.get(property))
+    }
+}
+
+impl ReasoningCache {
+    /// Create a new reasoning cache
+    pub fn new(ontology: &Ontology) -> Self {
+        let mut cache = ReasoningCache::default();
+        
+        // Pre-compute class hierarchy
+        for subclass_axiom in ontology.subclass_axioms() {
+            let sub = subclass_axiom.sub_class();
+            let sup = subclass_axiom.super_class();
+            
+            if let (ClassExpression::Class(sub_iri), ClassExpression::Class(sup_iri)) = (sub, sup) {
+                cache.class_hierarchy.entry(sub_iri.clone()).or_insert_with(HashSet::new).insert(sup_iri.clone());
+            }
+        }
+        
+        // Pre-compute property hierarchy
+        for subprop_axiom in ontology.subproperty_axioms() {
+            let sub = subprop_axiom.sub_property();
+            let sup = subprop_axiom.super_property();
+            
+            cache.property_hierarchy.entry(sub.clone()).or_insert_with(HashSet::new).insert(sup.clone());
+        }
+        
+        cache
+    }
+}
+
+impl ReasoningRules {
+    /// Create new reasoning rules
+    pub fn new(_ontology: &Ontology) -> Self {
+        ReasoningRules {
+            // Rules will be initialized here
+        }
+    }
+}
+
+impl NodeId {
+    /// Get the numeric value of the node ID
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ontology::Ontology;
+    
+    #[test]
+    fn test_tableaux_reasoner_creation() {
+        let ontology = Ontology::new();
+        let reasoner = TableauxReasoner::new(ontology);
+        
+        assert_eq!(reasoner.ontology.classes().len(), 0);
+    }
+    
+    #[test]
+    fn test_simple_satisfiability() {
+        let mut ontology = Ontology::new();
+        let class_iri = IRI::new("http://example.org/Person").unwrap();
+        let person_class = Class::new(class_iri.clone());
+        ontology.add_class(person_class).unwrap();
+        
+        let mut reasoner = TableauxReasoner::new(ontology);
+        let result = reasoner.is_class_satisfiable(&class_iri).unwrap();
+        
+        assert!(result);
+    }
+    
+    #[test]
+    fn test_tableaux_graph() {
+        let mut graph = TableauxGraph::new();
+        assert_eq!(graph.nodes.len(), 1);
+        assert_eq!(graph.root, NodeId(0));
+        
+        let node2 = graph.add_node();
+        assert_eq!(node2, NodeId(1));
+        assert_eq!(graph.nodes.len(), 2);
+    }
+    
+    #[test]
+    fn test_concept_complementarity() {
+        let ontology = Ontology::new();
+        let reasoner = TableauxReasoner::new(ontology);
+        
+        let class_iri = IRI::new("http://example.org/Person").unwrap();
+        let concept = ClassExpression::Class(class_iri.clone());
+        let complement = ClassExpression::ObjectComplementOf(Box::new(concept.clone()));
+        
+        assert!(reasoner.are_complementary(&concept, &complement));
+        assert!(reasoner.are_complementary(&complement, &concept));
+    }
+}

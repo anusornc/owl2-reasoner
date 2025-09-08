@@ -25,6 +25,9 @@ pub mod storage;
 /// OWL2 syntax parsers
 pub mod parser;
 
+/// OWL2 reasoning engine
+pub mod reasoning;
+
 // Re-export common types for convenience
 pub use error::{OwlError, OwlResult};
 pub use iri::{IRI, IRIRef};
@@ -33,3 +36,4 @@ pub use axioms::*;
 pub use ontology::*;
 pub use storage::*;
 pub use parser::*;
+pub use reasoning::*;
