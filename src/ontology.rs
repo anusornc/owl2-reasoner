@@ -6,7 +6,7 @@ use crate::entities::*;
 use crate::axioms;
 use crate::iri::{IRI, IRIRegistry};
 use crate::error::OwlResult;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
 
 /// An OWL2 ontology
@@ -28,6 +28,21 @@ pub struct Ontology {
     named_individuals: HashSet<Arc<NamedIndividual>>,
     /// All axioms in the ontology
     axioms: Vec<Arc<axioms::Axiom>>,
+    
+    // Indexed axiom storage for performance
+    subclass_axioms: Vec<Arc<axioms::SubClassOfAxiom>>,
+    equivalent_classes_axioms: Vec<Arc<axioms::EquivalentClassesAxiom>>,
+    disjoint_classes_axioms: Vec<Arc<axioms::DisjointClassesAxiom>>,
+    class_assertions: Vec<Arc<axioms::ClassAssertionAxiom>>,
+    property_assertions: Vec<Arc<axioms::PropertyAssertionAxiom>>,
+    subobject_property_axioms: Vec<Arc<axioms::SubObjectPropertyAxiom>>,
+    equivalent_object_properties_axioms: Vec<Arc<axioms::EquivalentObjectPropertiesAxiom>>,
+    disjoint_object_properties_axioms: Vec<Arc<axioms::DisjointObjectPropertiesAxiom>>,
+    
+    // Performance indexes
+    class_instances: HashMap<IRI, Vec<IRI>>,
+    property_domains: HashMap<IRI, Vec<IRI>>,
+    property_ranges: HashMap<IRI, Vec<IRI>>,
     /// Annotations on the ontology itself
     annotations: Vec<Annotation>,
     /// IRI registry for managing namespaces
@@ -46,6 +61,17 @@ impl Ontology {
             data_properties: HashSet::new(),
             named_individuals: HashSet::new(),
             axioms: Vec::new(),
+            subclass_axioms: Vec::new(),
+            equivalent_classes_axioms: Vec::new(),
+            disjoint_classes_axioms: Vec::new(),
+            class_assertions: Vec::new(),
+            property_assertions: Vec::new(),
+            subobject_property_axioms: Vec::new(),
+            equivalent_object_properties_axioms: Vec::new(),
+            disjoint_object_properties_axioms: Vec::new(),
+            class_instances: HashMap::new(),
+            property_domains: HashMap::new(),
+            property_ranges: HashMap::new(),
             annotations: Vec::new(),
             iri_registry: IRIRegistry::new(),
         }
@@ -139,7 +165,59 @@ impl Ontology {
     /// Add an axiom to the ontology
     pub fn add_axiom(&mut self, axiom: axioms::Axiom) -> OwlResult<()> {
         let axiom_arc = Arc::new(axiom);
-        self.axioms.push(axiom_arc);
+        
+        // Add to general axioms list
+        self.axioms.push(axiom_arc.clone());
+        
+        // Add to indexed storage based on axiom type
+        match axiom_arc.as_ref() {
+            axioms::Axiom::SubClassOf(axiom) => {
+                let subclass_arc = Arc::new(axiom.clone());
+                self.subclass_axioms.push(subclass_arc);
+            }
+            axioms::Axiom::EquivalentClasses(axiom) => {
+                let equiv_arc = Arc::new(axiom.clone());
+                self.equivalent_classes_axioms.push(equiv_arc);
+            }
+            axioms::Axiom::DisjointClasses(axiom) => {
+                let disjoint_arc = Arc::new(axiom.clone());
+                self.disjoint_classes_axioms.push(disjoint_arc);
+            }
+            axioms::Axiom::ClassAssertion(axiom) => {
+                let assertion_arc = Arc::new(axiom.clone());
+                self.class_assertions.push(assertion_arc);
+                // Update class instances index
+                if let Some(class_iri) = axiom.class_expr().as_named().map(|c| c.iri().clone()) {
+                    self.class_instances.entry(axiom.individual().clone())
+                        .or_insert_with(Vec::new)
+                        .push(class_iri);
+                }
+            }
+            axioms::Axiom::PropertyAssertion(axiom) => {
+                let assertion_arc = Arc::new(axiom.clone());
+                self.property_assertions.push(assertion_arc);
+                // Update property domains and ranges indexes
+                self.property_domains.entry(axiom.property().clone())
+                    .or_insert_with(Vec::new)
+                    .push(axiom.subject().clone());
+                self.property_ranges.entry(axiom.property().clone())
+                    .or_insert_with(Vec::new)
+                    .push(axiom.object().clone());
+            }
+            axioms::Axiom::SubObjectProperty(axiom) => {
+                let subprop_arc = Arc::new(axiom.clone());
+                self.subobject_property_axioms.push(subprop_arc);
+            }
+            axioms::Axiom::EquivalentObjectProperties(axiom) => {
+                let equiv_arc = Arc::new(axiom.clone());
+                self.equivalent_object_properties_axioms.push(equiv_arc);
+            }
+            axioms::Axiom::DisjointObjectProperties(axiom) => {
+                let disjoint_arc = Arc::new(axiom.clone());
+                self.disjoint_object_properties_axioms.push(disjoint_arc);
+            }
+        }
+        
         Ok(())
     }
     
@@ -188,57 +266,25 @@ impl Ontology {
         self.entity_count() == 0 && self.axiom_count() == 0
     }
     
-    // Axiom-specific accessors for reasoning
+    // Axiom-specific accessors for reasoning - now using indexed storage for O(1) access
     /// Get all subclass axioms
     pub fn subclass_axioms(&self) -> Vec<&crate::axioms::SubClassOfAxiom> {
-        self.axioms.iter()
-            .filter_map(|axiom| {
-                if let crate::axioms::Axiom::SubClassOf(sub_axiom) = axiom.as_ref() {
-                    Some(sub_axiom)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        self.subclass_axioms.iter().map(|axiom| axiom.as_ref()).collect()
     }
     
     /// Get all equivalent classes axioms
     pub fn equivalent_classes_axioms(&self) -> Vec<&crate::axioms::EquivalentClassesAxiom> {
-        self.axioms.iter()
-            .filter_map(|axiom| {
-                if let crate::axioms::Axiom::EquivalentClasses(equiv_axiom) = axiom.as_ref() {
-                    Some(equiv_axiom)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        self.equivalent_classes_axioms.iter().map(|axiom| axiom.as_ref()).collect()
     }
     
     /// Get all disjoint classes axioms
     pub fn disjoint_classes_axioms(&self) -> Vec<&crate::axioms::DisjointClassesAxiom> {
-        self.axioms.iter()
-            .filter_map(|axiom| {
-                if let crate::axioms::Axiom::DisjointClasses(disjoint_axiom) = axiom.as_ref() {
-                    Some(disjoint_axiom)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        self.disjoint_classes_axioms.iter().map(|axiom| axiom.as_ref()).collect()
     }
     
     /// Get all class assertion axioms
     pub fn class_assertions(&self) -> Vec<&crate::axioms::ClassAssertionAxiom> {
-        self.axioms.iter()
-            .filter_map(|axiom| {
-                if let crate::axioms::Axiom::ClassAssertion(assertion) = axiom.as_ref() {
-                    Some(assertion)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        self.class_assertions.iter().map(|axiom| axiom.as_ref()).collect()
     }
     
     /// Get all property assertion axioms
@@ -254,17 +300,19 @@ impl Ontology {
             .collect()
     }
     
-    /// Get all subproperty axioms
-    pub fn subproperty_axioms(&self) -> Vec<&crate::axioms::SubObjectPropertyAxiom> {
-        self.axioms.iter()
-            .filter_map(|axiom| {
-                if let crate::axioms::Axiom::SubObjectProperty(sub_axiom) = axiom.as_ref() {
-                    Some(sub_axiom)
-                } else {
-                    None
-                }
-            })
-            .collect()
+    /// Get all subobject property axioms
+    pub fn subobject_property_axioms(&self) -> Vec<&crate::axioms::SubObjectPropertyAxiom> {
+        self.subobject_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+    
+    /// Get all equivalent object properties axioms
+    pub fn equivalent_object_properties_axioms(&self) -> Vec<&crate::axioms::EquivalentObjectPropertiesAxiom> {
+        self.equivalent_object_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+    
+    /// Get all disjoint object properties axioms
+    pub fn disjoint_object_properties_axioms(&self) -> Vec<&crate::axioms::DisjointObjectPropertiesAxiom> {
+        self.disjoint_object_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
     }
     
     /// Add a subclass axiom
