@@ -24,22 +24,74 @@ impl SimpleReasoner {
     }
     
     /// Check if a class is satisfiable
-    pub fn is_class_satisfiable(&self, _class_iri: &IRI) -> OwlResult<bool> {
-        // For now, assume all classes are satisfiable
+    pub fn is_class_satisfiable(&self, class_iri: &IRI) -> OwlResult<bool> {
+        // For now, assume all classes are satisfiable unless they're explicitly disjoint with themselves
+        // This is a simplified check - a full implementation would use tableaux reasoning
+        for axiom in self.ontology.disjoint_classes_axioms() {
+            let classes = axiom.classes();
+            if classes.contains(class_iri) && classes.len() == 1 {
+                return Ok(false); // Class is disjoint with itself - unsatisfiable
+            }
+        }
         Ok(true)
     }
     
     /// Check if one class is a subclass of another
-    pub fn is_subclass_of(&self, _sub: &IRI, _sup: &IRI) -> OwlResult<bool> {
+    pub fn is_subclass_of(&self, sub: &IRI, sup: &IRI) -> OwlResult<bool> {
         // Check direct subclass relationships
-        // This is a simplified implementation
+        for axiom in self.ontology.subclass_axioms() {
+            if let (crate::axioms::ClassExpression::Class(sub_axiom), crate::axioms::ClassExpression::Class(sup_axiom)) = 
+                (axiom.sub_class(), axiom.super_class()) {
+                if sub_axiom.iri() == sub && sup_axiom.iri() == sup {
+                    return Ok(true);
+                }
+            }
+        }
+        
+        // Check equivalent classes (if A ≡ B, then A ⊑ B and B ⊑ A)
+        for axiom in self.ontology.equivalent_classes_axioms() {
+            let classes = axiom.classes();
+            if classes.contains(sub) && classes.contains(sup) {
+                return Ok(true);
+            }
+        }
+        
         Ok(false)
     }
     
     /// Get all instances of a class
-    pub fn get_instances(&self, _class_iri: &IRI) -> OwlResult<Vec<IRI>> {
-        // Return empty vector for now
-        Ok(Vec::new())
+    pub fn get_instances(&self, class_iri: &IRI) -> OwlResult<Vec<IRI>> {
+        let mut instances = Vec::new();
+        
+        // Get direct class assertions
+        for axiom in self.ontology.class_assertions() {
+            if axiom.class_expr().contains_class(class_iri) {
+                instances.push(axiom.individual().clone());
+            }
+        }
+        
+        // Get instances of equivalent classes
+        for axiom in self.ontology.equivalent_classes_axioms() {
+            let classes = axiom.classes();
+            if classes.contains(class_iri) {
+                for equiv_class in classes {
+                    if equiv_class != class_iri {
+                        // Get instances of the equivalent class
+                        for assertion in self.ontology.class_assertions() {
+                            if assertion.class_expr().contains_class(equiv_class) {
+                                instances.push(assertion.individual().clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Remove duplicates
+        instances.sort();
+        instances.dedup();
+        
+        Ok(instances)
     }
 }
 

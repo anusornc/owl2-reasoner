@@ -3,7 +3,7 @@
 //! Defines the main ontology structure that contains all entities and axioms.
 
 use crate::entities::*;
-use crate::axioms::*;
+use crate::axioms;
 use crate::iri::{IRI, IRIRegistry};
 use crate::error::OwlResult;
 use std::collections::HashSet;
@@ -27,7 +27,7 @@ pub struct Ontology {
     /// All named individuals in the ontology
     named_individuals: HashSet<Arc<NamedIndividual>>,
     /// All axioms in the ontology
-    axioms: Vec<Arc<Axiom>>,
+    axioms: Vec<Arc<axioms::Axiom>>,
     /// Annotations on the ontology itself
     annotations: Vec<Annotation>,
     /// IRI registry for managing namespaces
@@ -137,14 +137,14 @@ impl Ontology {
     }
     
     /// Add an axiom to the ontology
-    pub fn add_axiom(&mut self, axiom: Axiom) -> OwlResult<()> {
+    pub fn add_axiom(&mut self, axiom: axioms::Axiom) -> OwlResult<()> {
         let axiom_arc = Arc::new(axiom);
         self.axioms.push(axiom_arc);
         Ok(())
     }
     
     /// Get all axioms in the ontology
-    pub fn axioms(&self) -> &[Arc<Axiom>] {
+    pub fn axioms(&self) -> &[Arc<axioms::Axiom>] {
         &self.axioms
     }
     
@@ -187,6 +187,110 @@ impl Ontology {
     pub fn is_empty(&self) -> bool {
         self.entity_count() == 0 && self.axiom_count() == 0
     }
+    
+    // Axiom-specific accessors for reasoning
+    /// Get all subclass axioms
+    pub fn subclass_axioms(&self) -> Vec<&crate::axioms::SubClassOfAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::SubClassOf(sub_axiom) = axiom.as_ref() {
+                    Some(sub_axiom)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Get all equivalent classes axioms
+    pub fn equivalent_classes_axioms(&self) -> Vec<&crate::axioms::EquivalentClassesAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::EquivalentClasses(equiv_axiom) = axiom.as_ref() {
+                    Some(equiv_axiom)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Get all disjoint classes axioms
+    pub fn disjoint_classes_axioms(&self) -> Vec<&crate::axioms::DisjointClassesAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::DisjointClasses(disjoint_axiom) = axiom.as_ref() {
+                    Some(disjoint_axiom)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Get all class assertion axioms
+    pub fn class_assertions(&self) -> Vec<&crate::axioms::ClassAssertionAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::ClassAssertion(assertion) = axiom.as_ref() {
+                    Some(assertion)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Get all property assertion axioms
+    pub fn property_assertions(&self) -> Vec<&crate::axioms::PropertyAssertionAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::PropertyAssertion(assertion) = axiom.as_ref() {
+                    Some(assertion)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Get all subproperty axioms
+    pub fn subproperty_axioms(&self) -> Vec<&crate::axioms::SubObjectPropertyAxiom> {
+        self.axioms.iter()
+            .filter_map(|axiom| {
+                if let crate::axioms::Axiom::SubObjectProperty(sub_axiom) = axiom.as_ref() {
+                    Some(sub_axiom)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    
+    /// Add a subclass axiom
+    pub fn add_subclass_axiom(&mut self, axiom: axioms::SubClassOfAxiom) -> OwlResult<()> {
+        self.add_axiom(axioms::Axiom::SubClassOf(axiom))
+    }
+    
+    /// Add an equivalent classes axiom
+    pub fn add_equivalent_classes_axiom(&mut self, axiom: axioms::EquivalentClassesAxiom) -> OwlResult<()> {
+        self.add_axiom(axioms::Axiom::EquivalentClasses(axiom))
+    }
+    
+    /// Add a disjoint classes axiom
+    pub fn add_disjoint_classes_axiom(&mut self, axiom: axioms::DisjointClassesAxiom) -> OwlResult<()> {
+        self.add_axiom(axioms::Axiom::DisjointClasses(axiom))
+    }
+    
+    /// Add a class assertion axiom
+    pub fn add_class_assertion(&mut self, axiom: axioms::ClassAssertionAxiom) -> OwlResult<()> {
+        self.add_axiom(axioms::Axiom::ClassAssertion(axiom))
+    }
+    
+    /// Add a property assertion axiom
+    pub fn add_property_assertion(&mut self, axiom: axioms::PropertyAssertionAxiom) -> OwlResult<()> {
+        self.add_axiom(axioms::Axiom::PropertyAssertion(axiom))
+    }
 }
 
 impl Default for Ontology {
@@ -195,115 +299,6 @@ impl Default for Ontology {
     }
 }
 
-/// OWL2 axioms - logical statements about entities
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Axiom {
-    /// Declaration axioms
-    Declaration(DeclarationAxiom),
-    /// Class axioms
-    ClassAxiom(ClassAxiom),
-    /// Object property axioms
-    ObjectPropertyAxiom(ObjectPropertyAxiom),
-    /// Data property axioms
-    DataPropertyAxiom(DataPropertyAxiom),
-    /// Individual axioms
-    IndividualAxiom(IndividualAxiom),
-}
-
-/// Declaration axioms
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum DeclarationAxiom {
-    /// Class declaration
-    ClassDeclaration(Class),
-    /// Object property declaration
-    ObjectPropertyDeclaration(ObjectProperty),
-    /// Data property declaration
-    DataPropertyDeclaration(DataProperty),
-    /// Named individual declaration
-    NamedIndividualDeclaration(NamedIndividual),
-    /// Annotation property declaration
-    AnnotationPropertyDeclaration(IRI),
-}
-
-/// Class axioms
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ClassAxiom {
-    /// Subclass of (C ⊑ D)
-    SubClassOf(ClassExpression, ClassExpression),
-    /// Equivalent classes (C ≡ D)
-    EquivalentClasses(Vec<ClassExpression>),
-    /// Disjoint classes (C ⊓ D ⊑ ⊥)
-    DisjointClasses(Vec<ClassExpression>),
-    /// Disjoint union (C ≡ ⊔ D_i with D_i disjoint)
-    DisjointUnion(Class, Vec<ClassExpression>),
-}
-
-/// Object property axioms
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ObjectPropertyAxiom {
-    /// Subproperty of (P ⊑ Q)
-    SubObjectPropertyOf(ObjectPropertyExpression, ObjectPropertyExpression),
-    /// Equivalent properties (P ≡ Q)
-    EquivalentObjectProperties(Vec<ObjectPropertyExpression>),
-    /// Disjoint properties (P ⊓ Q ⊑ ⊥)
-    DisjointObjectProperties(Vec<ObjectPropertyExpression>),
-    /// Inverse properties (P ≡ Q⁻)
-    InverseObjectProperties(ObjectPropertyExpression, ObjectPropertyExpression),
-    /// Property domain (∀P.C)
-    ObjectPropertyDomain(ObjectPropertyExpression, ClassExpression),
-    /// Property range (∀P.C)
-    ObjectPropertyRange(ObjectPropertyExpression, ClassExpression),
-    /// Functional property (≤1 P)
-    FunctionalObjectProperty(ObjectPropertyExpression),
-    /// Inverse functional property (≤1 P⁻)
-    InverseFunctionalObjectProperty(ObjectPropertyExpression),
-    /// Reflexive property (∀x.P(x,x))
-    ReflexiveObjectProperty(ObjectPropertyExpression),
-    /// Irreflexive property (∀x.¬P(x,x))
-    IrreflexiveObjectProperty(ObjectPropertyExpression),
-    /// Symmetric property (∀x,y.P(x,y) → P(y,x))
-    SymmetricObjectProperty(ObjectPropertyExpression),
-    /// Asymmetric property (∀x,y.P(x,y) → ¬P(y,x))
-    AsymmetricObjectProperty(ObjectPropertyExpression),
-    /// Transitive property (∀x,y,z.P(x,y) ∧ P(y,z) → P(x,z))
-    TransitiveObjectProperty(ObjectPropertyExpression),
-}
-
-/// Data property axioms
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum DataPropertyAxiom {
-    /// Subproperty of (P ⊑ Q)
-    SubDataPropertyOf(DataPropertyExpression, DataPropertyExpression),
-    /// Equivalent properties (P ≡ Q)
-    EquivalentDataProperties(Vec<DataPropertyExpression>),
-    /// Disjoint properties (P ⊓ Q ⊑ ⊥)
-    DisjointDataProperties(Vec<DataPropertyExpression>),
-    /// Property domain (∀P.C)
-    DataPropertyDomain(DataPropertyExpression, ClassExpression),
-    /// Property range (∀P.D)
-    DataPropertyRange(DataPropertyExpression, DataRange),
-    /// Functional property (≤1 P)
-    FunctionalDataProperty(DataPropertyExpression),
-}
-
-/// Individual axioms
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum IndividualAxiom {
-    /// Class assertion (a:C)
-    ClassAssertion(Individual, ClassExpression),
-    /// Object property assertion (a,b:P)
-    ObjectPropertyAssertion(Individual, ObjectPropertyExpression, Individual),
-    /// Negative object property assertion (¬(a,b:P))
-    NegativeObjectPropertyAssertion(Individual, ObjectPropertyExpression, Individual),
-    /// Data property assertion (a,v:P)
-    DataPropertyAssertion(Individual, DataPropertyExpression, crate::entities::Literal),
-    /// Negative data property assertion (¬(a,v:P))
-    NegativeDataPropertyAssertion(Individual, DataPropertyExpression, crate::entities::Literal),
-    /// Same individual (a ≡ b)
-    SameIndividual(Vec<Individual>),
-    /// Different individuals (a ≢ b)
-    DifferentIndividuals(Vec<Individual>),
-}
 
 #[cfg(test)]
 mod tests {

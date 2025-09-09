@@ -85,6 +85,36 @@ impl ClassExpression {
     }
 }
 
+impl ClassExpression {
+    /// Check if this class expression contains a specific class
+    pub fn contains_class(&self, class_iri: &IRI) -> bool {
+        match self {
+            ClassExpression::Class(class) => class.iri() == class_iri,
+            ClassExpression::ObjectIntersectionOf(operands) => {
+                operands.iter().any(|op| op.contains_class(class_iri))
+            }
+            ClassExpression::ObjectUnionOf(operands) => {
+                operands.iter().any(|op| op.contains_class(class_iri))
+            }
+            ClassExpression::ObjectComplementOf(expr) => expr.contains_class(class_iri),
+            ClassExpression::ObjectOneOf(_) => false,
+            ClassExpression::ObjectSomeValuesFrom(_, expr) => expr.contains_class(class_iri),
+            ClassExpression::ObjectAllValuesFrom(_, expr) => expr.contains_class(class_iri),
+            ClassExpression::ObjectHasValue(_, _) => false,
+            ClassExpression::ObjectHasSelf(_) => false,
+            ClassExpression::ObjectMinCardinality(_, _) => false,
+            ClassExpression::ObjectMaxCardinality(_, _) => false,
+            ClassExpression::ObjectExactCardinality(_, _) => false,
+            ClassExpression::DataSomeValuesFrom(_, _) => false,
+            ClassExpression::DataAllValuesFrom(_, _) => false,
+            ClassExpression::DataHasValue(_, _) => false,
+            ClassExpression::DataMinCardinality(_, _) => false,
+            ClassExpression::DataMaxCardinality(_, _) => false,
+            ClassExpression::DataExactCardinality(_, _) => false,
+        }
+    }
+}
+
 impl From<Class> for ClassExpression {
     fn from(class: Class) -> Self {
         ClassExpression::Class(class)
