@@ -28,6 +28,10 @@ pub mod parser;
 /// OWL2 reasoning engine
 pub mod reasoning;
 
+/// Comprehensive test suite
+#[cfg(test)]
+pub mod tests;
+
 // Re-export common types for convenience
 pub use error::{OwlError, OwlResult};
 pub use iri::{IRI, IRIRef};
