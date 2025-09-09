@@ -55,7 +55,7 @@ pub struct QueryBinding {
 }
 
 /// Query value
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum QueryValue {
     IRI(IRI),
     Literal(String),
@@ -186,11 +186,12 @@ impl QueryEngine {
         let variables = self.extract_variables(pattern);
         let time_ms = start_time.elapsed().as_millis() as u64;
         
+        let results_count = bindings.len();
         Ok(QueryResult {
-            bindings: result_bindings,
+            bindings,
             variables,
             stats: QueryStats {
-                results_count: result_bindings.len(),
+                results_count,
                 time_ms,
                 reasoning_used: self.config.enable_reasoning,
             },
@@ -262,7 +263,7 @@ impl QueryEngine {
     }
     
     /// Match triple pattern against class assertion
-    fn match_class_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertion) -> Option<QueryBinding> {
+    fn match_class_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertionAxiom) -> Option<QueryBinding> {
         // Try to match: individual rdf:type class
         let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
         
@@ -285,7 +286,7 @@ impl QueryEngine {
     }
     
     /// Match triple pattern against property assertion
-    fn match_property_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertion) -> Option<QueryBinding> {
+    fn match_property_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertionAxiom) -> Option<QueryBinding> {
         let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
         let object_match = self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
@@ -307,14 +308,14 @@ impl QueryEngine {
     
     /// Match triple pattern against subclass axiom
     fn match_subclass_axiom(&self, triple: &TriplePattern, axiom: &crate::axioms::SubClassOfAxiom) -> Option<QueryBinding> {
-        let sub_iri = if let ClassExpression::Class(iri) = axiom.sub_class() {
-            iri
+        let sub_iri = if let ClassExpression::Class(class) = axiom.sub_class() {
+            class.iri()
         } else {
             return None;
         };
         
-        let super_iri = if let ClassExpression::Class(iri) = axiom.super_class() {
-            iri
+        let super_iri = if let ClassExpression::Class(class) = axiom.super_class() {
+            class.iri()
         } else {
             return None;
         };
@@ -322,7 +323,7 @@ impl QueryEngine {
         let rdfs_subclassof = IRI::new("http://www.w3.org/2000/01/rdf-schema#subClassOf").unwrap();
         
         let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(sub_iri.clone()));
-        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(rdfs_subclassof));
+        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(rdfs_subclassof.clone()));
         let object_match = self.match_term(&triple.object, &PatternTerm::IRI(super_iri.clone()));
         
         if subject_match && predicate_match && object_match {
@@ -331,7 +332,7 @@ impl QueryEngine {
             };
             
             self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(sub_iri.clone()));
-            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(rdfs_subclassof));
+            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(rdfs_subclassof.clone()));
             self.add_binding(&mut binding, &triple.object, &PatternTerm::IRI(super_iri.clone()));
             
             Some(binding)
@@ -375,8 +376,8 @@ impl QueryEngine {
     /// Add binding from pattern term to class expression
     fn add_class_expr_binding(&self, binding: &mut QueryBinding, pattern: &PatternTerm, class_expr: &ClassExpression) {
         if let PatternTerm::Variable(var_name) = pattern {
-            if let ClassExpression::Class(iri) = class_expr {
-                binding.variables.insert(var_name.clone(), QueryValue::IRI(iri.clone()));
+            if let ClassExpression::Class(class) = class_expr {
+                binding.variables.insert(var_name.clone(), QueryValue::IRI(class.iri().clone()));
             }
         }
     }
@@ -589,13 +590,13 @@ mod tests {
         let person_class = Class::new(person_iri.clone());
         let john_individual = NamedIndividual::new(john_iri.clone());
         
-        ontology.add_class(person_class).unwrap();
+        ontology.add_class(person_class.clone()).unwrap();
         ontology.add_named_individual(john_individual).unwrap();
         
         // Add class assertion
-        let class_assertion = ClassAssertion::new(
+        let class_assertion = ClassAssertionAxiom::new(
             john_iri.clone(),
-            ClassExpression::Class(person_iri.clone()),
+            ClassExpression::Class(person_class),
         );
         ontology.add_class_assertion(class_assertion).unwrap();
         

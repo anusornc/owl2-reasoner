@@ -4,17 +4,17 @@
 //! tableaux-based reasoning, rule-based inference, and query answering.
 
 pub mod simple;
+pub mod query;
 // TODO: Re-enable advanced modules when axioms are fully implemented
 // pub mod tableaux;
 // pub mod rules;
-// pub mod query;
 // pub mod consistency;
 // pub mod classification;
 
 pub use simple::*;
+pub use query::*;
 // pub use tableaux::*;
 // pub use rules::*;
-// pub use query::*;
 // pub use consistency::*;
 // pub use classification::*;
 
@@ -86,6 +86,20 @@ impl OwlReasoner {
     /// Check if a class is satisfiable
     pub fn is_class_satisfiable(&mut self, class_iri: &IRI) -> OwlResult<bool> {
         self.simple.is_class_satisfiable(class_iri)
+    }
+    
+    /// Create a query engine for this reasoner
+    pub fn query_engine(&self) -> QueryEngine {
+        QueryEngine::new(self.simple.ontology.clone())
+    }
+    
+    /// Execute a SPARQL-like query
+    pub fn query(&mut self, query: &str) -> OwlResult<QueryResult> {
+        let mut engine = self.query_engine();
+        // Parse the query string into a query pattern
+        // For now, we'll use a simple placeholder implementation
+        let pattern = QueryPattern::BasicGraphPattern(vec![]);
+        engine.execute_query(&pattern)
     }
 }
 
