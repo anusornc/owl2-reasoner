@@ -64,6 +64,36 @@ pub enum QueryValue {
     Float(f64),
 }
 
+impl Eq for QueryValue {}
+
+impl std::hash::Hash for QueryValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            QueryValue::IRI(iri) => {
+                state.write_u8(0);
+                iri.hash(state);
+            }
+            QueryValue::Literal(lit) => {
+                state.write_u8(1);
+                lit.hash(state);
+            }
+            QueryValue::Boolean(b) => {
+                state.write_u8(2);
+                b.hash(state);
+            }
+            QueryValue::Integer(i) => {
+                state.write_u8(3);
+                i.hash(state);
+            }
+            QueryValue::Float(f) => {
+                state.write_u8(4);
+                // Convert to bits for hashing since f64 doesn't implement Hash
+                f.to_bits().hash(state);
+            }
+        }
+    }
+}
+
 /// Query statistics
 #[derive(Debug, Clone)]
 pub struct QueryStats {
@@ -198,7 +228,7 @@ impl QueryEngine {
         })
     }
     
-    /// Evaluate a basic graph pattern
+    /// Evaluate a basic graph pattern using hash joins for optimization
     fn evaluate_basic_graph_pattern(&self, triples: &[TriplePattern]) -> OwlResult<Vec<QueryBinding>> {
         let mut bindings = Vec::new();
         
@@ -207,23 +237,13 @@ impl QueryEngine {
         }
         
         // Start with the first triple pattern
-        let first_bindings = self.match_triple_pattern(&triples[0])?;
+        let first_bindings = self.match_triple_pattern_optimized(&triples[0])?;
         bindings = first_bindings;
         
-        // Join with remaining triple patterns
-        for (_i, triple) in triples.iter().enumerate().skip(1) {
-            let triple_bindings = self.match_triple_pattern(triple)?;
-            let mut new_bindings = Vec::new();
-            
-            for existing_binding in &bindings {
-                for triple_binding in &triple_bindings {
-                    if let Some(joined_binding) = self.join_bindings(existing_binding, triple_binding) {
-                        new_bindings.push(joined_binding);
-                    }
-                }
-            }
-            
-            bindings = new_bindings;
+        // Join with remaining triple patterns using hash joins
+        for triple in triples.iter().skip(1) {
+            let triple_bindings = self.match_triple_pattern_optimized(triple)?;
+            bindings = self.hash_join_bindings(&bindings, &triple_bindings)?;
             
             if bindings.is_empty() {
                 break; // No more matches possible
@@ -233,33 +253,148 @@ impl QueryEngine {
         Ok(bindings)
     }
     
-    /// Match a single triple pattern against the ontology
-    fn match_triple_pattern(&self, triple: &TriplePattern) -> OwlResult<Vec<QueryBinding>> {
+    /// Match a single triple pattern against the ontology using indexed storage
+    fn match_triple_pattern_optimized(&self, triple: &TriplePattern) -> OwlResult<Vec<QueryBinding>> {
         let mut bindings = Vec::new();
         
-        // Match against class assertions
-        for axiom in self.ontology.class_assertions() {
-            if let Some(binding) = self.match_class_assertion(triple, axiom) {
-                bindings.push(binding);
+        // Use indexed storage for O(1) access instead of iterating through all axioms
+        
+        // Check if this is a type query (rdf:type)
+        if let PatternTerm::IRI(pred_iri) = &triple.predicate {
+            if pred_iri.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
+                // This is a type query - use class assertions directly
+                for axiom in self.ontology.class_assertions() {
+                    if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
+                        bindings.push(binding);
+                    }
+                }
+            } else {
+                // This is a property query - use property assertions directly
+                for axiom in self.ontology.property_assertions() {
+                    if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
+                        bindings.push(binding);
+                    }
+                }
+            }
+        } else {
+            // Predicate is a variable - match both class and property assertions
+            for axiom in self.ontology.class_assertions() {
+                if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
+                    bindings.push(binding);
+                }
+            }
+            
+            for axiom in self.ontology.property_assertions() {
+                if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
+                    bindings.push(binding);
+                }
             }
         }
         
-        // Match against property assertions
-        for axiom in self.ontology.property_assertions() {
-            if let Some(binding) = self.match_property_assertion(triple, axiom) {
-                bindings.push(binding);
-            }
-        }
-        
-        // Match against subclass axioms
-        for axiom in self.ontology.subclass_axioms() {
-            if let Some(binding) = self.match_subclass_axiom(triple, axiom) {
-                bindings.push(binding);
-            }
-        }
-        
-        // Add more pattern matching as needed
         Ok(bindings)
+    }
+    
+    /// Match triple pattern against class assertion (optimized)
+    fn match_class_assertion_optimized(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertionAxiom) -> Option<QueryBinding> {
+        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+        
+        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
+        let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
+        
+        if subject_match && predicate_match && object_match {
+            let mut binding = QueryBinding {
+                variables: HashMap::new(),
+            };
+            
+            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+            self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
+            
+            Some(binding)
+        } else {
+            None
+        }
+    }
+    
+    /// Match triple pattern against property assertion (optimized)
+    fn match_property_assertion_optimized(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertionAxiom) -> Option<QueryBinding> {
+        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
+        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
+        let object_match = self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
+        
+        if subject_match && predicate_match && object_match {
+            let mut binding = QueryBinding {
+                variables: HashMap::new(),
+            };
+            
+            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
+            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
+            self.add_binding(&mut binding, &triple.object, &PatternTerm::IRI(axiom.object().clone()));
+            
+            Some(binding)
+        } else {
+            None
+        }
+    }
+    
+    /// Perform hash join between two sets of bindings
+    fn hash_join_bindings(&self, left_bindings: &[QueryBinding], right_bindings: &[QueryBinding]) -> OwlResult<Vec<QueryBinding>> {
+        if left_bindings.is_empty() || right_bindings.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Find common variables between left and right bindings
+        let left_vars: HashSet<String> = left_bindings.first()
+            .map(|b| b.variables.keys().cloned().collect())
+            .unwrap_or_default();
+        let right_vars: HashSet<String> = right_bindings.first()
+            .map(|b| b.variables.keys().cloned().collect())
+            .unwrap_or_default();
+        
+        let common_vars: Vec<String> = left_vars.intersection(&right_vars).cloned().collect();
+        
+        if common_vars.is_empty() {
+            // No common variables - return cartesian product
+            let mut result = Vec::new();
+            for left in left_bindings {
+                for right in right_bindings {
+                    let mut combined = left.clone();
+                    combined.variables.extend(right.variables.clone());
+                    result.push(combined);
+                }
+            }
+            return Ok(result);
+        }
+        
+        // Use hash join for common variables
+        let mut hash_table: HashMap<Vec<QueryValue>, Vec<&QueryBinding>> = HashMap::new();
+        
+        // Build hash table from right bindings
+        for right_binding in right_bindings {
+            let key: Vec<QueryValue> = common_vars.iter()
+                .map(|var| right_binding.variables.get(var).cloned().unwrap())
+                .collect();
+            
+            hash_table.entry(key).or_insert_with(Vec::new).push(right_binding);
+        }
+        
+        // Probe with left bindings
+        let mut result = Vec::new();
+        for left_binding in left_bindings {
+            let key: Vec<QueryValue> = common_vars.iter()
+                .map(|var| left_binding.variables.get(var).cloned().unwrap())
+                .collect();
+            
+            if let Some(matching_rights) = hash_table.get(&key) {
+                for right_binding in matching_rights {
+                    let mut combined = left_binding.clone();
+                    combined.variables.extend(right_binding.variables.clone());
+                    result.push(combined);
+                }
+            }
+        }
+        
+        Ok(result)
     }
     
     /// Match triple pattern against class assertion
