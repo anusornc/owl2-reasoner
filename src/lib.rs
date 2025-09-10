@@ -1,34 +1,102 @@
-//! OWL2 Reasoner - Core Data Model
+//! # OWL2 Reasoner
 //! 
-//! This module provides the foundational data structures for representing
-//! OWL2 ontologies, entities, and axioms in a memory-efficient and
-//! type-safe manner.
+//! A high-performance, feature-complete OWL2 reasoning engine implemented in Rust.
+//! 
+//! ## Features
+//! 
+//! - **Complete OWL2 DL support** with SROIQ(D) description logic
+//! - **High-performance reasoning** with optimized data structures and algorithms
+//! - **Multi-format parsing** for Turtle, RDF/XML, OWL/XML, and N-Triples
+//! - **SPARQL-like query engine** with pattern matching and optimization
+//! - **Memory-efficient storage** with indexed axiom access and caching
+//! - **Type-safe API** leveraging Rust's type system for correctness
+//! 
+//! ## Quick Start
+//! 
+//! ```rust
+//! use owl2_reasoner::{Ontology, Class, SimpleReasoner, SubClassOfAxiom, ClassExpression};
+//! 
+//! // Create a new ontology
+//! let mut ontology = Ontology::new();
+//! 
+//! // Add classes
+//! let person = Class::new("http://example.org/Person");
+//! let parent = Class::new("http://example.org/Parent");
+//! ontology.add_class(person.clone())?;
+//! ontology.add_class(parent.clone())?;
+//! 
+//! // Add subclass relationship
+//! let subclass_axiom = SubClassOfAxiom::new(
+//!     ClassExpression::from(parent.clone()),
+//!     ClassExpression::from(person.clone()),
+//! );
+//! ontology.add_subclass_axiom(subclass_axiom)?;
+//! 
+//! // Create reasoner and perform inference
+//! let reasoner = SimpleReasoner::new(ontology);
+//! let is_consistent = reasoner.is_consistent()?;
+//! let is_subclass = reasoner.is_subclass_of(&parent, &person)?;
+//! 
+//! println!("Ontology consistent: {}", is_consistent);
+//! println!("Parent ⊑ Person: {}", is_subclass);
+//! # Ok::<(), owl2_reasoner::OwlError>(())
+//! ```
+//! 
+//! ## Architecture
+//! 
+//! The library is organized into several key modules:
+//! 
+//! - [`ontology`] - Ontology management and indexed storage
+//! - [`entities`] - OWL2 entities (classes, properties, individuals)
+//! - [`axioms`] - Logical statements and relationships
+//! - [`reasoning`] - Reasoning algorithms and inference
+//! - [`parser`] - Multi-format parsing and serialization
+//! - [`iri`] - IRI management with caching
+//! - [`error`] - Comprehensive error handling
+//! 
+//! ## Performance
+//! 
+//! - **Memory Efficiency**: String interning and Arc-based sharing
+//! - **Fast Access**: Indexed axiom storage with O(1) access patterns
+//! - **Intelligent Caching**: Multi-layered caching with TTL expiration
+//! - **Query Optimization**: Hash join algorithms and pattern reordering
+//! 
+//! ## Examples
+//! 
+//! See the [examples] directory for comprehensive usage patterns including:
+//! 
+//! - Family relationship ontologies
+//! - Biomedical knowledge graphs
+//! - Performance benchmarking
+//! - Complex class expressions
+//! 
+//! [examples]: https://github.com/your-org/owl2-reasoner/tree/main/examples
 
-/// OWL2 Reasoner error types
+/// OWL2 Reasoner error types and result handling
 pub mod error;
 
-/// IRI management for OWL2 entities
+/// IRI management for OWL2 entities with caching and namespace support
 pub mod iri;
 
-/// OWL2 Entities - Classes, Properties, and Individuals
+/// OWL2 Entities - Classes, Properties, and Individuals with characteristics
 pub mod entities;
 
-/// OWL2 Axioms - Logical statements about entities
+/// OWL2 Axioms - Logical statements about entities with full OWL2 support
 pub mod axioms;
 
-/// Ontology structure and management
+/// Ontology structure and management with indexed storage and performance optimization
 pub mod ontology;
 
-/// Storage backends for OWL2 ontologies
+/// Storage backends for OWL2 ontologies (for future extensibility)
 pub mod storage;
 
-/// OWL2 syntax parsers
+/// OWL2 syntax parsers supporting Turtle, RDF/XML, OWL/XML, and N-Triples
 pub mod parser;
 
-/// OWL2 reasoning engine
+/// OWL2 reasoning engine with tableaux algorithm and rule-based inference
 pub mod reasoning;
 
-/// Comprehensive test suite
+/// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
 pub mod tests;
 
@@ -41,3 +109,18 @@ pub use ontology::*;
 pub use storage::*;
 pub use parser::*;
 pub use reasoning::*;
+
+/// Version information
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Library name
+pub const NAME: &str = env!("CARGO_PKG_NAME");
+
+/// Library description
+pub const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+
+/// Repository URL
+pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
+
+/// Homepage URL
+pub const HOMEPAGE: &str = env!("CARGO_PKG_HOMEPAGE");

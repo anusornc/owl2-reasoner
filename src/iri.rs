@@ -1,6 +1,38 @@
 //! IRI management for OWL2 entities
 //! 
-//! Provides efficient IRI handling with caching and namespace support.
+//! This module provides efficient IRI (Internationalized Resource Identifier) handling 
+//! with comprehensive caching and namespace support. IRIs are used throughout OWL2 to 
+//! uniquely identify all entities (classes, properties, individuals).
+//! 
+//! ## Features
+//! 
+//! - **String Interning**: Automatic IRI deduplication with global cache
+//! - **Namespace Support**: Prefix-based IRI abbreviations (e.g., `owl:Class`)
+//! - **Memory Efficiency**: Arc-based sharing and pre-computed hashes
+//! - **Performance**: O(1) cache lookups and optimized comparisons
+//! 
+//! ## Usage
+//! 
+//! ```rust
+//! use owl2_reasoner::IRI;
+//! 
+//! // Create IRI (automatically cached)
+//! let person_iri = IRI::new("http://example.org/Person")?;
+//! 
+//! // Create IRI with namespace prefix
+//! let owl_class = IRI::with_prefix("http://www.w3.org/2002/07/owl#Class", "owl")?;
+//! 
+//! // Access IRI components
+//! assert_eq!(person_iri.as_str(), "http://example.org/Person");
+//! assert_eq!(person_iri.local_name(), "Person");
+//! assert_eq!(person_iri.namespace(), "http://example.org/");
+//! 
+//! // Check namespace membership
+//! assert!(owl_class.is_owl());
+//! assert!(!owl_class.is_rdf());
+//! 
+//! # Ok::<(), owl2_reasoner::OwlError>(())
+//! ```
 
 use crate::error::{OwlError, OwlResult};
 use std::fmt;
@@ -47,8 +79,46 @@ pub fn clear_global_iri_cache() {
 
 /// Internationalized Resource Identifier (IRI)
 /// 
+/// Represents an IRI as defined in [RFC 3987](https://tools.ietf.org/html/rfc3987). 
 /// OWL2 uses IRIs to uniquely identify all entities (classes, properties, individuals).
-/// This implementation provides efficient storage and comparison.
+/// 
+/// ## Performance
+/// 
+/// - **String Interning**: Automatic deduplication via global cache
+/// - **Memory Sharing**: Uses `Arc<str>` for efficient storage
+/// - **Fast Comparison**: Pre-computed hash values
+/// - **Namespace Caching**: Optional prefix storage for serialization
+/// 
+/// ## Memory Layout
+/// 
+/// ```text
+/// IRI {
+///     iri: Arc<str>,           // Shared string storage
+///     prefix: Option<Arc<str>>, // Optional namespace prefix
+///     hash: u64,               // Pre-computed hash
+/// }
+/// ```
+/// 
+/// ## Examples
+/// 
+/// ```rust
+/// use owl2_reasoner::IRI;
+/// 
+/// // Basic IRI creation
+/// let iri = IRI::new("http://example.org/Person")?;
+/// assert_eq!(iri.as_str(), "http://example.org/Person");
+/// 
+/// // IRI with prefix
+/// let iri_with_prefix = IRI::with_prefix("http://example.org/Person", "ex")?;
+/// assert_eq!(iri_with_prefix.prefix(), Some("ex"));
+/// assert_eq!(iri_with_prefix.to_string(), "ex:Person");
+/// 
+/// // Component access
+/// assert_eq!(iri.local_name(), "Person");
+/// assert_eq!(iri.namespace(), "http://example.org/");
+/// 
+/// # Ok::<(), owl2_reasoner::OwlError>(())
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IRI {
     /// The full IRI string
