@@ -4,8 +4,43 @@
 //! object properties, data properties, annotations, and individuals.
 
 use crate::iri::IRI;
+use crate::error::OwlResult;
 use std::collections::HashSet;
 use std::sync::Arc;
+use once_cell::sync::Lazy;
+
+/// Global entity cache for sharing IRIs across all entities
+static GLOBAL_ENTITY_CACHE: Lazy<dashmap::DashMap<String, Arc<IRI>>> = 
+    Lazy::new(|| dashmap::DashMap::new());
+
+/// Get a shared Arc<IRI> from the global cache
+fn get_shared_iri<S: Into<String>>(iri: S) -> OwlResult<Arc<IRI>> {
+    let iri_str = iri.into();
+    
+    // Check if we already have this IRI cached
+    if let Some(cached_iri) = GLOBAL_ENTITY_CACHE.get(&iri_str) {
+        return Ok(cached_iri.clone());
+    }
+    
+    // Create new IRI (which will use global cache internally)
+    let iri = IRI::new(iri_str.clone())?;
+    let arc_iri = Arc::new(iri);
+    
+    // Cache it for future use
+    GLOBAL_ENTITY_CACHE.insert(iri_str, arc_iri.clone());
+    
+    Ok(arc_iri)
+}
+
+/// Get global entity cache statistics
+pub fn global_entity_cache_stats() -> (usize, usize) {
+    (GLOBAL_ENTITY_CACHE.len(), GLOBAL_ENTITY_CACHE.capacity())
+}
+
+/// Clear the global entity cache
+pub fn clear_global_entity_cache() {
+    GLOBAL_ENTITY_CACHE.clear();
+}
 
 /// A named class in OWL2
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -18,11 +53,24 @@ pub struct Class {
 
 impl Class {
     /// Create a new class with the given IRI
-    pub fn new<I: Into<IRI>>(iri: I) -> Self {
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        // For backward compatibility, fall back to direct creation if sharing fails
+        let iri_clone = iri.clone();
+        let shared_iri = get_shared_iri(iri.into().as_str())
+            .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+        
         Class {
-            iri: Arc::new(iri.into()),
+            iri: shared_iri,
             annotations: Vec::new(),
         }
+    }
+    
+    /// Create a new class with shared IRI (preferred for memory efficiency)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        Ok(Class {
+            iri: get_shared_iri(iri)?,
+            annotations: Vec::new(),
+        })
     }
     
     /// Get the IRI of this class
@@ -72,12 +120,26 @@ pub struct ObjectProperty {
 
 impl ObjectProperty {
     /// Create a new object property with the given IRI
-    pub fn new<I: Into<IRI>>(iri: I) -> Self {
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        // For backward compatibility, fall back to direct creation if sharing fails
+        let iri_clone = iri.clone();
+        let shared_iri = get_shared_iri(iri.into().as_str())
+            .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+        
         ObjectProperty {
-            iri: Arc::new(iri.into()),
+            iri: shared_iri,
             annotations: Vec::new(),
             characteristics: HashSet::new(),
         }
+    }
+    
+    /// Create a new object property with shared IRI (preferred for memory efficiency)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        Ok(ObjectProperty {
+            iri: get_shared_iri(iri)?,
+            annotations: Vec::new(),
+            characteristics: HashSet::new(),
+        })
     }
     
     /// Get the IRI of this property
@@ -192,12 +254,26 @@ impl std::hash::Hash for ObjectProperty {
 
 impl DataProperty {
     /// Create a new data property with the given IRI
-    pub fn new<I: Into<IRI>>(iri: I) -> Self {
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        // For backward compatibility, fall back to direct creation if sharing fails
+        let iri_clone = iri.clone();
+        let shared_iri = get_shared_iri(iri.into().as_str())
+            .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+        
         DataProperty {
-            iri: Arc::new(iri.into()),
+            iri: shared_iri,
             annotations: Vec::new(),
             characteristics: HashSet::new(),
         }
+    }
+    
+    /// Create a new data property with shared IRI (preferred for memory efficiency)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        Ok(DataProperty {
+            iri: get_shared_iri(iri)?,
+            annotations: Vec::new(),
+            characteristics: HashSet::new(),
+        })
     }
     
     /// Get the IRI of this property
@@ -268,11 +344,24 @@ pub struct NamedIndividual {
 
 impl NamedIndividual {
     /// Create a new named individual with the given IRI
-    pub fn new<I: Into<IRI>>(iri: I) -> Self {
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        // For backward compatibility, fall back to direct creation if sharing fails
+        let iri_clone = iri.clone();
+        let shared_iri = get_shared_iri(iri.into().as_str())
+            .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+        
         NamedIndividual {
-            iri: Arc::new(iri.into()),
+            iri: shared_iri,
             annotations: Vec::new(),
         }
+    }
+    
+    /// Create a new named individual with shared IRI (preferred for memory efficiency)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        Ok(NamedIndividual {
+            iri: get_shared_iri(iri)?,
+            annotations: Vec::new(),
+        })
     }
     
     /// Get the IRI of this individual

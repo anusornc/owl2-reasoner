@@ -29,6 +29,10 @@ anyhow = "1.0"
 log = "0.4"
 env_logger = "0.10"
 
+# Validation and benchmarking
+chrono = { version = "0.4", features = ["serde"] }
+num_cpus = "1.13"
+
 # Utilities
 itertools = "0.12"
 once_cell = "1.19"
@@ -37,6 +41,7 @@ regex = "1.10"
 # Performance
 rayon = "1.8"
 crossbeam = "0.8"
+dashmap = "5.5"
 
 # Testing
 proptest = "1.4"

@@ -99,6 +99,9 @@ pub mod reasoning;
 /// OWL2 Profile validation (EL, QL, RL) with comprehensive checking
 pub mod profiles;
 
+/// Empirical validation and benchmarking system for performance claims
+pub mod validation;
+
 /// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
 pub mod tests;
