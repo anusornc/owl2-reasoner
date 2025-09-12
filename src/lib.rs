@@ -96,6 +96,9 @@ pub mod parser;
 /// OWL2 reasoning engine with tableaux algorithm and rule-based inference
 pub mod reasoning;
 
+/// OWL2 Profile validation (EL, QL, RL) with comprehensive checking
+pub mod profiles;
+
 /// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
 pub mod tests;
@@ -109,6 +112,7 @@ pub use ontology::*;
 pub use storage::*;
 pub use parser::*;
 pub use reasoning::*;
+pub use profiles::*;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

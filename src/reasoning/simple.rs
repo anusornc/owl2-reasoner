@@ -5,9 +5,11 @@
 use crate::ontology::Ontology;
 use crate::iri::IRI;
 use crate::error::OwlResult;
+use crate::profiles::{Owl2ProfileValidator, ProfileValidator, Owl2Profile, ProfileValidationResult};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
+use std::sync::Arc;
 
 /// Cache entry for reasoning results
 #[derive(Debug, Clone)]
@@ -43,6 +45,9 @@ impl<T> CacheEntry<T> {
 pub struct SimpleReasoner {
     pub ontology: Ontology,
     
+    // Profile validation
+    profile_validator: Owl2ProfileValidator,
+    
     // Caching layers
     consistency_cache: RwLock<Option<CacheEntry<bool>>>,
     subclass_cache: RwLock<HashMap<(IRI, IRI), CacheEntry<bool>>>,
@@ -53,8 +58,12 @@ pub struct SimpleReasoner {
 impl SimpleReasoner {
     /// Create a new simple reasoner
     pub fn new(ontology: Ontology) -> Self {
+        let ontology_arc = Arc::new(ontology);
+        let profile_validator = Owl2ProfileValidator::new(ontology_arc.clone());
+        
         SimpleReasoner {
-            ontology,
+            ontology: Arc::try_unwrap(ontology_arc).unwrap_or_else(|arc| (*arc).clone()),
+            profile_validator,
             consistency_cache: RwLock::new(None),
             subclass_cache: RwLock::new(HashMap::new()),
             satisfiability_cache: RwLock::new(HashMap::new()),
@@ -94,6 +103,58 @@ impl SimpleReasoner {
         stats.insert("instances".to_string(), instances.len());
         
         stats
+    }
+    
+    // ===== OWL2 Profile Validation Methods =====
+    
+    /// Validate ontology against a specific OWL2 profile
+    pub fn validate_profile(&mut self, profile: Owl2Profile) -> OwlResult<ProfileValidationResult> {
+        self.profile_validator.validate_profile(profile)
+    }
+    
+    /// Check if ontology complies with EL profile
+    pub fn is_el_profile(&mut self) -> OwlResult<bool> {
+        Ok(self.profile_validator.validate_profile(Owl2Profile::EL)?.is_valid)
+    }
+    
+    /// Check if ontology complies with QL profile  
+    pub fn is_ql_profile(&mut self) -> OwlResult<bool> {
+        Ok(self.profile_validator.validate_profile(Owl2Profile::QL)?.is_valid)
+    }
+    
+    /// Check if ontology complies with RL profile
+    pub fn is_rl_profile(&mut self) -> OwlResult<bool> {
+        Ok(self.profile_validator.validate_profile(Owl2Profile::RL)?.is_valid)
+    }
+    
+    /// Validate against all OWL2 profiles and return comprehensive results
+    pub fn validate_all_profiles(&mut self) -> OwlResult<Vec<ProfileValidationResult>> {
+        self.profile_validator.validate_all_profiles()
+    }
+    
+    /// Get the most restrictive valid profile for this ontology
+    pub fn get_most_restrictive_profile(&mut self) -> OwlResult<Option<Owl2Profile>> {
+        self.profile_validator.get_most_restrictive_profile()
+    }
+    
+    /// Check if ontology satisfies any OWL2 profile
+    pub fn satisfies_any_profile(&mut self) -> OwlResult<bool> {
+        self.profile_validator.satisfies_any_profile()
+    }
+    
+    /// Get optimization hints for profile compliance
+    pub fn get_profile_optimization_hints(&self) -> Vec<crate::profiles::OptimizationHint> {
+        self.profile_validator.get_optimization_hints()
+    }
+    
+    /// Clear profile validation cache
+    pub fn clear_profile_cache(&mut self) {
+        self.profile_validator.clear_cache();
+    }
+    
+    /// Get profile validation cache statistics
+    pub fn profile_cache_stats(&self) -> (usize, usize) {
+        self.profile_validator.cache_stats()
     }
     
     /// Check if the ontology is consistent (cached)
