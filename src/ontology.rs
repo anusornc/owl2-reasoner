@@ -120,8 +120,8 @@ use std::sync::Arc;
 /// ontology.add_subclass_axiom(subclass_axiom)?;
 /// 
 /// let class_assertion = ClassAssertionAxiom::new(
-///     ClassExpression::from(person),
-///     john,
+///     john.iri().clone(),
+///     ClassExpression::Class(person.clone()),
 /// );
 /// ontology.add_class_assertion(class_assertion)?;
 /// 

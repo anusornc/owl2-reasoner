@@ -7,6 +7,7 @@
 use owl2_reasoner::*;
 use std::time::Instant;
 use std::collections::HashMap;
+use owl2_reasoner::iri::{clear_global_iri_cache, global_iri_cache_stats};
 
 fn main() -> OwlResult<()> {
     println!("=== Performance Benchmarking Example ===\n");
@@ -15,7 +16,7 @@ fn main() -> OwlResult<()> {
     println!("Benchmark 1: Creating large ontology with 10,000 entities");
     let start = Instant::now();
     
-    let mut large_ontology = create_large_ontology(10000)?;
+    let large_ontology = create_large_ontology(10000)?;
     let creation_time = start.elapsed();
     
     println!("✓ Created ontology with {} entities in {:?}", 
@@ -54,20 +55,22 @@ fn main() -> OwlResult<()> {
 
     // Benchmark 4: Query performance
     println!("\nBenchmark 4: Query performance");
-    let mut query_engine = QueryEngine::new(&reasoner.ontology);
+    let mut query_engine = QueryEngine::new(reasoner.ontology.clone());
     
-    let query_pattern = QueryPattern::Basic {
-        subject: None,
-        predicate: Some(QueryValue::IRI(IRI::new("http://example.org/hasRelation")?)),
-        object: None,
-    };
+    let query_pattern = QueryPattern::BasicGraphPattern(vec![
+        TriplePattern {
+            subject: PatternTerm::Variable("s".to_string()),
+            predicate: PatternTerm::IRI(IRI::new("http://example.org/hasRelation")?),
+            object: PatternTerm::Variable("o".to_string()),
+        }
+    ]);
     
     let mut total_query_time = std::time::Duration::new(0, 0);
     let query_iterations = 50;
     
     for _ in 0..query_iterations {
         let start = Instant::now();
-        let _results = query_engine.query_pattern(&query_pattern)?;
+        let _results = query_engine.execute_query(&query_pattern)?;
         total_query_time += start.elapsed();
     }
     
@@ -187,20 +190,20 @@ fn create_large_ontology(size: usize) -> OwlResult<Ontology> {
 
     // Create classes
     for i in 0..size {
-        let class = Class::new(&format!("http://example.org/Class{}", i));
+        let class = Class::new(format!("http://example.org/Class{}", i));
         ontology.add_class(class)?;
     }
 
     // Create properties
     for i in 0..(size / 10) {
-        let prop = ObjectProperty::new(&format!("http://example.org/hasRelation{}", i));
+        let prop = ObjectProperty::new(format!("http://example.org/hasRelation{}", i));
         ontology.add_object_property(prop)?;
     }
 
     // Create subclass relationships
     for i in 0..(size / 2) {
-        let sub_class = Class::new(&format!("http://example.org/Class{}", i));
-        let super_class = Class::new(&format!("http://example.org/Class{}", i + 1));
+        let sub_class = Class::new(format!("http://example.org/Class{}", i));
+        let super_class = Class::new(format!("http://example.org/Class{}", i + 1));
         
         let subclass_axiom = SubClassOfAxiom::new(
             ClassExpression::from(sub_class),
@@ -211,29 +214,33 @@ fn create_large_ontology(size: usize) -> OwlResult<Ontology> {
 
     // Create individuals
     for i in 0..(size / 5) {
-        let individual = NamedIndividual::new(&format!("http://example.org/Individual{}", i));
+        let individual = NamedIndividual::new(format!("http://example.org/Individual{}", i));
         ontology.add_named_individual(individual)?;
     }
 
     // Create class assertions
     for i in 0..(size / 10) {
-        let individual = NamedIndividual::new(&format!("http://example.org/Individual{}", i));
-        let class = Class::new(&format!("http://example.org/Class{}", i % (size / 2)));
+        let individual = NamedIndividual::new(format!("http://example.org/Individual{}", i));
+        let class = Class::new(format!("http://example.org/Class{}", i % (size / 2)));
         
         let assertion = ClassAssertionAxiom::new(
-            ClassExpression::from(class),
-            individual,
+            individual.iri().clone(),
+            ClassExpression::Class(class),
         );
         ontology.add_class_assertion(assertion)?;
     }
 
     // Create property assertions
     for i in 0..(size / 20) {
-        let subject = NamedIndividual::new(&format!("http://example.org/Individual{}", i));
-        let object = NamedIndividual::new(&format!("http://example.org/Individual{}", i + 1));
-        let prop = ObjectProperty::new(&format!("http://example.org/hasRelation{}", i % (size / 10)));
+        let subject = NamedIndividual::new(format!("http://example.org/Individual{}", i));
+        let object = NamedIndividual::new(format!("http://example.org/Individual{}", i + 1));
+        let prop = ObjectProperty::new(format!("http://example.org/hasRelation{}", i % (size / 10)));
         
-        let assertion = PropertyAssertionAxiom::new(prop, subject, object);
+        let assertion = PropertyAssertionAxiom::new(
+            subject.iri().clone(),
+            prop.iri().clone(),
+            object.iri().clone(),
+        );
         ontology.add_property_assertion(assertion)?;
     }
 
@@ -253,13 +260,10 @@ fn analyze_ontology_memory(ontology: &Ontology) -> HashMap<String, usize> {
     stats.insert("class_assertions".to_string(), ontology.class_assertions().len() * 48);
     stats.insert("property_assertions".to_string(), ontology.property_assertions().len() * 80);
     
-    // Indexes
-    stats.insert("class_instances_index".to_string(), 
-                 ontology.class_instances().len() * 48);
-    stats.insert("property_domains_index".to_string(), 
-                 ontology.property_domains().len() * 48);
-    stats.insert("property_ranges_index".to_string(), 
-                 ontology.property_ranges().len() * 48);
+    // Indexes (internal implementation details)
+    stats.insert("class_instances_index".to_string(), 0);
+    stats.insert("property_domains_index".to_string(), 0);
+    stats.insert("property_ranges_index".to_string(), 0);
     
     stats
 }

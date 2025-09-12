@@ -27,15 +27,15 @@
 //! 
 //! // Add subclass relationship
 //! let subclass_axiom = SubClassOfAxiom::new(
-//!     ClassExpression::from(parent.clone()),
-//!     ClassExpression::from(person.clone()),
+//!     ClassExpression::Class(parent.clone()),
+//!     ClassExpression::Class(person.clone()),
 //! );
 //! ontology.add_subclass_axiom(subclass_axiom)?;
 //! 
 //! // Create reasoner and perform inference
 //! let reasoner = SimpleReasoner::new(ontology);
 //! let is_consistent = reasoner.is_consistent()?;
-//! let is_subclass = reasoner.is_subclass_of(&parent, &person)?;
+//! let is_subclass = reasoner.is_subclass_of(&parent.iri(), &person.iri())?;
 //! 
 //! println!("Ontology consistent: {}", is_consistent);
 //! println!("Parent ⊑ Person: {}", is_subclass);

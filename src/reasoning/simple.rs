@@ -5,7 +5,7 @@
 use crate::ontology::Ontology;
 use crate::iri::IRI;
 use crate::error::OwlResult;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 

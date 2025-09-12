@@ -94,7 +94,7 @@ impl OwlReasoner {
     }
     
     /// Execute a SPARQL-like query
-    pub fn query(&mut self, query: &str) -> OwlResult<QueryResult> {
+    pub fn query(&mut self, _query: &str) -> OwlResult<QueryResult> {
         let mut engine = self.query_engine();
         // Parse the query string into a query pattern
         // For now, we'll use a simple placeholder implementation

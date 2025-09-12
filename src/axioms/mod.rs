@@ -9,7 +9,6 @@ pub mod property_expressions;
 pub use class_expressions::*;
 pub use property_expressions::*;
 
-use crate::entities::*;
 use crate::iri::IRI;
 
 /// OWL2 Axiom types
@@ -228,8 +227,7 @@ impl DisjointObjectPropertiesAxiom {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use class_expressions::ClassExpression;
-    
+        
     #[test]
     fn test_subclass_axiom() {
         let person_iri = IRI::new("http://example.org/Person").unwrap();

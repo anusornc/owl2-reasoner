@@ -25,11 +25,20 @@ cargo check --example performance_benchmarking
 echo "📖 Building mdbook documentation..."
 mdbook build docs
 
-# 4. Run tests to ensure everything works
+# 4. Build technical documentation (if Typst is available)
+echo "📄 Building technical documentation..."
+if command -v typst &> /dev/null; then
+    ./scripts/build-technical-docs.sh
+else
+    echo "⚠️  Typst not installed, skipping technical documentation build"
+    echo "   Install Typst: https://github.com/typst/typst"
+fi
+
+# 5. Run tests to ensure everything works
 echo "✅ Running tests..."
 cargo test
 
-# 5. Show documentation locations
+# 6. Show documentation locations
 echo ""
 echo "📚 Documentation Generated Successfully!"
 echo ""
@@ -39,6 +48,11 @@ echo ""
 echo "🛠️ Rustdoc API Documentation:"
 echo "   file://$(pwd)/target/doc/owl2_reasoner/index.html"
 echo ""
+if [ -f "$(pwd)/docs/technical-documentation/output/OWL2_Reasoner_Technical_Documentation.pdf" ]; then
+    echo "📄 Technical Documentation (PDF):"
+    echo "   $(pwd)/docs/technical-documentation/output/OWL2_Reasoner_Technical_Documentation.pdf"
+    echo ""
+fi
 echo "💻 Examples:"
 echo "   $(pwd)/examples/"
 echo ""

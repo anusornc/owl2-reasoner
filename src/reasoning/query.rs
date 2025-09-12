@@ -4,7 +4,6 @@
 
 use crate::ontology::Ontology;
 use crate::iri::IRI;
-use crate::entities::*;
 use crate::axioms::*;
 use crate::reasoning::Reasoner;
 use crate::error::OwlResult;
@@ -194,7 +193,7 @@ impl QueryEngine {
                 bindings = self.evaluate_union_pattern(patterns)?;
             }
             QueryPattern::FilterPattern { pattern, expression } => {
-                let mut result_bindings = self.evaluate_basic_graph_pattern(
+                let result_bindings = self.evaluate_basic_graph_pattern(
                     if let QueryPattern::BasicGraphPattern(triples) = pattern.as_ref() {
                         triples
                     } else {
@@ -574,10 +573,10 @@ impl QueryEngine {
                 let right_value = self.evaluate_term(binding, right);
                 left_value == right_value
             }
-            FilterExpression::Type { term, type_iri } => {
+            FilterExpression::Type { term, type_iri: _ } => {
                 if let Some(value) = self.evaluate_term_opt(binding, term) {
                     match value {
-                        QueryValue::IRI(iri) => {
+                        QueryValue::IRI(_iri) => {
                             // Check if the IRI has the specified type
                             // This is simplified - in practice, we'd need to reason about types
                             false // Placeholder implementation

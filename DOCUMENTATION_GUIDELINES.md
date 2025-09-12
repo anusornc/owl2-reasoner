@@ -41,6 +41,16 @@ Update documentation when you:
 # 3. Test that all examples compile and run
 ```
 
+### D. Technical Documentation (Typst)
+```bash
+# Update technical documentation
+# 1. Update docs/technical-documentation/OWL2_Reasoner_Technical_Documentation.typ
+# 2. Update performance benchmarks in Appendix B
+# 3. Update API reference in Appendix A
+# 4. Update configuration options in Appendix D
+# 5. Build updated PDF documentation
+```
+
 ## 🔄 Step-by-Step Update Process
 
 ### Step 1: Update Source Code Documentation
