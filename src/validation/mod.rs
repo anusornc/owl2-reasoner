@@ -7,9 +7,10 @@ pub mod empirical;
 pub mod comparative;
 pub mod memory_profiler;
 
-pub use empirical::*;
-pub use comparative::*;
-pub use memory_profiler::*;
+// Selective exports to avoid name conflicts
+pub use empirical::{EmpiricalValidator, BenchmarkResult as EmpiricalBenchmark, CacheAnalysis};
+pub use comparative::{ComparativeResult, ComparativeBenchmark as ComparativeBenchmarkResult};
+pub use memory_profiler::{MemoryProfiler, EntitySizeCalculator, MemoryStats};
 
 use crate::error::OwlResult;
 use crate::entities::Class;
