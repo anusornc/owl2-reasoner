@@ -20,6 +20,8 @@ bit-set = "0.5"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde-xml-rs = "0.6"
+xmltree = "0.10"
 
 # Error handling
 thiserror = "1.0"
@@ -46,6 +48,9 @@ dashmap = "5.5"
 # Testing
 proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
+
+# Random generation
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3.8"

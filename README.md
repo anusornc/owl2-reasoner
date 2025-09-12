@@ -64,10 +64,10 @@ This project introduces several groundbreaking innovations in OWL2 reasoning sys
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Parser Module │    │  Ontology Core  │    │ Reasoning Engine│
 │                 │    │                 │    │                 │
-│ • Turtle        │───▶│ • Entity Store  │───▶│ • SimpleReasoner│
-│ • RDF/XML       │    │ • Axiom Index   │    │ • Cache Mgmt    │
-│ • OWL/XML       │    │ • IRI Cache     │    │ • Tableaux Algo │
-│ • N-Triples     │    │ • Validation    │    │ • Rules Engine  │
+│ • Turtle ✓      │───▶│ • Entity Store  │───▶│ • SimpleReasoner│
+│ • N-Triples ✓   │    │ • Axiom Index   │    │ • Cache Mgmt    │
+│ • RDF/XML ✓     │    │ • IRI Cache     │    │ • Tableaux Algo │
+│ • OWL/XML ✓     │    │ • Validation    │    │ • Rules Engine  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -80,6 +80,10 @@ This project introduces several groundbreaking innovations in OWL2 reasoning sys
                     │ • Optimization │
                     └─────────────────┘
 ```
+
+### Parser Support Status
+
+- **✅ Fully Supported**: Turtle, N-Triples, RDF/XML, OWL/XML (complete implementations)
 
 ### Performance Optimizations
 
@@ -177,14 +181,15 @@ let instances = reasoner.get_instances(&ex_person_iri)?;
 // Configure parser with custom settings
 let config = ParserConfig {
     max_file_size: 100 * 1024 * 1024, // 100MB limit
-    strict_mode: true,
-    validate_ir_is: true,
+    strict_validation: true,
+    resolve_base_iri: false,
+    prefixes: std::collections::HashMap::new(),
 };
 
 let parser = TurtleParser::with_config(config);
 
-// Auto-detect format
-let content = "..."; // OWL content in any format
+// Auto-detect format (currently supports Turtle and N-Triples)
+let content = "..."; // OWL content in supported format
 let parser = ParserFactory::auto_detect(content)?;
 let ontology = parser.parse_str(content)?;
 

@@ -102,6 +102,15 @@ pub mod profiles;
 /// Empirical validation and benchmarking system for performance claims
 pub mod validation;
 
+/// GS1 EPCIS ontology implementation for supply chain traceability
+pub mod epcis;
+
+/// EPCIS document parser for XML and JSON formats
+pub mod epcis_parser;
+
+/// EPCIS test data generator for different scales
+pub mod epcis_test_generator;
+
 /// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
 pub mod tests;
@@ -116,6 +125,9 @@ pub use storage::*;
 pub use parser::*;
 pub use reasoning::*;
 pub use profiles::*;
+pub use epcis::*;
+pub use epcis_parser::{EPCISDocumentParser, EPCISDocumentWriter, EPCISParserConfig};
+pub use epcis_test_generator::*;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

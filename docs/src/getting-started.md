@@ -150,6 +150,50 @@ let mut parser = TurtleParser::new();
 let ontology = parser.parse(&mut file)?;
 ```
 
+### Loading from RDF/XML Format
+
+```rust
+use owl2_reasoner::parser::{Parser, RdfXmlParser};
+use std::fs::File;
+
+let file = File::open("ontology.rdf")?;
+let mut parser = RdfXmlParser::new();
+let ontology = parser.parse(&mut file)?;
+```
+
+### Loading from OWL/XML Format
+
+```rust
+use owl2_reasoner::parser::{Parser, OwlXmlParser};
+use std::fs::File;
+
+let file = File::open("ontology.owl")?;
+let mut parser = OwlXmlParser::new();
+let ontology = parser.parse(&mut file)?;
+```
+
+### Loading from N-Triples Format
+
+```rust
+use owl2_reasoner::parser::{Parser, NTriplesParser};
+use std::fs::File;
+
+let file = File::open("ontology.nt")?;
+let mut parser = NTriplesParser::new();
+let ontology = parser.parse(&mut file)?;
+```
+
+### Auto-detecting Format
+
+```rust
+use owl2_reasoner::parser::ParserFactory;
+use std::fs::File;
+
+let file = File::open("ontology.ttl")?;
+let parser = ParserFactory::auto_detect_from_file(&file)?;
+let ontology = parser.parse(&mut file)?;
+```
+
 ### Saving to Turtle Format
 
 ```rust
