@@ -293,9 +293,9 @@ at your option.
 
 ## 📞 Contact
 
-- **Project Lead**: [Your Name]
-- **Email**: [your.email@example.com]
-- **Issues**: [GitHub Issues](https://github.com/yourusername/owl2-reasoner/issues)
+- **Project Lead**: Anusorn Chaikaew
+- **Email**: anusorn.c@crru.ac.th
+- **Issues**: [GitHub Issues](https://github.com/anusornc/owl2-reasoner/issues)
 
 ---
 
