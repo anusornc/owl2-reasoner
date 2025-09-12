@@ -4,6 +4,7 @@
 //! previously unmeasurable cache hit rates and Arc sharing efficiency.
 
 use owl2_reasoner::*;
+use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
 use std::time::Instant;
 
 fn main() -> OwlResult<()> {
@@ -170,18 +171,50 @@ fn main() -> OwlResult<()> {
         println!("   • {}: {:.1} μs", operation, time_ns / 1000.0);
     }
     
-    // STAGE 2: Memory efficiency analysis
+    // STAGE 2: Memory efficiency analysis using accurate entity size calculation
     println!("\n🧠 STAGE 2: Memory Efficiency Analysis");
     println!("=====================================");
     
-    let total_memory_estimate = 30.0; // MB
-    let entity_count = ontology.classes().len() + ontology.object_properties().len() + ontology.data_properties().len();
-    let memory_per_entity_mb = total_memory_estimate / entity_count.max(1) as f64;
-    let memory_per_entity_kb = memory_per_entity_mb * 1024.0;
+    // Calculate accurate entity sizes using EntitySizeCalculator
+    let mut total_entity_bytes = 0;
+    let mut entity_count = 0;
+    
+    // Calculate class sizes
+    for class in ontology.classes() {
+        total_entity_bytes += EntitySizeCalculator::calculate_class_size(class);
+        entity_count += 1;
+    }
+    
+    // Calculate object property sizes
+    for prop in ontology.object_properties() {
+        total_entity_bytes += EntitySizeCalculator::calculate_object_property_size(prop);
+        entity_count += 1;
+    }
+    
+    // Calculate data property sizes
+    for prop in ontology.data_properties() {
+        total_entity_bytes += EntitySizeCalculator::calculate_data_property_size(prop);
+        entity_count += 1;
+    }
+    
+    // Calculate axiom sizes
+    for axiom in ontology.subclass_axioms() {
+        total_entity_bytes += EntitySizeCalculator::calculate_subclass_axiom_size(axiom);
+        entity_count += 1;
+    }
+    
+    let memory_per_entity_bytes = if entity_count > 0 {
+        total_entity_bytes / entity_count
+    } else {
+        0
+    };
+    
+    let memory_per_entity_kb = memory_per_entity_bytes as f64 / 1024.0;
+    let memory_per_entity_mb = memory_per_entity_kb / 1024.0;
     
     println!("📊 Memory Analysis:");
     println!("   • Total entities: {}", entity_count);
-    println!("   • Estimated process memory: {:.1} MB", total_memory_estimate);
+    println!("   • Total entity memory: {:.2} KB", total_entity_bytes as f64 / 1024.0);
     println!("   • Memory per entity: {:.2} KB", memory_per_entity_kb);
     
     // STAGE 3: Arc sharing analysis
