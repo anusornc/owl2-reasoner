@@ -80,7 +80,7 @@ mod tests {
         use crate::parser::turtle::TurtleParser;
         use crate::parser::OntologyParser;
         
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         let result = parser.parse_str("");
         
         match result {
@@ -99,7 +99,7 @@ mod tests {
         use crate::parser::turtle::TurtleParser;
         use crate::parser::OntologyParser;
         
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         let malformed_triples = vec![
             "subject predicate",           // Missing object
             "subject",                     // Missing predicate and object
@@ -172,7 +172,7 @@ mod tests {
         let person = Class::new("http://example.org/Person");
         ontology.add_class(person.clone()).unwrap();
         
-        let mut reasoner = SimpleReasoner::new(ontology);
+        let reasoner = SimpleReasoner::new(ontology);
         
         // Clear cache (should not error)
         reasoner.clear_caches();
@@ -189,7 +189,7 @@ mod tests {
         use crate::parser::OntologyParser;
         use std::path::Path;
         
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         
         // Test with non-existent file
         let result = parser.parse_file(Path::new("/non/existent/file.ttl"));

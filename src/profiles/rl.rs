@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 /// RL Profile specific validator
 pub struct RlProfileValidator {
+    #[allow(dead_code)]
     ontology: Arc<Ontology>,
 }
 

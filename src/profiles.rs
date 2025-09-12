@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn test_profile_validation_result_structure() {
         let ontology = Arc::new(Ontology::new());
-        let mut validator = Owl2ProfileValidator::new(ontology);
+        let validator = Owl2ProfileValidator::new(ontology);
         
         let result = validator.validate_profile(Owl2Profile::EL).unwrap();
         

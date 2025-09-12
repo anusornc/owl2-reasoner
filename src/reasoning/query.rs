@@ -14,6 +14,7 @@ use std::sync::Arc;
 /// Query engine for OWL2 ontologies
 pub struct QueryEngine {
     ontology: Arc<Ontology>,
+    #[allow(dead_code)]
     reasoner: Option<Box<dyn Reasoner>>,
     config: QueryConfig,
 }
@@ -397,6 +398,7 @@ impl QueryEngine {
     }
     
     /// Match triple pattern against class assertion
+    #[allow(dead_code)]
     fn match_class_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertionAxiom) -> Option<QueryBinding> {
         // Try to match: individual rdf:type class
         let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
@@ -420,6 +422,7 @@ impl QueryEngine {
     }
     
     /// Match triple pattern against property assertion
+    #[allow(dead_code)]
     fn match_property_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertionAxiom) -> Option<QueryBinding> {
         let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
@@ -441,6 +444,7 @@ impl QueryEngine {
     }
     
     /// Match triple pattern against subclass axiom
+    #[allow(dead_code)]
     fn match_subclass_axiom(&self, triple: &TriplePattern, axiom: &crate::axioms::SubClassOfAxiom) -> Option<QueryBinding> {
         let sub_iri = if let ClassExpression::Class(class) = axiom.sub_class() {
             class.iri()
@@ -517,6 +521,7 @@ impl QueryEngine {
     }
     
     /// Join two bindings
+    #[allow(dead_code)]
     fn join_bindings(&self, binding1: &QueryBinding, binding2: &QueryBinding) -> Option<QueryBinding> {
         let mut joined = binding1.clone();
         

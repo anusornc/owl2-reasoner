@@ -75,6 +75,7 @@ impl ParserFactory {
 
 /// Simple N-Triples parser (placeholder implementation)
 pub struct NtriplesParser {
+    #[allow(dead_code)]
     config: ParserConfig,
 }
 

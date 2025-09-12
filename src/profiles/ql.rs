@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 /// QL Profile specific validator
 pub struct QlProfileValidator {
+    #[allow(dead_code)]
     ontology: Arc<Ontology>,
 }
 

@@ -9,6 +9,7 @@ use std::path::Path;
 
 /// OWL/XML format parser
 pub struct OwlXmlParser {
+    #[allow(dead_code)]
     config: ParserConfig,
 }
 

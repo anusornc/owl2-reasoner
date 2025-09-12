@@ -4,7 +4,6 @@
 //! and error conditions to ensure robust error handling and graceful failures.
 
 use crate::parser::*;
-use crate::ontology::Ontology;
 use crate::error::OwlError;
 use crate::iri::IRI;
 

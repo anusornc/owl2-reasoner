@@ -3,9 +3,6 @@
 //! This module tests the parser's performance and stability with large datasets.
 
 use crate::parser::*;
-use crate::ontology::Ontology;
-use crate::{Class, ObjectProperty, SubClassOfAxiom, ClassExpression};
-use crate::error::OwlResult;
 
 #[cfg(test)]
 mod tests {

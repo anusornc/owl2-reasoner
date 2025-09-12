@@ -4,9 +4,7 @@
 //! components, ensuring all parts work together correctly.
 
 use crate::parser::*;
-use crate::ontology::Ontology;
 use crate::reasoning::SimpleReasoner;
-use crate::iri::IRI;
 use std::time::Instant;
 
 #[cfg(test)]

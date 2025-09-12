@@ -208,6 +208,7 @@ impl OntologyParser for TurtleParser {
 #[derive(Debug, Clone)]
 enum ObjectValue {
     IRI(IRI),
+    #[allow(dead_code)]
     Literal(Literal),
 }
 
@@ -227,7 +228,7 @@ ex:Animal a owl:Class .
 ex:hasParent a owl:ObjectProperty .
 "#;
         
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         let ontology = parser.parse_str(turtle_content).unwrap();
         
         assert_eq!(ontology.classes().len(), 2);
@@ -244,7 +245,7 @@ ex:MyOntology a owl:Ontology .
 ex:MyOntology owl:imports <http://example.org/other-ontology> .
 "#;
         
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         let ontology = parser.parse_str(turtle_content).unwrap();
         
         assert_eq!(ontology.imports().len(), 1);

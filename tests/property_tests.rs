@@ -11,7 +11,7 @@ mod tests {
         
         // Run a simple property test to verify functionality
         use owl2_reasoner::iri::IRI;
-        use std::hash::{Hash, Hasher};
+        use std::hash::Hash;
         use std::collections::hash_map::DefaultHasher;
         
         let iri = IRI::new("http://example.org/test");

@@ -7,8 +7,6 @@ use crate::ontology::Ontology;
 use crate::axioms::*;
 use crate::entities::*;
 use crate::reasoning::SimpleReasoner;
-use crate::iri::IRI;
-use std::sync::Arc;
 
 #[test]
 fn test_empty_ontology_all_profiles() {

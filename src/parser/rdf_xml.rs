@@ -9,6 +9,7 @@ use std::path::Path;
 
 /// RDF/XML format parser
 pub struct RdfXmlParser {
+    #[allow(dead_code)]
     config: ParserConfig,
 }
 
