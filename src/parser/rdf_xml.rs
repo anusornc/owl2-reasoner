@@ -2,7 +2,7 @@
 //! 
 //! Implements parsing of the RDF/XML serialization format.
 
-use crate::parser::{OwlParser, ParserConfig};
+use crate::parser::{ParserConfig, OntologyParser};
 use crate::ontology::Ontology;
 use crate::error::OwlResult;
 use std::path::Path;
@@ -24,18 +24,18 @@ impl RdfXmlParser {
     }
 }
 
-impl OwlParser for RdfXmlParser {
-    fn parse(&mut self, _input: &str) -> OwlResult<Ontology> {
+impl OntologyParser for RdfXmlParser {
+    fn parse_str(&self, _content: &str) -> OwlResult<Ontology> {
         // TODO: Implement actual RDF/XML parsing
         Err(crate::error::OwlError::ParseError("RDF/XML parser not yet implemented".to_string()))
     }
     
-    fn parse_file(&mut self, _path: &Path) -> OwlResult<Ontology> {
+    fn parse_file(&self, _path: &Path) -> OwlResult<Ontology> {
         // TODO: Implement actual RDF/XML file parsing
         Err(crate::error::OwlError::ParseError("RDF/XML file parser not yet implemented".to_string()))
     }
     
-    fn format(&self) -> &str {
+    fn format_name(&self) -> &'static str {
         "RDF/XML"
     }
 }

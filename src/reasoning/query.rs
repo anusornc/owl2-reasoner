@@ -180,7 +180,7 @@ impl QueryEngine {
     /// Execute a query
     pub fn execute_query(&mut self, pattern: &QueryPattern) -> OwlResult<QueryResult> {
         let start_time = std::time::Instant::now();
-        let mut bindings = Vec::new();
+        let mut bindings;
         
         match pattern {
             QueryPattern::BasicGraphPattern(triples) => {
@@ -702,6 +702,8 @@ impl QueryEngine {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
+    use crate::Class;
+    use crate::NamedIndividual;
     
     #[test]
     fn test_query_engine_creation() {

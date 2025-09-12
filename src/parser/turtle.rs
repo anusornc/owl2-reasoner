@@ -2,7 +2,7 @@
 //! 
 //! Implements parsing of the Terse RDF Triple Language format.
 
-use crate::parser::{OwlParser, ParserConfig};
+use crate::parser::{ParserConfig, OntologyParser};
 use crate::ontology::Ontology;
 use crate::error::OwlResult;
 use crate::iri::IRI;
@@ -25,7 +25,7 @@ impl TurtleParser {
     /// Create a new Turtle parser with custom configuration
     pub fn with_config(config: ParserConfig) -> Self {
         let mut prefixes = HashMap::new();
-        for (prefix, namespace) in &config.namespaces {
+        for (prefix, namespace) in &config.prefixes {
             prefixes.insert(prefix.clone(), namespace.clone());
         }
         
@@ -60,7 +60,7 @@ impl TurtleParser {
             }
         }
         
-        if self.config.validate {
+        if self.config.strict_validation {
             self.validate_ontology(&ontology)?;
         }
         
@@ -173,20 +173,22 @@ impl TurtleParser {
     }
 }
 
-impl OwlParser for TurtleParser {
-    fn parse(&mut self, input: &str) -> OwlResult<Ontology> {
-        self.parse_content(input)
+impl OntologyParser for TurtleParser {
+    fn parse_str(&self, content: &str) -> OwlResult<Ontology> {
+        // Create a mutable copy for parsing
+        let mut parser_copy = TurtleParser::with_config(self.config.clone());
+        parser_copy.parse_content(content)
     }
     
-    fn parse_file(&mut self, path: &Path) -> OwlResult<Ontology> {
+    fn parse_file(&self, path: &Path) -> OwlResult<Ontology> {
         use std::fs;
         use std::io::Read;
         
         // Check file size
-        if let Some(max_size) = self.config.max_file_size {
+        if self.config.max_file_size > 0 {
             let metadata = fs::metadata(path)?;
-            if metadata.len() > max_size {
-                return Err(crate::error::OwlError::ParseError(format!("File size exceeds maximum allowed size: {} bytes", max_size)));
+            if metadata.len() > self.config.max_file_size as u64 {
+                return Err(crate::error::OwlError::ParseError(format!("File size exceeds maximum allowed size: {} bytes", self.config.max_file_size)));
             }
         }
         
@@ -194,10 +196,10 @@ impl OwlParser for TurtleParser {
         let mut content = String::new();
         file.read_to_string(&mut content)?;
         
-        self.parse_content(&content)
+        self.parse_str(&content)
     }
     
-    fn format(&self) -> &str {
+    fn format_name(&self) -> &'static str {
         "Turtle"
     }
 }
@@ -226,7 +228,7 @@ ex:hasParent a owl:ObjectProperty .
 "#;
         
         let mut parser = TurtleParser::new();
-        let ontology = parser.parse(turtle_content).unwrap();
+        let ontology = parser.parse_str(turtle_content).unwrap();
         
         assert_eq!(ontology.classes().len(), 2);
         assert_eq!(ontology.object_properties().len(), 1);
@@ -243,7 +245,7 @@ ex:MyOntology owl:imports <http://example.org/other-ontology> .
 "#;
         
         let mut parser = TurtleParser::new();
-        let ontology = parser.parse(turtle_content).unwrap();
+        let ontology = parser.parse_str(turtle_content).unwrap();
         
         assert_eq!(ontology.imports().len(), 1);
     }

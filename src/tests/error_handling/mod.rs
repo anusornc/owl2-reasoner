@@ -78,10 +78,10 @@ mod tests {
     #[test]
     fn test_empty_turtle_input() {
         use crate::parser::turtle::TurtleParser;
-        use crate::parser::OwlParser;
+        use crate::parser::OntologyParser;
         
         let mut parser = TurtleParser::new();
-        let result = parser.parse("");
+        let result = parser.parse_str("");
         
         match result {
             Ok(ontology) => {
@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn test_malformed_turtle_triples() {
         use crate::parser::turtle::TurtleParser;
-        use crate::parser::OwlParser;
+        use crate::parser::OntologyParser;
         
         let mut parser = TurtleParser::new();
         let malformed_triples = vec![
@@ -106,7 +106,7 @@ mod tests {
         ];
 
         for triple in malformed_triples {
-            let result = parser.parse(triple);
+            let result = parser.parse_str(triple);
             match result {
                 Ok(_) => {
                     // Some malformed triples might be parsed as empty ontologies
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     fn test_file_parsing_errors() {
         use crate::parser::turtle::TurtleParser;
-        use crate::parser::OwlParser;
+        use crate::parser::OntologyParser;
         use std::path::Path;
         
         let mut parser = TurtleParser::new();
