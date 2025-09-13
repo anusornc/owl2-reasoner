@@ -66,12 +66,12 @@ fn validate_measurement_accuracy(c: &mut Criterion) {
                 
                 // Calculate all entity sizes accurately
                 for class in ontology.classes() {
-                    total_entity_bytes += EntitySizeCalculator::calculate_class_size(class);
+                    total_entity_bytes += EntitySizeCalculator::estimate_class_size(class);
                     entity_count += 1;
                 }
                 
                 for prop in ontology.object_properties() {
-                    total_entity_bytes += EntitySizeCalculator::calculate_object_property_size(prop);
+                    total_entity_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
                     entity_count += 1;
                 }
                 
@@ -81,7 +81,7 @@ fn validate_measurement_accuracy(c: &mut Criterion) {
                 }
                 
                 for axiom in ontology.subclass_axioms() {
-                    total_entity_bytes += EntitySizeCalculator::calculate_subclass_axiom_size(axiom);
+                    total_entity_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
                     entity_count += 1;
                 }
                 
@@ -132,15 +132,15 @@ fn validate_calculation_performance(c: &mut Criterion) {
                     
                     // Time the EntitySizeCalculator performance
                     for class in ontology.classes() {
-                        total_bytes += EntitySizeCalculator::calculate_class_size(black_box(class));
+                        total_bytes += EntitySizeCalculator::estimate_class_size(black_box(class));
                     }
                     
                     for prop in ontology.object_properties() {
-                        total_bytes += EntitySizeCalculator::calculate_object_property_size(black_box(prop));
+                        total_bytes += EntitySizeCalculator::estimate_object_property_size(black_box(prop));
                     }
                     
                     for axiom in ontology.subclass_axioms() {
-                        total_bytes += EntitySizeCalculator::calculate_subclass_axiom_size(black_box(axiom));
+                        total_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(black_box(axiom));
                     }
                     
                     // Validation: Calculation should be fast (< 1ms per 1000 entities)
@@ -172,17 +172,17 @@ fn validate_cross_entity_consistency(c: &mut Criterion) {
                 let mut axiom_sizes = Vec::new();
                 
                 for class in ontology.classes() {
-                    let size = EntitySizeCalculator::calculate_class_size(class);
+                    let size = EntitySizeCalculator::estimate_class_size(class);
                     class_sizes.push(size);
                 }
                 
                 for prop in ontology.object_properties() {
-                    let size = EntitySizeCalculator::calculate_object_property_size(prop);
+                    let size = EntitySizeCalculator::estimate_object_property_size(prop);
                     property_sizes.push(size);
                 }
                 
                 for axiom in ontology.subclass_axioms() {
-                    let size = EntitySizeCalculator::calculate_subclass_axiom_size(axiom);
+                    let size = EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
                     axiom_sizes.push(size);
                 }
                 
@@ -231,17 +231,17 @@ fn validate_breakthrough_magnitude(c: &mut Criterion) {
                 let mut count = 0;
                 
                 for class in ontology.classes() {
-                    total_bytes += EntitySizeCalculator::calculate_class_size(class);
+                    total_bytes += EntitySizeCalculator::estimate_class_size(class);
                     count += 1;
                 }
                 
                 for prop in ontology.object_properties() {
-                    total_bytes += EntitySizeCalculator::calculate_object_property_size(prop);
+                    total_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
                     count += 1;
                 }
                 
                 for axiom in ontology.subclass_axioms() {
-                    total_bytes += EntitySizeCalculator::calculate_subclass_axiom_size(axiom);
+                    total_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
                     count += 1;
                 }
                 

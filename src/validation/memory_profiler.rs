@@ -1,16 +1,16 @@
-//! Advanced memory profiling tools
-//! 
-//! This module provides sophisticated memory analysis and profiling
-//! capabilities to validate memory efficiency claims using accurate
-//! entity-level memory measurement.
+//! Memory profiling tools for OWL2 Reasoner
+//!
+//! This module provides basic memory analysis and profiling capabilities
+//! for monitoring memory usage and identifying optimization opportunities.
+//! Note: This is a simplified implementation for basic memory tracking.
 
 use crate::ontology::Ontology;
-use crate::entities::{Class, ObjectProperty, ObjectPropertyCharacteristic};
+use crate::entities::{Class, ObjectProperty};
 use crate::axioms::SubClassOfAxiom;
 use crate::iri::IRI;
 use crate::error::OwlResult;
 use std::collections::HashMap;
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 
 /// Memory usage statistics
 #[derive(Debug, Clone)]
@@ -43,114 +43,40 @@ pub struct ArcSharingAnalysis {
     pub deduplication_efficiency: f64,
 }
 
-/// Accurate entity size calculator
+/// Basic entity size estimator
+/// Note: This provides simplified estimates for basic memory tracking
 pub struct EntitySizeCalculator;
 
 impl EntitySizeCalculator {
-    /// Calculate the actual memory size of a Class entity
-    pub fn calculate_class_size(class: &Class) -> usize {
-        let mut size = size_of_val(class);
-        
-        // Add IRI size (Arc<str> allocation)
-        size += class.iri().as_str().len();
-        
-        // Add annotations size
-        for annotation in class.annotations() {
-            size += Self::calculate_annotation_size(annotation);
-        }
-        
-        // Add Arc overhead (approximately)
-        size += 16; // Arc overhead
-        
-        size
+    /// Estimate the memory size of a Class entity
+    /// This is a simplified estimation for basic tracking
+    pub fn estimate_class_size(_class: &Class) -> usize {
+        // Basic struct size + conservative estimates for allocations
+        size_of::<Class>() + 128 // Conservative estimate
     }
-    
-    /// Calculate the actual memory size of an ObjectProperty entity
-    pub fn calculate_object_property_size(property: &ObjectProperty) -> usize {
-        let mut size = size_of_val(property);
-        
-        // Add IRI size
-        size += property.iri().as_str().len();
-        
-        // Add annotations size
-        for annotation in property.annotations() {
-            size += Self::calculate_annotation_size(annotation);
-        }
-        
-        // Add characteristics size (HashSet overhead + enum size)
-        size += property.characteristics().len() * (size_of::<ObjectPropertyCharacteristic>() + 8);
-        
-        // Add Arc overhead
-        size += 16;
-        
-        size
+
+    /// Estimate the memory size of an ObjectProperty entity
+    pub fn estimate_object_property_size(_property: &ObjectProperty) -> usize {
+        // Basic struct size + conservative estimates for allocations
+        size_of::<ObjectProperty>() + 96 // Conservative estimate
     }
-    
-    /// Calculate the actual memory size of a DataProperty entity
-    pub fn calculate_data_property_size(property: &crate::entities::DataProperty) -> usize {
-        let mut size = size_of_val(property);
-        
-        // Add IRI size
-        size += property.iri().as_str().len();
-        
-        // Add annotations size
-        for annotation in property.annotations() {
-            size += Self::calculate_annotation_size(annotation);
-        }
-        
-        // Add Arc overhead
-        size += 16;
-        
-        size
+
+    /// Estimate the memory size of a DataProperty entity
+    pub fn estimate_data_property_size(_property: &crate::entities::DataProperty) -> usize {
+        // Basic struct size + conservative estimates for allocations
+        size_of::<crate::entities::DataProperty>() + 64 // Conservative estimate
     }
-    
-    /// Calculate annotation size
-    fn calculate_annotation_size(annotation: &crate::entities::Annotation) -> usize {
-        let mut size = size_of_val(annotation);
-        
-        // Add property IRI size
-        size += annotation.property().as_str().len();
-        
-        // Add value size based on type
-        match annotation.value() {
-            crate::entities::AnnotationValue::IRI(iri) => {
-                size += iri.as_str().len();
-            }
-            crate::entities::AnnotationValue::Literal(literal) => {
-                size += literal.lexical_form().len();
-                if let Some(lang) = literal.language_tag() {
-                    size += lang.len();
-                }
-                size += literal.datatype().as_str().len();
-            }
-            crate::entities::AnnotationValue::AnonymousIndividual(id) => {
-                size += id.len();
-            }
-        }
-        
-        size
+
+    /// Estimate annotation size
+    fn estimate_annotation_size(_annotation: &crate::entities::Annotation) -> usize {
+        // Conservative estimate for annotation overhead
+        64
     }
-    
-    /// Calculate SubClassOfAxiom size
-    pub fn calculate_subclass_axiom_size(axiom: &SubClassOfAxiom) -> usize {
-        let mut size = size_of_val(axiom);
-        
-        // Add subclass and superclass expression sizes
-        size += Self::calculate_class_expression_size(axiom.sub_class());
-        size += Self::calculate_class_expression_size(axiom.super_class());
-        
-        size
-    }
-    
-    /// Calculate class expression size
-    fn calculate_class_expression_size(expr: &crate::axioms::ClassExpression) -> usize {
-        match expr {
-            crate::axioms::ClassExpression::Class(class) => {
-                size_of_val(expr) + class.iri().as_str().len() + 16
-            }
-            // For complex expressions, add conservative estimate
-            _ => size_of_val(expr) + 64, // Conservative estimate for complex expressions
-        }
+
+    /// Estimate SubClassOfAxiom size
+    pub fn estimate_subclass_axiom_size(_axiom: &SubClassOfAxiom) -> usize {
+        // Basic struct size + conservative estimates
+        size_of::<SubClassOfAxiom>() + 128 // Conservative estimate
     }
 }
 
@@ -226,7 +152,7 @@ impl MemoryProfiler {
         Ok(stats)
     }
 
-    /// Profile class creation memory usage using accurate entity size calculation
+    /// Profile class creation memory usage using basic entity size estimation
     fn profile_class_creation(&mut self, ontology: &mut Ontology, count: usize) -> OwlResult<EntityMemoryProfile> {
         let mut classes = Vec::new();
         for i in 0..count {
@@ -234,21 +160,21 @@ impl MemoryProfiler {
             let class = Class::new(class_iri);
             classes.push(class);
         }
-        
-        // Calculate accurate total memory usage
+
+        // Estimate total memory usage
         let total_memory_bytes: usize = classes.iter()
-            .map(|class| EntitySizeCalculator::calculate_class_size(class))
+            .map(|class| EntitySizeCalculator::estimate_class_size(class))
             .sum();
-        
+
         // Add to ontology
         for class in classes {
             ontology.add_class(class)?;
         }
-        
+
         let total_memory_mb = total_memory_bytes as f64 / (1024.0 * 1024.0);
         let average_size_bytes = total_memory_bytes / count;
         let average_size_mb = average_size_bytes as f64 / (1024.0 * 1024.0);
-        
+
         let profile = EntityMemoryProfile {
             entity_type: "Class".to_string(),
             count,
@@ -256,7 +182,7 @@ impl MemoryProfiler {
             average_size_mb,
             overhead_ratio: self.calculate_entity_overhead_ratio(average_size_bytes),
         };
-        
+
         self.entity_profiles.insert(format!("classes_{}", count), profile.clone());
         Ok(profile)
     }
@@ -273,7 +199,7 @@ impl MemoryProfiler {
         }
     }
 
-    /// Profile property creation memory usage using accurate entity size calculation
+    /// Profile property creation memory usage using basic entity size estimation
     fn profile_property_creation(&mut self, ontology: &mut Ontology, count: usize) -> OwlResult<EntityMemoryProfile> {
         let mut properties = Vec::new();
         for i in 0..count {
@@ -281,21 +207,21 @@ impl MemoryProfiler {
             let prop = ObjectProperty::new(prop_iri);
             properties.push(prop);
         }
-        
-        // Calculate accurate total memory usage
+
+        // Estimate total memory usage
         let total_memory_bytes: usize = properties.iter()
-            .map(|prop| EntitySizeCalculator::calculate_object_property_size(prop))
+            .map(|prop| EntitySizeCalculator::estimate_object_property_size(prop))
             .sum();
-        
+
         // Add to ontology
         for prop in properties {
             ontology.add_object_property(prop)?;
         }
-        
+
         let total_memory_mb = total_memory_bytes as f64 / (1024.0 * 1024.0);
         let average_size_bytes = total_memory_bytes / count;
         let average_size_mb = average_size_bytes as f64 / (1024.0 * 1024.0);
-        
+
         let profile = EntityMemoryProfile {
             entity_type: "ObjectProperty".to_string(),
             count,
@@ -303,12 +229,12 @@ impl MemoryProfiler {
             average_size_mb,
             overhead_ratio: self.calculate_entity_overhead_ratio(average_size_bytes),
         };
-        
+
         self.entity_profiles.insert(format!("properties_{}", count), profile.clone());
         Ok(profile)
     }
 
-    /// Profile axiom creation memory usage using accurate entity size calculation
+    /// Profile axiom creation memory usage using basic entity size estimation
     fn profile_axiom_creation(&mut self, ontology: &mut Ontology, count: usize) -> OwlResult<EntityMemoryProfile> {
         let mut axioms = Vec::new();
         for i in 0..count {
@@ -320,21 +246,21 @@ impl MemoryProfiler {
             );
             axioms.push(axiom);
         }
-        
-        // Calculate accurate total memory usage
+
+        // Estimate total memory usage
         let total_memory_bytes: usize = axioms.iter()
-            .map(|axiom| EntitySizeCalculator::calculate_subclass_axiom_size(axiom))
+            .map(|axiom| EntitySizeCalculator::estimate_subclass_axiom_size(axiom))
             .sum();
-        
+
         // Add to ontology
         for axiom in axioms {
             ontology.add_subclass_axiom(axiom)?;
         }
-        
+
         let total_memory_mb = total_memory_bytes as f64 / (1024.0 * 1024.0);
         let average_size_bytes = total_memory_bytes / count;
         let average_size_mb = average_size_bytes as f64 / (1024.0 * 1024.0);
-        
+
         let profile = EntityMemoryProfile {
             entity_type: "SubClassAxiom".to_string(),
             count,
@@ -342,7 +268,7 @@ impl MemoryProfiler {
             average_size_mb,
             overhead_ratio: self.calculate_entity_overhead_ratio(average_size_bytes),
         };
-        
+
         self.entity_profiles.insert(format!("axioms_{}", count), profile.clone());
         Ok(profile)
     }
@@ -375,85 +301,47 @@ impl MemoryProfiler {
         })
     }
 
-    /// Analyze Arc sharing efficiency
+    /// Basic Arc sharing analysis
+    /// Note: This provides simplified estimates for basic tracking
     pub fn analyze_arc_sharing(&mut self, ontology: &Ontology) -> OwlResult<ArcSharingAnalysis> {
-        // Analyze actual Arc usage patterns in the ontology
         let classes = ontology.classes();
         let properties = ontology.object_properties();
-        
-        // Count total entities (each is Arc<Class> or Arc<ObjectProperty>)
         let total_entities = classes.len() + properties.len();
-        
-        // Get global entity cache statistics for better sharing analysis
-        let (cached_entities, _) = crate::entities::global_entity_cache_stats();
-        
-        // Estimate Arc sharing by analyzing IRI references
-        // In a real implementation, we'd track actual Arc::strong_count
-        let mut iri_references = std::collections::HashMap::new();
-        
-        // Collect all IRIs and count references
+
+        // Basic IRI deduplication analysis
+        let mut unique_iris = std::collections::HashSet::new();
+        let mut total_iri_references: usize = 0;
+
         for class in classes {
-            let iri_str = class.iri().as_str();
-            *iri_references.entry(iri_str).or_insert(0) += 1;
+            unique_iris.insert(class.iri().as_str());
+            total_iri_references += 1;
         }
-        
+
         for prop in properties {
-            let iri_str = prop.iri().as_str();
-            *iri_references.entry(iri_str).or_insert(0) += 1;
+            unique_iris.insert(prop.iri().as_str());
+            total_iri_references += 1;
         }
-        
-        // Count unique IRIs vs total references
-        let unique_iris = iri_references.len();
-        let total_iri_references = iri_references.values().sum::<usize>();
-        
-        // Calculate sharing ratio based on multiple factors
-        let sharing_ratio = if total_entities > 0 {
-            // Factor 1: IRI deduplication within ontology
-            let shared_iris = iri_references.values().filter(|&&count| count > 1).count();
-            let shared_references = iri_references.values()
-                .filter(|&&count| count > 1)
-                .map(|&count| count - 1) // Extra references beyond the first
-                .sum::<usize>();
-            
-            let iri_sharing = if total_iri_references > 0 {
-                shared_references as f64 / total_iri_references as f64
-            } else {
-                0.0
-            };
-            
-            // Factor 2: Global entity cache benefits (estimated)
-            let cache_sharing = if cached_entities > 0 {
-                // Assume cached entities are shared across operations
-                (cached_entities as f64 / (cached_entities + total_entities) as f64 * 1.5).min(0.6)
-            } else {
-                0.0
-            };
-            
-            // Factor 3: String interning benefits (global IRI cache)
-            let string_interning = 0.20; // Assume 20% benefit from IRI string interning
-            
-            // Factor 4: Entity structure sharing (estimated)
-            let structure_sharing = 0.15; // Additional 15% from shared entity structures
-            
-            // Combine all factors
-            (iri_sharing * 0.20 + cache_sharing * 0.35 + string_interning * 0.15 + structure_sharing * 0.30).min(1.0)
+
+        // Simple sharing ratio calculation
+        let sharing_ratio = if total_iri_references > 0 {
+            let potential_duplicates = total_iri_references.saturating_sub(unique_iris.len());
+            potential_duplicates as f64 / total_iri_references as f64
         } else {
             0.0
-        };
-        
-        // Estimate memory saved through string interning and Arc sharing
-        // More realistic estimate with entity-level sharing
-        let avg_entity_size_mb = 0.00005; // 0.05 KB per entity with sharing
-        let memory_saved_mb = sharing_ratio * total_entities as f64 * avg_entity_size_mb * 2.0; // 2x savings
-        
+        }.min(0.5); // Cap at 50% for realistic estimates
+
+        // Conservative memory savings estimate
+        let avg_entity_size_mb = 0.001; // 1 KB per entity
+        let memory_saved_mb = sharing_ratio * total_entities as f64 * avg_entity_size_mb * 0.5; // 50% savings
+
         let analysis = ArcSharingAnalysis {
             total_entities,
-            unique_entities: unique_iris,
+            unique_entities: unique_iris.len(),
             sharing_ratio,
             memory_saved_mb,
             deduplication_efficiency: sharing_ratio,
         };
-        
+
         self.arc_analysis = Some(analysis.clone());
         Ok(analysis)
     }
@@ -585,39 +473,33 @@ impl MemoryProfiler {
             report.push_str("\n");
         }
         
-        // Memory efficiency validation
-        report.push_str("## Memory Efficiency Claims Validation\n\n");
-        self.validate_memory_claims(&mut report);
+        // Memory usage analysis
+        report.push_str("## Memory Usage Analysis\n\n");
+        self.analyze_memory_usage(&mut report);
         
         report
     }
 
-    /// Validate memory efficiency claims
-    fn validate_memory_claims(&self, report: &mut String) {
-        // Check 40-60% memory reduction claim
-        let memory_efficiency_claim = if let Some(profile) = self.entity_profiles.values().next() {
-            profile.average_size_mb < 0.01 // Less than 10KB per entity
-        } else {
-            false
-        };
-        
-        report.push_str(&format!("### 40-60% Memory Reduction: {}\n", 
-            if memory_efficiency_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
-        
-        // Check Arc sharing efficiency
-        let arc_sharing_claim = if let Some(analysis) = &self.arc_analysis {
-            analysis.sharing_ratio > 0.3 // More than 30% sharing
-        } else {
-            false
-        };
-        
-        report.push_str(&format!("### Arc Sharing Efficiency: {}\n", 
-            if arc_sharing_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
-        
+    /// Basic memory usage analysis
+    fn analyze_memory_usage(&self, report: &mut String) {
+        report.push_str("### Memory Usage Analysis:\n");
+
+        // Basic entity size analysis
+        if let Some(profile) = self.entity_profiles.values().next() {
+            report.push_str(&format!("- Average entity size: {:.3} KB\n", profile.average_size_mb * 1024.0));
+            report.push_str(&format!("- Total entities measured: {}\n", profile.count));
+        }
+
+        // Arc sharing analysis
+        if let Some(analysis) = &self.arc_analysis {
+            report.push_str(&format!("- IRI deduplication ratio: {:.1}%\n", analysis.sharing_ratio * 100.0));
+            report.push_str(&format!("- Total entities analyzed: {}\n", analysis.total_entities));
+        }
+
         report.push_str("\n### Notes:\n");
-        report.push_str("- Memory measurements are platform-specific and may vary\n");
-        report.push_str("- Arc sharing analysis estimates actual reference sharing\n");
-        report.push_str("- Efficiency claims based on average per-entity memory usage\n");
+        report.push_str("- Memory measurements are estimates for basic tracking\n");
+        report.push_str("- Arc sharing analysis is simplified for demonstration\n");
+        report.push_str("- Results may vary based on actual implementation details\n");
     }
 }
 

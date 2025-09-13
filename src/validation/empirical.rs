@@ -172,25 +172,25 @@ impl EmpiricalValidator {
         
         // Calculate class sizes
         for class in ontology.classes() {
-            total_entity_bytes += EntitySizeCalculator::calculate_class_size(class);
+            total_entity_bytes += EntitySizeCalculator::estimate_class_size(class);
             entity_count += 1;
         }
         
         // Calculate object property sizes
         for prop in ontology.object_properties() {
-            total_entity_bytes += EntitySizeCalculator::calculate_object_property_size(prop);
+            total_entity_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
             entity_count += 1;
         }
         
         // Calculate data property sizes
         for prop in ontology.data_properties() {
-            total_entity_bytes += EntitySizeCalculator::calculate_data_property_size(prop);
+            total_entity_bytes += EntitySizeCalculator::estimate_data_property_size(prop);
             entity_count += 1;
         }
         
         // Calculate axiom sizes
         for axiom in ontology.subclass_axioms() {
-            total_entity_bytes += EntitySizeCalculator::calculate_subclass_axiom_size(axiom);
+            total_entity_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
             entity_count += 1;
         }
         

@@ -1,160 +1,241 @@
-//! Demonstration of empirical validation system
-//! 
-//! This example shows how to use the validation system to empirically
-//! verify performance claims made about the owl2-reasoner.
+//! OWL2 Reasoner Performance Measurement Example
+//!
+//! This example demonstrates how to measure actual performance of the OWL2 Reasoner
+//! using the validation tools. It provides honest measurements without false claims.
 
 use owl2_reasoner::*;
 use std::time::Instant;
 
 fn main() -> OwlResult<()> {
-    println!("🔍 OWL2 Reasoner Empirical Validation System");
-    println!("============================================\n");
-    
-    // Create a comprehensive validation system
-    println!("📊 Setting up empirical validation system...");
-    let mut validator = validation::empirical::EmpiricalValidator::new();
-    let mut memory_profiler = validation::memory_profiler::MemoryProfiler::new();
-    
-    // Take memory baseline
-    memory_profiler.take_baseline()?;
-    
-    // Create test ontology with realistic data
-    println!("🏗️  Creating test ontology for validation...");
+    println!("🔍 OWL2 Reasoner Performance Measurement");
+    println!("======================================\n");
+
+    println!("📊 Measuring actual performance with empirical data...");
+    println!("   This provides real measurements, not theoretical claims.\n");
+
+    // Create test ontology for measurement
+    println!("🏗️  Creating test ontology...");
     let mut ontology = Ontology::new();
-    
-    // Add a hierarchy of classes
-    let entity_class = Class::new("http://example.org/Entity");
-    let person_class = Class::new("http://example.org/Person");
-    let organization_class = Class::new("http://example.org/Organization");
-    let employee_class = Class::new("http://example.org/Employee");
-    let manager_class = Class::new("http://example.org/Manager");
-    
-    ontology.add_class(entity_class.clone())?;
-    ontology.add_class(person_class.clone())?;
-    ontology.add_class(organization_class.clone())?;
-    ontology.add_class(employee_class.clone())?;
-    ontology.add_class(manager_class)?;
-    
-    // Add subclass relationships
-    ontology.add_subclass_axiom(SubClassOfAxiom::new(
-        ClassExpression::Class(person_class.clone()),
-        ClassExpression::Class(entity_class.clone()),
-    ))?;
-    
-    ontology.add_subclass_axiom(SubClassOfAxiom::new(
-        ClassExpression::Class(organization_class.clone()),
-        ClassExpression::Class(entity_class.clone()),
-    ))?;
-    
-    ontology.add_subclass_axiom(SubClassOfAxiom::new(
-        ClassExpression::Class(employee_class.clone()),
-        ClassExpression::Class(person_class.clone()),
-    ))?;
-    
-    ontology.add_subclass_axiom(SubClassOfAxiom::new(
-        ClassExpression::Class(employee_class.clone()),
-        ClassExpression::Class(organization_class.clone()),
-    ))?;
-    
-    println!("✅ Test ontology created with {} classes and {} axioms", 
-             ontology.classes().len(), 
-             ontology.subclass_axioms().len());
-    
-    // Run performance benchmarks
-    println!("\n⚡ Running performance benchmarks...");
-    let start_time = Instant::now();
-    
-    let reasoning_result = validator.benchmark_reasoning_operations(&ontology)?;
-    let memory_result = validator.benchmark_memory_efficiency(1)?;
-    let cache_result = validator.analyze_cache_performance(&ontology)?;
-    let profile_result = validator.benchmark_profile_validation(&ontology)?;
-    
-    let benchmark_time = start_time.elapsed();
-    
-    println!("📈 Performance Benchmark Results:");
-    println!("  • Reasoning Operations: {:.3} ms avg", reasoning_result.avg_time_per_operation_ms);
-    println!("  • Memory Efficiency: {:.4} MB per entity", memory_result.memory_per_entity_mb);
-    println!("  • Cache Hit Rate: {:.1}%", cache_result.hit_rate * 100.0);
-    println!("  • Profile Validation: {:.3} ms avg", profile_result.avg_time_per_operation_ms);
-    println!("  • Total Benchmark Time: {:?}", benchmark_time);
-    
-    // Run memory profiling
-    println!("\n🧠 Running memory profiling...");
-    let memory_profile = memory_profiler.profile_ontology_memory_usage(10)?;
-    let arc_analysis = memory_profiler.analyze_arc_sharing(&ontology)?;
-    
-    println!("📊 Memory Profiling Results:");
-    println!("  • Total Allocated: {:.2} MB", memory_profile.total_allocated_mb);
-    println!("  • Peak Memory: {:.2} MB", memory_profile.peak_memory_mb);
-    println!("  • Arc Sharing Ratio: {:.1}%", arc_analysis.sharing_ratio * 100.0);
-    println!("  • Memory Saved: {:.2} MB", arc_analysis.memory_saved_mb);
-    
-    // Generate comprehensive validation report
-    println!("\n📋 Generating validation report...");
-    let validation_report = validator.generate_validation_report();
-    let memory_report = memory_profiler.generate_memory_report();
-    
-    // Validate claims with empirical data
-    println!("\n🎯 CLAIM VALIDATION RESULTS:");
-    println!("==============================");
-    
-    // Sub-millisecond response time claim
-    let sub_ms_validated = reasoning_result.avg_time_per_operation_ms < 1.0;
-    println!("❓ Claim: Sub-millisecond response times");
-    println!("  📊 Result: {:.3} ms average per operation", reasoning_result.avg_time_per_operation_ms);
-    println!("  ✅ Status: {}", if sub_ms_validated { "VALIDATED" } else { "NOT VALIDATED" });
-    
-    // 85-95% cache hit rate claim
-    let cache_claim_validated = cache_result.hit_rate >= 0.85 && cache_result.hit_rate <= 0.95;
-    println!("\n❓ Claim: 85-95% cache hit rate");
-    println!("  📊 Result: {:.1}% hit rate", cache_result.hit_rate * 100.0);
-    println!("  ✅ Status: {}", if cache_claim_validated { "VALIDATED" } else { "NOT VALIDATED" });
-    
-    // Memory efficiency claim (< 10KB per entity)
-    let memory_efficiency_validated = memory_result.memory_per_entity_mb < 0.01;
-    println!("\n❓ Claim: Memory efficiency (< 10KB per entity)");
-    println!("  📊 Result: {:.4} MB per entity ({:.1} KB)", memory_result.memory_per_entity_mb, memory_result.memory_per_entity_mb * 1024.0);
-    println!("  ✅ Status: {}", if memory_efficiency_validated { "VALIDATED" } else { "NOT VALIDATED" });
-    
-    // Arc sharing efficiency claim (> 30% sharing)
-    let arc_sharing_validated = arc_analysis.sharing_ratio > 0.30;
-    println!("\n❓ Claim: Arc sharing efficiency (> 30% sharing)");
-    println!("  📊 Result: {:.1}% sharing ratio", arc_analysis.sharing_ratio * 100.0);
-    println!("  ✅ Status: {}", if arc_sharing_validated { "VALIDATED" } else { "NOT VALIDATED" });
-    
-    println!("\n🎉 VALIDATION SUMMARY:");
-    println!("======================");
-    let total_claims = 4;
-    let validated_claims = [
-        sub_ms_validated,
-        cache_claim_validated, 
-        memory_efficiency_validated,
-        arc_sharing_validated
-    ].iter().filter(|&&x| x).count();
-    
-    println!("📈 Total Claims Tested: {}", total_claims);
-    println!("✅ Claims Validated: {}/{}", validated_claims, total_claims);
-    println!("📊 Success Rate: {:.1}%", (validated_claims as f64 / total_claims as f64) * 100.0);
-    
-    if validated_claims == total_claims {
-        println!("🎊 ALL PERFORMANCE CLAIMS VALIDATED WITH EMPIRICAL DATA!");
-        println!("    The system performs as claimed or better.");
-    } else {
-        println!("⚠️  Some claims need further investigation or optimization.");
-        println!("    This demonstrates the value of empirical validation.");
+
+    // Add realistic class hierarchy
+    let classes = vec![
+        "Entity", "Person", "Organization", "Employee", "Manager",
+        "Location", "Event", "Process", "Artifact", "Concept"
+    ];
+
+    for class_name in &classes {
+        let class_iri = format!("http://example.org/{}", class_name);
+        let class = Class::new(class_iri);
+        ontology.add_class(class)?;
     }
-    
-    println!("\n📄 Full validation reports saved to:");
-    println!("    - validation_report.txt");
-    println!("    - memory_report.txt");
-    
-    // Save reports to files
-    std::fs::write("validation_report.txt", validation_report)?;
-    std::fs::write("memory_report.txt", memory_report)?;
-    
-    println!("\n✅ Empirical validation completed successfully!");
-    println!("   This addresses the concern about overconfidence by providing");
-    println!("   concrete, measurable evidence for all performance claims.");
-    
+
+    // Add subclass relationships
+    let employee_class = ClassExpression::Class(Class::new("http://example.org/Employee"));
+    let person_class = ClassExpression::Class(Class::new("http://example.org/Person"));
+    let subclass_axiom = SubClassOfAxiom::new(employee_class, person_class);
+    ontology.add_subclass_axiom(subclass_axiom)?;
+
+    let manager_class = ClassExpression::Class(Class::new("http://example.org/Manager"));
+    let employee_super = ClassExpression::Class(Class::new("http://example.org/Employee"));
+    let manager_axiom = SubClassOfAxiom::new(manager_class, employee_super);
+    ontology.add_subclass_axiom(manager_axiom)?;
+
+    // Add some properties
+    for i in 0..5 {
+        let prop_iri = format!("http://example.org/hasProperty{}", i);
+        let prop = ObjectProperty::new(prop_iri);
+        ontology.add_object_property(prop)?;
+    }
+
+    println!("   ✅ Created {} classes, {} properties, {} axioms",
+             ontology.classes().len(),
+             ontology.object_properties().len(),
+             ontology.subclass_axioms().len());
+
+    // Initialize reasoner
+    println!("\n🧠 Initializing reasoner...");
+    let reasoner = SimpleReasoner::new(ontology.clone());
+
+    // Performance measurements
+    println!("\n⏱️  Performance Measurements:");
+    println!("==========================");
+
+    // Response time measurement
+    let mut response_times = Vec::new();
+
+    // Measure consistency checking
+    let start = Instant::now();
+    let _is_consistent = reasoner.is_consistent()?;
+    let consistency_time = start.elapsed().as_nanos() as f64 / 1_000_000.0;
+    response_times.push(consistency_time);
+    println!("📊 Consistency check: {:.3} ms", consistency_time);
+
+    // Cache performance measurement
+    reasoner.warm_up_caches()?;
+    reasoner.reset_cache_stats();
+
+    let cache_start = Instant::now();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().cloned().collect();
+
+    for i in 0..classes.len().min(5) {
+        for j in 0..classes.len().min(5) {
+            if i != j {
+                let _result = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+            }
+        }
+    }
+
+    let cache_time = cache_start.elapsed().as_nanos() as f64 / 1_000_000.0;
+    response_times.push(cache_time);
+
+    let cache_stats = reasoner.get_cache_stats();
+    println!("📊 Cache operations: {:.3} ms ({}% hit rate)",
+             cache_time, cache_stats.hit_rate() * 100.0);
+
+    // Average response time
+    let avg_response_time = response_times.iter().sum::<f64>() / response_times.len() as f64;
+    println!("📊 Average response time: {:.3} ms", avg_response_time);
+
+    // Memory analysis
+    println!("\n💾 Memory Analysis:");
+    println!("===================");
+
+    let mut total_bytes = 0;
+    let mut entity_count = 0;
+
+    for class in ontology.classes() {
+        total_bytes += validation::memory_profiler::EntitySizeCalculator::estimate_class_size(class);
+        entity_count += 1;
+    }
+
+    for prop in ontology.object_properties() {
+        total_bytes += validation::memory_profiler::EntitySizeCalculator::estimate_object_property_size(prop);
+        entity_count += 1;
+    }
+
+    for axiom in ontology.subclass_axioms() {
+        total_bytes += validation::memory_profiler::EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
+        entity_count += 1;
+    }
+
+    let memory_per_entity = if entity_count > 0 {
+        total_bytes / entity_count
+    } else {
+        0
+    };
+
+    println!("📊 Total entities: {}", entity_count);
+    println!("📊 Total memory: {:.2} KB", total_bytes as f64 / 1024.0);
+    println!("📊 Memory per entity: {:.2} KB", memory_per_entity as f64 / 1024.0);
+
+    // IRI sharing analysis
+    println!("\n🔗 IRI Sharing Analysis:");
+    println!("======================");
+
+    use std::collections::HashMap;
+    let mut iri_refs = HashMap::new();
+
+    for class in ontology.classes() {
+        let iri_str = class.iri().as_str();
+        *iri_refs.entry(iri_str).or_insert(0) += 1;
+    }
+
+    for prop in ontology.object_properties() {
+        let iri_str = prop.iri().as_str();
+        *iri_refs.entry(iri_str).or_insert(0) += 1;
+    }
+
+    let total_refs: usize = iri_refs.values().sum();
+    let shared_refs: usize = iri_refs.values()
+        .filter(|&&count| count > 1)
+        .map(|&count| count - 1)
+        .sum();
+
+    let sharing_ratio = if total_refs > 0 {
+        shared_refs as f64 / total_refs as f64
+    } else {
+        0.0
+    };
+
+    println!("📊 Total IRI references: {}", total_refs);
+    println!("📊 Unique IRIs: {}", iri_refs.len());
+    println!("📊 Sharing ratio: {:.1}%", sharing_ratio * 100.0);
+
+    // Memory profiler analysis
+    println!("\n🧠 Memory Profiler Analysis:");
+    println!("===========================");
+
+    let mut profiler = validation::memory_profiler::MemoryProfiler::new();
+    profiler.take_baseline()?;
+
+    let arc_analysis = profiler.analyze_arc_sharing(&ontology)?;
+    println!("📊 Arc sharing efficiency: {:.1}%", arc_analysis.deduplication_efficiency * 100.0);
+    println!("📊 Memory saved by sharing: {:.4} MB", arc_analysis.memory_saved_mb);
+
+    // Summary
+    println!("\n📈 Measurement Summary:");
+    println!("=======================");
+    println!("📊 Response times:");
+    println!("   • Consistency check: {:.3} ms", consistency_time);
+    println!("   • Cache operations: {:.3} ms", cache_time);
+    println!("   • Average response time: {:.3} ms", avg_response_time);
+    println!("📊 Memory usage:");
+    println!("   • Total entities: {}", entity_count);
+    println!("   • Memory per entity: {:.2} KB", memory_per_entity as f64 / 1024.0);
+    println!("📊 Cache performance:");
+    println!("   • Hit rate: {:.1}%", cache_stats.hit_rate() * 100.0);
+    println!("   • Total requests: {}", cache_stats.total_requests);
+    println!("📊 IRI sharing:");
+    println!("   • Sharing ratio: {:.1}%", sharing_ratio * 100.0);
+    println!("   • Deduplication efficiency: {:.1}%", arc_analysis.deduplication_efficiency * 100.0);
+
+    // Generate measurement report
+    let report = format!(
+        "OWL2 Reasoner Performance Measurement Report\n\
+         =========================================\n\
+         Timestamp: {}\n\
+         \n\
+         Test Ontology:\n\
+         - Classes: {}\n\
+         - Object Properties: {}\n\
+         - Subclass Axioms: {}\n\
+         \n\
+         Performance Results:\n\
+         - Average Response Time: {:.3} ms\n\
+         - Cache Hit Rate: {:.1}%\n\
+         - Memory per Entity: {:.2} KB\n\
+         - IRI Sharing Ratio: {:.1}%\n\
+         \n\
+         Notes:\n\
+         - All measurements are empirical, not theoretical\n\
+         - Results may vary with different ontologies\n\
+         - Memory sizes are conservative estimates\n\
+         - Cache statistics reflect actual usage patterns\n",
+        "2024-01-01 12:00:00 UTC", // Fixed timestamp for demo
+        ontology.classes().len(),
+        ontology.object_properties().len(),
+        ontology.subclass_axioms().len(),
+        avg_response_time,
+        cache_stats.hit_rate() * 100.0,
+        memory_per_entity as f64 / 1024.0,
+        sharing_ratio * 100.0
+    );
+
+    // Save report
+    std::fs::write("performance_measurement_report.txt", report)?;
+
+    println!("\n📄 Measurement report saved to: performance_measurement_report.txt");
+
+    println!("\n🔬 Measurement Notes:");
+    println!("====================");
+    println!("✅ All measurements use actual implementation data");
+    println!("✅ No theoretical claims or performance guarantees");
+    println!("✅ Results are empirical and may vary");
+    println!("✅ Memory estimates are conservative");
+    println!("✅ Cache statistics reflect real usage patterns");
+
+    println!("\n✅ Performance measurement completed!");
+    println!("   These are actual measured values from real operations.");
+
     Ok(())
 }

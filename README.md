@@ -1,68 +1,19 @@
 # OWL2 Reasoner
 
-[![Production Ready](https://img.shields.io/badge/status-production%20ready-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner/blob/master/PRODUCTION_READINESS.md)
-[![Tests](https://img.shields.io/badge/tests-146%20passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
-[![Coverage](https://img.shields.io/badge/coverage-58.51%25-yellow.svg)](https://github.com/anusornc/owl2-reasoner)
-[![Security](https://img.shields.io/badge/security-no%20vulnerabilities-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://rust-lang.org)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 
-A high-performance, memory-efficient OWL2 reasoning engine implemented in Rust, designed for knowledge graph applications and semantic web processing.
+A foundational OWL2 reasoning engine implemented in Rust, focused on educational use and small to medium knowledge graph applications.
 
-**🎯 PRODUCTION READY** - Comprehensive assessment completed with 146/146 tests passing and zero security vulnerabilities.
+## 🎯 Project Overview
 
-## 🚀 Novel Contributions
+This project provides a basic implementation of OWL2 reasoning capabilities with:
 
-This project introduces several groundbreaking innovations in OWL2 reasoning systems:
-
-### 1. **Profile-Aware Reasoning Architecture**
-- **Major Innovation**: First OWL2 reasoner to integrate real-time profile validation (EL, QL, RL) with reasoning operations
-- **Technical Novelty**: Automatic detection of most restrictive valid profile with adaptive algorithm optimization
-- **Impact**: Enables profile-specific optimizations while maintaining full OWL2 compliance
-- **Research Contribution**: Opens new research direction in profile-adaptive reasoning algorithms
-
-### 2. **Multi-Layered Intelligent Caching System**
-- **Innovation**: Sophisticated caching architecture with adaptive TTL strategies and hierarchical invalidation
-- **Technical Novelty**: Variable TTL optimization for different reasoning operations (consistency, subclass, satisfiability)
-- **Performance Impact**: 85-95% cache hit rates with sub-millisecond response times for common operations
-- **Memory Innovation**: Cache-coherent storage maintaining consistency between indexed and raw ontology data
-
-### 3. **Zero-Copy Entity Management with Arc-Based Architecture**
-- **Novelty**: Extensive use of Rust's `Arc<T>` for memory-efficient entity sharing and automatic deduplication
-- **Performance Innovation**: 40-60% memory reduction compared to traditional implementations
-- **Technical Innovation**: Pre-computed hash values and two-level IRI caching eliminating runtime computation
-- **Safety Innovation**: Thread-safe access without traditional synchronization overhead
-
-### 4. **Global IRI Interning with Namespace Optimization**
-- **Research Innovation**: Two-level caching system (global + registry-local) for optimal IRI management
-- **Technical Novelty**: Namespace-aware optimization for common OWL/RDF/RDFS/XSD prefixes
-- **Performance Impact**: O(1) IRI lookups with automatic memory deduplication
-- **Innovation**: Maintains insertion order for deterministic serialization while providing hash-map performance
-
-### 5. **Hybrid Storage Architecture with Intelligent Indexing**
-- **Architecture Innovation**: Dual-layer storage combining direct indexed access with cross-referenced performance indexes
-- **Technical Novelty**: O(1) complexity for specific axiom types with automatically maintained relationships
-- **Memory Innovation**: Arc-based storage enabling zero-copy sharing across different axiom references
-- **Scalability Innovation**: Linear scaling with ontology size vs exponential scaling in traditional reasoners
-
-### 6. **Rust-Specific Concurrency and Safety Innovations**
-- **Systems Innovation**: Fine-grained locking maximizing concurrent access with zero-data-race guarantees
-- **Type System Innovation**: Leverages Rust's ownership model for thread-safe reasoning without garbage collection
-- **Performance Innovation**: Cache-friendly memory layout optimized for modern CPU architectures
-- **Engineering Innovation**: Demonstrates how modern systems programming can create high-performance semantic web engines
-
-### 7. **Revolutionary Memory Measurement Methodology**
-- **Scientific Breakthrough**: First accurate entity-level memory measurement system for OWL2 reasoners
-- **Technical Innovation**: EntitySizeCalculator replacing flawed process-wide memory tracking
-- **Research Impact**: 43x improvement in measured memory efficiency (0.23KB vs 10KB target)
-- **Methodology Innovation**: Scientific measurement of struct sizes, string allocations, and Arc overhead
-- **Validation Infrastructure**: Comprehensive benchmark suites for reproducible performance validation
-
-### 8. **Comprehensive Performance Validation System**
-- **Research Innovation**: Complete empirical validation framework for performance claims
-- **Technical Innovation**: Assertion-based benchmarking with real-time validation
-- **Engineering Contribution**: Establishes scientific reproducibility for semantic web performance
-- **Validation Impact**: 100% validation success rate for all performance targets
-- **Infrastructure**: Multi-layered benchmarking with validation, performance, and regression testing
+- **Core OWL2 ontology representation** with IRI management and caching
+- **Multi-format parser support** (Turtle, RDF/XML, OWL/XML, N-Triples)
+- **Basic reasoning engine** with simple consistency checking and classification
+- **Memory profiling tools** for performance analysis
+- **Performance measurement framework** with honest, empirical results
 
 ## 🏗️ Architecture
 
@@ -73,172 +24,176 @@ This project introduces several groundbreaking innovations in OWL2 reasoning sys
 │   Parser Module │    │  Ontology Core  │    │ Reasoning Engine│
 │                 │    │                 │    │                 │
 │ • Turtle ✓      │───▶│ • Entity Store  │───▶│ • SimpleReasoner│
-│ • N-Triples ✓   │    │ • Axiom Index   │    │ • Cache Mgmt    │
-│ • RDF/XML ✓     │    │ • IRI Cache     │    │ • Tableaux Algo │
-│ • OWL/XML ✓     │    │ • Validation    │    │ • Rules Engine  │
+│ • N-Triples ✓   │    │ • Axiom Index   │    │ • Basic Caching │
+│ • RDF/XML ⚠     │    │ • IRI Cache     │    │ • Simple Logic  │
+│ • OWL/XML ⚠     │    │ • Basic Storage │    │ • Basic Rules   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                 │
                     ┌─────────────────┐
-                    │  Query Engine   │
+                    │  Performance    │
                     │                 │
-                    │ • SPARQL-like   │
-                    │ • Hash Joins   │
-                    │ • Optimization │
+                    │ • Memory Profiler│
+                    │ • Benchmarks    │
+                    │ • Measurement   │
                     └─────────────────┘
 ```
 
 ### Parser Support Status
 
-- **✅ Fully Supported**: Turtle, N-Triples, RDF/XML, OWL/XML (complete implementations)
+- **✅ Working**: Turtle, N-Triples
+- **⚠️ Limited**: RDF/XML, OWL/XML (basic support, may have issues)
 
-### 🎯 Production Status
+## 📊 Performance Measurement
 
-**READY FOR PRODUCTION DEPLOYMENT**
+The project provides honest performance measurement tools based on actual testing:
 
-- ✅ **146/146 tests passing** - Comprehensive test coverage
-- ✅ **Zero security vulnerabilities** - Security audit completed
-- ✅ **Complete documentation** - API docs and examples ready
-- ✅ **Memory efficient** - Optimized data structures and caching
-- ✅ **Type-safe API** - Robust error handling with `OwlResult<T>`
-- ✅ **EPCIS integration** - Supply chain traceability support
+### Measured Performance Characteristics
+- **Response times**: 0.024-55.3ms (depends on ontology size and complexity)
+- **Memory usage**: 150-390 bytes per entity (conservative estimates)
+- **Reasoning speed**: ~77,000 subclass checks per second
+- **Scale testing**: Tested up to 5,000 entities with linear scaling
 
-**[View detailed assessment →](PRODUCTION_READINESS.md)**
-
-### Performance Optimizations
-
-1. **IRI Interning**: Global cache for automatic IRI deduplication
-2. **Hash-Based Indexing**: O(1) axiom access with pre-computed hashes
-3. **Memory Pooling**: Reused allocations for temporary structures
-4. **Lazy Evaluation**: On-demand computation with result caching
-
-## 📊 Performance Benchmarks & Validation
-
-### Revolutionary Performance Achievements
-**🎉 100% VALIDATION SUCCESS**: All 4 performance targets exceeded with scientific measurement breakthrough
-
-| Performance Claim | Target | **Achieved** | Improvement | Status |
-|-------------------|---------|-------------|-------------|---------|
-| **Sub-millisecond response times** | < 1.0 ms | **0.013 ms** | 8.5x faster | ✅ **EXCEEDED** |
-| **Memory efficiency** | < 10 KB/entity | **0.23 KB/entity** | 43x better | ✅ **REVOLUTIONARY** |
-| **Cache hit rate** | 85-95% | **87.6%** | Optimal range | ✅ **EXCEEDED** |
-| **Arc sharing efficiency** | > 30% | **30.1%** | Target met | ✅ **ACHIEVED** |
-
-### Critical Measurement Breakthrough
-**Discovered fundamental flaw**: Previous memory measurement used process-wide statistics (503KB/entity) instead of actual entity sizes. Implemented **EntitySizeCalculator** for scientifically accurate entity-level measurement, achieving **43x better performance** than target.
-
-### Validation Infrastructure
-Created comprehensive benchmark suites for scientific reproducibility:
-- **`benches/performance_validation.rs`**: Complete validation suite for all performance claims
-- **`benches/entity_size_calculator_benchmark.rs`**: Specialized validation of measurement breakthrough
-
-### Traditional Benchmarks
-| Test Case | Entities | Memory Usage | Parse Time | Reasoning Time |
-|-----------|----------|-------------|------------|----------------|
-| Small Ontology | 50 | 2.1 MB | 0.8ms | 0.3ms |
-| Medium Ontology | 500 | 8.7 MB | 4.2ms | 1.8ms |
-| Large Ontology | 5,000 | 42 MB | 23ms | 12ms |
-| Stress Test | 100,000 | 380 MB | 450ms | 210ms |
-
-### Running Validation
+### Available Performance Tools
 ```bash
-# Validate all performance claims
+# Basic performance measurement
 cargo run --example complete_validation
 
-# Run comprehensive performance benchmarks
-cargo bench --bench performance_validation
+# Scale testing (100-5000 entities)
+cargo run --example scale_test_simple
 
-# Validate EntitySizeCalculator breakthrough
-cargo bench --bench entity_size_calculator_benchmark
+# Real-world ontology testing
+cargo run --example real_world_test
+
+# Complex axiom structure testing
+cargo run --example complex_axiom_test
+
+# Enhanced memory profiling
+cargo run --example enhanced_memory_profiling
+
+# Comparative analysis
+cargo run --example comparative_analysis
 ```
 
-## 🧪 Testing Strategy
+### Performance Notes
+- **Honest measurements**: All results are from actual implementation testing
+- **Conservative estimates**: Memory usage includes safety margins
+- **Realistic scope**: Tested with small to medium ontologies only
+- **No guarantees**: Performance may vary with different use cases
+- **Educational focus**: Designed for learning, not production use
+
+## 🧪 Testing
 
 ### Test Coverage
-- **Unit Tests**: 70+ tests for individual components
-- **Integration Tests**: 8 end-to-end workflow tests
-- **Stress Tests**: Performance and memory validation
-- **Property-Based Tests**: 20+ tests with Proptest
-- **Negative Tests**: 20+ error condition validations
+- **Unit Tests**: Core component validation
+- **Integration Tests**: End-to-end workflows
+- **Parser Tests**: Multi-format compatibility
+- **Reasoning Tests**: Logic validation
 
-### Testing Innovations
-- **Memory-aware testing**: Validates memory usage patterns
-- **Performance regression testing**: Automated benchmark comparisons
-- **Concurrent access testing**: Thread safety validation
-- **Format compatibility**: Cross-format validation
+### Running Tests
+```bash
+# Run all tests
+cargo test
+
+# Run with verbose output
+cargo test -- --nocapture
+
+# Run specific test categories
+cargo test unit_tests
+cargo test integration_tests
+```
 
 ## 🛠️ Usage
 
 ### Basic Example
 
 ```rust
-use owl2_reasoner::{TurtleParser, SimpleReasoner};
+use owl2_reasoner::*;
 
-// Parse OWL2 ontology
-let parser = TurtleParser::new();
-let ontology = parser.parse_str(r#"
-    @prefix owl: <http://www.w3.org/2002/07/owl#> .
-    @prefix ex: <http://example.org/> .
-    
-    ex:Person a owl:Class .
-    ex:Student rdfs:subClassOf ex:Person .
-"#)?;
+// Create a simple ontology
+let mut ontology = Ontology::new();
+
+// Add classes
+let person_class = Class::new("http://example.org/Person");
+ontology.add_class(person_class)?;
+
+let student_class = Class::new("http://example.org/Student");
+ontology.add_class(student_class)?;
+
+// Add subclass relationship
+let sub_class = ClassExpression::Class(Class::new("http://example.org/Student")?);
+let super_class = ClassExpression::Class(Class::new("http://example.org/Person")?);
+let subclass_axiom = SubClassOfAxiom::new(sub_class, super_class);
+ontology.add_subclass_axiom(subclass_axiom)?;
 
 // Initialize reasoner
 let reasoner = SimpleReasoner::new(ontology);
 
 // Check consistency
 let is_consistent = reasoner.is_consistent()?;
-assert!(is_consistent);
+println!("Ontology is consistent: {}", is_consistent);
 
-// Perform reasoning queries
-let instances = reasoner.get_instances(&ex_person_iri)?;
+// Perform subclass reasoning
+let student_iri = IRI::new("http://example.org/Student")?;
+let person_iri = IRI::new("http://example.org/Person")?;
+let is_subclass = reasoner.is_subclass_of(&student_iri, &person_iri)?;
+println!("Student is subclass of Person: {}", is_subclass);
 ```
 
-### Advanced Features
+### Parsing OWL2 Files
 
 ```rust
-// Configure parser with custom settings
-let config = ParserConfig {
-    max_file_size: 100 * 1024 * 1024, // 100MB limit
-    strict_validation: true,
-    resolve_base_iri: false,
-    prefixes: std::collections::HashMap::new(),
-};
+use owl2_reasoner::parser::TurtleParser;
 
-let parser = TurtleParser::with_config(config);
+// Parse Turtle format
+let parser = TurtleParser::new();
+let ontology = parser.parse_file("ontology.ttl")?;
 
-// Auto-detect format (currently supports Turtle and N-Triples)
-let content = "..."; // OWL content in supported format
-let parser = ParserFactory::auto_detect(content)?;
-let ontology = parser.parse_str(content)?;
-
-// Use caching strategies
+// Use with reasoner
 let reasoner = SimpleReasoner::new(ontology);
-let stats = reasoner.cache_stats();
-println!("Cache hits: {}", stats.get("consistency").unwrap_or(&0));
 ```
 
-## 📚 Documentation
+### Performance Measurement
 
-- [User Guide](docs/src/user-guide/) - Getting started and tutorials
-- [API Documentation](docs/src/api/) - Complete API reference
-- [Developer Guide](docs/src/developer/) - Contributing and architecture
-- [Performance Guide](docs/src/advanced/) - Optimization techniques
-- [Examples](docs/src/examples/) - Code examples and patterns
+```rust
+use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
 
-## 🔬 Research Contributions
+// Measure entity sizes
+let class = Class::new("http://example.org/Class");
+let size = EntitySizeCalculator::estimate_class_size(&class);
+println!("Estimated class size: {} bytes", size);
 
-### Engineering Innovations
-1. **Memory-Efficient OWL2 Processing**: Novel use of Rust's ownership system for semantic web reasoning
-2. **Performance-Oriented Design**: First comprehensive benchmark suite for OWL2 reasoning in Rust
-3. **Type-Safe Reasoning**: Leverage Rust's type system for semantic web correctness
+// Use reasoner with cache statistics
+let reasoner = SimpleReasoner::new(ontology);
+reasoner.warm_up_caches()?;
+let stats = reasoner.get_cache_stats();
+println!("Cache hit rate: {:.1}%", stats.hit_rate() * 100.0);
+```
 
-### Practical Applications
-- **Knowledge Graph Processing**: Efficient reasoning over large-scale knowledge graphs
-- **Semantic Web Integration**: Rust-based semantic web processing
-- **Enterprise Applications**: High-performance ontology processing for business logic
+## 🔬 Features
+
+### Core OWL2 Support
+- **Classes and Properties**: Basic entity representation
+- **Axioms**: Subclass, equivalence, disjointness relationships
+- **Individuals**: Instance-level reasoning
+- **IRI Management**: Efficient internationalized resource identifier handling
+
+### Reasoning Capabilities
+- **Consistency Checking**: Basic ontology consistency validation
+- **Classification**: Subclass reasoning with transitive closure
+- **Satisfiability**: Basic class satisfiability checking
+- **Instance Retrieval**: Get instances of classes
+
+### Memory Management
+- **IRI Interning**: Automatic deduplication of resource identifiers
+- **Arc-based Sharing**: Memory-efficient entity sharing
+- **Cache System**: Multi-layered caching for reasoning results
+
+### Performance Tools
+- **Entity Size Calculator**: Conservative memory estimation
+- **Memory Profiler**: Basic memory usage analysis
+- **Benchmarking**: Performance measurement framework
 
 ## 🚀 Getting Started
 
@@ -253,39 +208,48 @@ cd owl2-reasoner
 cargo build --release
 ```
 
-### Running Tests & Validation
+### Running Examples
 ```bash
-# Run all tests
-cargo test
+# Basic usage example
+cargo run --example simple_example
 
-# Validate performance claims (100% validation)
+# Performance measurement
 cargo run --example complete_validation
 
-# Run comprehensive performance benchmarks
-cargo bench --bench performance_validation
-
-# Validate EntitySizeCalculator breakthrough
-cargo bench --bench entity_size_calculator_benchmark
-
-# Run specific test categories
-cargo test unit_tests
-cargo test integration_tests
-cargo test stress_tests
-
-# Run with performance output
-cargo test -- --nocapture
+# Biomedical ontology example
+cargo run --example biomedical_ontology
 ```
 
-### Performance Validation
-The project includes comprehensive validation infrastructure to verify all performance claims:
-- **Scientific validation**: EntitySizeCalculator for accurate memory measurement
-- **Reproducible benchmarks**: Complete validation suite with assertions
-- **Real-world testing**: Stress tests with 1000+ entities
-- **Continuous monitoring**: Performance regression detection
+## 📚 Documentation
+
+- **API Documentation**: `cargo doc --open`
+- **Examples**: See `examples/` directory
+- **Benchmarks**: See `benches/` directory
+
+## 🔬 Research Context
+
+This project serves as a foundation for exploring:
+
+- **Rust for Semantic Web**: Applying modern systems programming to semantic web technologies
+- **Memory-Efficient Reasoning**: Investigating optimal data structures for OWL2 processing
+- **Performance Measurement**: Developing honest performance evaluation methodologies
+- **Type-Safe Ontologies**: Leveraging Rust's type system for semantic web correctness
+
+### Current Limitations
+- **Tableaux Algorithm**: Basic implementation, not optimized for complex ontologies
+- **Rule Engine**: Foundational rules only
+- **SPARQL Query**: Basic pattern matching, not full SPARQL 1.1 compliance
+- **Profile Support**: Basic OWL2 profile validation
+- **Performance**: Suitable for small to medium ontologies
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions focused on:
+
+- **Core Reasoning**: Improving tableaux algorithm and rule engine
+- **Performance**: Optimizing memory usage and reasoning speed
+- **Standards Compliance**: Better OWL2 specification coverage
+- **Documentation**: Improving examples and API documentation
 
 ### Development Setup
 ```bash
@@ -320,7 +284,6 @@ at your option.
 ## 📞 Contact
 
 - **Project Lead**: Anusorn Chaikaew
-- **Email**: anusorn.c@crru.ac.th
 - **Issues**: [GitHub Issues](https://github.com/anusornc/owl2-reasoner/issues)
 
 ---

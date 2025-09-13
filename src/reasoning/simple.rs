@@ -125,37 +125,29 @@ impl SimpleReasoner {
     /// Warm up caches by pre-computing common queries
     pub fn warm_up_caches(&self) -> OwlResult<()> {
         let classes: Vec<_> = self.ontology.classes().iter().cloned().collect();
-        
+
         // Pre-compute consistency
         let _ = self.is_consistent();
-        
-        // Pre-compute common subclass relationships with more repetitions
-        for i in 0..classes.len().min(15) {
-            for j in 0..classes.len().min(15) {
+
+        // Pre-compute common subclass relationships
+        for i in 0..classes.len().min(10) {
+            for j in 0..classes.len().min(10) {
                 if i != j {
-                    // Multiple repetitions to increase cache hits
-                    for _ in 0..3 {
-                        let _ = self.is_subclass_of(&classes[i].iri(), &classes[j].iri());
-                    }
+                    let _ = self.is_subclass_of(&classes[i].iri(), &classes[j].iri());
                 }
             }
         }
-        
-        // Pre-compute satisfiability for all classes with repetitions
-        for class in classes.iter() {
-            // Multiple repetitions to increase cache hits
-            for _ in 0..5 {
-                let _ = self.is_class_satisfiable(&class.iri());
-            }
-        }
-        
-        // Pre-compute instances for classes
+
+        // Pre-compute satisfiability for classes
         for class in classes.iter().take(10) {
-            for _ in 0..2 {
-                let _ = self.get_instances(&class.iri());
-            }
+            let _ = self.is_class_satisfiable(&class.iri());
         }
-        
+
+        // Pre-compute instances for some classes
+        for class in classes.iter().take(5) {
+            let _ = self.get_instances(&class.iri());
+        }
+
         Ok(())
     }
     
@@ -274,7 +266,48 @@ impl SimpleReasoner {
     
     /// Compute consistency (internal method)
     fn compute_consistency(&self) -> OwlResult<bool> {
-        // For now, assume empty ontology is consistent
+        // Basic consistency check: look for obvious inconsistencies
+        // This is a simplified implementation for demonstration
+
+        // Check for classes that are disjoint with themselves
+        for axiom in self.ontology.disjoint_classes_axioms() {
+            let classes = axiom.classes();
+            if classes.len() == 1 {
+                // A class disjoint with itself is inconsistent
+                return Ok(false);
+            }
+        }
+
+        // Check for contradictory subclass relationships
+        for sub_axiom in self.ontology.subclass_axioms() {
+            if let (crate::axioms::ClassExpression::Class(sub_class), crate::axioms::ClassExpression::Class(super_class)) =
+                (sub_axiom.sub_class(), sub_axiom.super_class()) {
+
+                // Check if we have the reverse relationship (cycle detection for simple case)
+                for other_axiom in self.ontology.subclass_axioms() {
+                    if let (crate::axioms::ClassExpression::Class(other_sub), crate::axioms::ClassExpression::Class(other_super)) =
+                        (other_axiom.sub_class(), other_axiom.super_class()) {
+
+                        if other_sub.iri() == super_class.iri() && other_super.iri() == sub_class.iri() {
+                            // Found A ⊑ B and B ⊑ A without equivalence - potentially inconsistent
+                            // Check if they're actually equivalent
+                            let mut are_equivalent = false;
+                            for eq_axiom in self.ontology.equivalent_classes_axioms() {
+                                if eq_axiom.classes().contains(&sub_class.iri()) && eq_axiom.classes().contains(&super_class.iri()) {
+                                    are_equivalent = true;
+                                    break;
+                                }
+                            }
+                            if !are_equivalent {
+                                return Ok(false);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no obvious inconsistencies found, assume consistent
         Ok(true)
     }
     
@@ -307,14 +340,31 @@ impl SimpleReasoner {
     
     /// Compute satisfiability (internal method)
     fn compute_satisfiability(&self, class_iri: &IRI) -> OwlResult<bool> {
-        // For now, assume all classes are satisfiable unless they're explicitly disjoint with themselves
-        // This is a simplified check - a full implementation would use tableaux reasoning
+        // Basic satisfiability check - a simplified implementation
+        // A class is unsatisfiable if it can be proven to have no possible instances
+
+        // Check if class is explicitly disjoint with itself
         for axiom in self.ontology.disjoint_classes_axioms() {
             let classes = axiom.classes();
             if classes.contains(class_iri) && classes.len() == 1 {
                 return Ok(false); // Class is disjoint with itself - unsatisfiable
             }
         }
+
+        // Check if class is subclass of owl:Nothing
+        for axiom in self.ontology.subclass_axioms() {
+            if let (crate::axioms::ClassExpression::Class(sub_class), crate::axioms::ClassExpression::Class(super_class)) =
+                (axiom.sub_class(), axiom.super_class()) {
+
+                if sub_class.iri() == class_iri && super_class.iri().as_str() == "http://www.w3.org/2002/07/owl#Nothing" {
+                    return Ok(false); // Subclass of Nothing - unsatisfiable
+                }
+            }
+        }
+
+        // Note: Disjoint union axioms not yet implemented in ontology structure
+
+        // If no obvious unsatisfiability conditions found, assume satisfiable
         Ok(true)
     }
     
@@ -351,14 +401,14 @@ impl SimpleReasoner {
     fn compute_subclass_of(&self, sub: &IRI, sup: &IRI) -> OwlResult<bool> {
         // Check direct subclass relationships
         for axiom in self.ontology.subclass_axioms() {
-            if let (crate::axioms::ClassExpression::Class(sub_axiom), crate::axioms::ClassExpression::Class(sup_axiom)) = 
+            if let (crate::axioms::ClassExpression::Class(sub_axiom), crate::axioms::ClassExpression::Class(sup_axiom)) =
                 (axiom.sub_class(), axiom.super_class()) {
                 if sub_axiom.iri() == sub && sup_axiom.iri() == sup {
                     return Ok(true);
                 }
             }
         }
-        
+
         // Check equivalent classes (if A ≡ B, then A ⊑ B and B ⊑ A)
         for axiom in self.ontology.equivalent_classes_axioms() {
             let classes = axiom.classes();
@@ -366,7 +416,35 @@ impl SimpleReasoner {
                 return Ok(true);
             }
         }
-        
+
+        // Simple transitive closure for subclass relationships
+        // Find all classes that sub is a subclass of, then check if sup is in that set
+        let mut visited = std::collections::HashSet::new();
+        let mut to_check = vec![sub.clone()];
+
+        while let Some(current) = to_check.pop() {
+            if visited.contains(&current) {
+                continue;
+            }
+            visited.insert(current.clone());
+
+            // Find direct superclasses
+            for axiom in self.ontology.subclass_axioms() {
+                if let (crate::axioms::ClassExpression::Class(sub_axiom), crate::axioms::ClassExpression::Class(sup_axiom)) =
+                    (axiom.sub_class(), axiom.super_class()) {
+
+                    if sub_axiom.iri() == &current {
+                        if sup_axiom.iri() == sup {
+                            return Ok(true); // Found path to sup
+                        }
+                        if !visited.contains(&sup_axiom.iri()) {
+                            to_check.push(sup_axiom.iri().clone());
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(false)
     }
     
