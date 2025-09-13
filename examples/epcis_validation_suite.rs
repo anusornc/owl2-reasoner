@@ -5,6 +5,7 @@
 
 use owl2_reasoner::*;
 use owl2_reasoner::epcis_test_generator::*;
+use std::collections::HashMap;
 
 fn main() -> OwlResult<()> {
     println!("🔍 EPCIS Compliance and Reasoning Validation Suite");
@@ -431,7 +432,7 @@ fn validate_rule_based_reasoning(reasoner: &SimpleReasoner) -> OwlResult<f64> {
     ];
     
     let mut classification_ok = 0;
-    for (sub, sup) in classification_tests {
+    for (sub, sup) in &classification_tests {
         let sub_iri = IRI::new(sub)?;
         let sup_iri = IRI::new(sup)?;
         if reasoner.is_subclass_of(&sub_iri, &sup_iri).unwrap_or(false) {

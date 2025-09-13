@@ -125,7 +125,7 @@ impl EPCISDocumentParser {
                 // Extract individual EPCs
                 for epc_match in epc_list_content.matches("<epc>") {
                     let epc_start = epc_list_content.find(epc_match).unwrap();
-                    let epc_end = epc_list_content[epc_start..].find("</epc>").unwrap() + epc_start + 6;
+                    let epc_end = epc_list_content[epc_start..].find("</epc>").unwrap() + epc_start;
                     let epc_value = &epc_list_content[epc_start + 5..epc_end];
                     if !epc_value.trim().is_empty() {
                         epcs.push(epc_value.trim().to_string());
