@@ -353,7 +353,7 @@ impl MemoryProfiler {
         
         let before_memory = self.measure_memory_usage()?;
         
-        let mut reasoner = SimpleReasoner::new(ontology.clone());
+        let reasoner = SimpleReasoner::new(ontology.clone());
         
         // Perform reasoning operations
         let _is_consistent = reasoner.is_consistent()?;

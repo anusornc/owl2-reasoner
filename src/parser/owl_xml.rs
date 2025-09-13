@@ -90,8 +90,7 @@ impl OwlXmlParser {
                         if !tag_content.starts_with("!--") && !tag_content.starts_with("?") {
                             if tag_content.starts_with("/") {
                                 // Closing tag
-                                let tag_name = &tag_content[1..];
-                                if let Some((opening_element, _)) = element_stack.pop() {
+                                  if let Some((opening_element, _)) = element_stack.pop() {
                                     let element_name = opening_element.name.clone();
                                     // Push the completed element to its parent or document
                                     if let Some((parent_element, _)) = element_stack.last_mut() {

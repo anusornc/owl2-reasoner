@@ -87,7 +87,7 @@ impl EPCISDocumentParser {
 
     /// Parse a single object event from XML content
     fn parse_object_event(&self, content: &str) -> Option<EPCISSimpleEvent> {
-        let mut event = EPCISSimpleEvent {
+        let event = EPCISSimpleEvent {
             event_id: self.extract_xml_field(content, "eventID").unwrap_or_else(|| format!("event_{}", rand::random::<u64>())),
             event_type: "ObjectEvent".to_string(),
             event_time: self.extract_xml_field(content, "eventTime").unwrap_or_default(),

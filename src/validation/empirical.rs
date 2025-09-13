@@ -82,7 +82,7 @@ impl EmpiricalValidator {
         let start_time = Instant::now();
         let start_memory = self.get_current_memory_mb();
         
-        let mut reasoner = SimpleReasoner::new(ontology.clone());
+        let reasoner = SimpleReasoner::new(ontology.clone());
         
         // Benchmark consistency checking
         let consistency_start = Instant::now();
@@ -217,7 +217,7 @@ impl EmpiricalValidator {
 
     /// Analyze cache performance
     pub fn analyze_cache_performance(&mut self, ontology: &Ontology) -> OwlResult<CacheAnalysis> {
-        let mut reasoner = SimpleReasoner::new(ontology.clone());
+        let reasoner = SimpleReasoner::new(ontology.clone());
         
         // Warm up cache
         let classes: Vec<_> = ontology.classes().iter().cloned().collect();
@@ -268,9 +268,9 @@ impl EmpiricalValidator {
     pub fn benchmark_profile_validation(&mut self, ontology: &Ontology) -> OwlResult<BenchmarkResult> {
         let start_time = Instant::now();
         let start_memory = self.get_current_memory_mb();
-        
+
         let mut reasoner = SimpleReasoner::new(ontology.clone());
-        
+
         // Benchmark profile validation for all profiles
         let profiles = [Owl2Profile::EL, Owl2Profile::QL, Owl2Profile::RL];
         let mut total_validations = 0;

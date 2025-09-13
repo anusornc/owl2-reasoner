@@ -58,7 +58,7 @@ impl RdfXmlParser {
         let lines: Vec<&str> = content.lines().collect();
         let mut stack = Vec::new();
         
-        for (line_num, line) in lines.iter().enumerate() {
+        for line in lines.iter() {
             let line = line.trim();
             if line.is_empty() {
                 continue;
