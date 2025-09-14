@@ -39,10 +39,10 @@ class SimpleBenchmarkRunner:
             },
             'jfact': {
                 'name': 'JFact',
-                'command': ['java', '-jar', 'jfact-4.0.0.jar'],
+                'command': ['java', '-cp', './owlapi-owlapi-parent-5.5.1/distribution/target/owlapi-distribution-5.5.1.jar:jfact-4.0.0.jar:slf4j-simple-2.0.11.jar:.', 'JFactCLI'],
                 'args': {
-                    'classification': [''],
-                    'consistency': ['']
+                    'classification': ['classify'],
+                    'consistency': ['consistent']
                 }
             },
             'pellet': {
