@@ -208,13 +208,13 @@ fn main() {
 
     // Calculate scalability score from large scale test
     let scalability_score = all_results.iter()
-        .find(|(name, _)| name == "large_scale")
+        .find(|(name, _)| *name == "large_scale")
         .map(|(_, results)| results.scalability_score)
         .unwrap_or(0.0);
 
     // Calculate memory efficiency score
     let memory_efficiency_score = all_results.iter()
-        .find(|(name, _)| name == "large_scale")
+        .find(|(name, _)| *name == "large_scale")
         .map(|(_, results)| results.memory_efficiency_score)
         .unwrap_or(0.0);
 
