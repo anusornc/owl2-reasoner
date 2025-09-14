@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWL2 Reasoner Analysis: Real_OWL2_Reasoner_Benchmark</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        h1 {
+            border-bottom: 3px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric {
+            background: linear-gradient(135deg, #007acc, #0056b3);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        .metric .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .results-table th, .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .results-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .results-table tr.success {
+            background-color: #d4edda;
+        }
+        .results-table tr.error {
+            background-color: #f8d7da;
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .chart {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .chart canvas {
+            width: 100%;
+            height: 300px;
+        }
+        .metadata {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OWL2 Reasoner Analysis: Real_OWL2_Reasoner_Benchmark</h1>
+
+        <div class="metadata">
+            <strong>Generated:</strong> 2025-09-14 21:00:41<br>
+            <strong>Framework:</strong> OWL2 Reasoner Evaluation Framework
+        </div>
+
+        
+<h2>Test Environment</h2>
+
+<h3>Hardware Specifications</h3>
+<ul>
+    <li><strong>CPU Cores</strong>: 8</li>
+    <li><strong>Processor</strong>: arm</li>
+    <li><strong>Total Memory</strong>: 8.0 GB</li>
+    <li><strong>Architecture</strong>: arm64</li>
+</ul>
+
+<h3>Software Environment</h3>
+<ul>
+    <li><strong>Operating System</strong>: Darwin 15.6.1</li>
+    <li><strong>Python Version</strong>: 3.11.3</li>
+    <li><strong>Java Runtime</strong>: 24.0.2 (Unknown)</li>
+</ul>
+
+
+        
+<h2>Results Overview</h2>
+
+<div class="results-summary">
+    <div class="metric">
+        <h3>Total Tests</h3>
+        <div class="value">32</div>
+    </div>
+    <div class="metric">
+        <h3>Successful</h3>
+        <div class="value">0</div>
+    </div>
+    <div class="metric">
+        <h3>Success Rate</h3>
+        <div class="value">0.0%</div>
+    </div>
+    <div class="metric">
+        <h3>Avg Execution Time</h3>
+        <div class="value">0.00 ms</div>
+    </div>
+</div>
+
+
+        
+<h2>Statistical Analysis</h2>
+
+<h3>Basic Statistics</h3>
+<ul>
+    <li><strong>summary</strong>: total_tests=32.00, successful_tests=0.00, failed_tests=32.00, timeout_rate=0.00, overall_success_rate=0.00</li>
+</ul>
+
+
+<h3>Comparative Analysis</h3>
+<ul>
+    <li><strong>overall_ranking</strong>: Complex comparative data</li>
+    <li><strong>performance_ranking</strong>: Complex comparative data</li>
+    <li><strong>efficiency_ranking</strong>: Complex comparative data</li>
+    <li><strong>reliability_ranking</strong>: Complex comparative data</li>
+    <li><strong>reasoner_scores</strong>: Complex comparative data</li>
+    <li><strong>statistical_significance</strong>: Complex comparative data</li>
+    <li><strong>recommendations</strong>: Complex comparative data</li>
+    <li><strong>key_findings</strong>: Complex comparative data</li>
+    <li><strong>pairwise_comparisons</strong>: Complex comparative data</li>
+</ul>
+
+
+<h3>Significance Testing</h3>
+<p>No significance testing results available.</p>
+
+
+        
+<h2>Performance Visualizations</h2>
+
+<div class="charts-container">
+    <div class="chart">
+        <h3>Execution Time Distribution</h3>
+        <canvas id="executionTimeChart"></canvas>
+    </div>
+    <div class="chart">
+        <h3>Success Rate by Reasoner</h3>
+        <canvas id="successRateChart"></canvas>
+    </div>
+    <div class="chart">
+        <h3>Memory Usage Comparison</h3>
+        <canvas id="memoryUsageChart"></canvas>
+    </div>
+</div>
+
+<script>
+// Chart.js would be loaded here for interactive visualizations
+console.log('Charts would be rendered here with Chart.js');
+</script>
+
+
+        
+<h2>Detailed Results</h2>
+
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Reasoner</th>
+            <th>Type</th>
+            <th>Operation</th>
+            <th>Success</th>
+            <th>Execution Time (ms)</th>
+            <th>Memory (MB)</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>360.08</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>268.59</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>320.32</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>255.39</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>261.14</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>258.77</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>245.47</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>ELK</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>246.00</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>50.56</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>48.38</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>47.75</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>51.51</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>48.16</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>47.22</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>46.62</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>HermiT</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>47.51</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>44.84</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>43.75</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>43.94</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>45.31</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>45.14</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>44.68</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>44.48</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>JFact</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>45.28</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>578.69</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>11.48</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>11.25</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>10.93</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>10.82</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>classification</td>
+            <td>False</td>
+            <td>10.75</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>10.90</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+        <tr class="error">
+            <td>Pellet</td>
+            <td>library</td>
+            <td>consistency</td>
+            <td>False</td>
+            <td>11.01</td>
+            <td>N/A</td>
+            <td>✗</td>
+        </tr>
+
+    </tbody>
+</table>
+
+
+        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666;">
+            <p>Generated by OWL2 Reasoner Evaluation Framework</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1 @@
+DataUnionOf(<http://www.semanticweb.org/owlapi/test#DT> DataOneOf("false"^^xsd:boolean))

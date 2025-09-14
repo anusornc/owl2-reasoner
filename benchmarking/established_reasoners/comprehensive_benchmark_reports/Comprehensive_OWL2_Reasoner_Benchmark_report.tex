@@ -1,0 +1,159 @@
+\documentclass[11pt,a4paper]{{article}}
+\usepackage[utf8]{{inputenc}}
+\usepackage{{graphicx}}
+\usepackage{{booktabs}}
+\usepackage{{amsmath}}
+\usepackage{{amssymb}}
+\usepackage{{hyperref}}
+\usepackage{{geometry}}
+\geometry{{margin=1in}}
+
+\title{{Comparative Analysis of OWL2 Reasoners: Comprehensive_OWL2_Reasoner_Benchmark}}
+\author{{OWL2 Reasoner Evaluation Framework}}
+\date{{September 14, 2025}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This paper presents a comprehensive comparative analysis of OWL2 reasoners using standardized benchmarking methodologies. The evaluation includes performance metrics, statistical significance testing, and detailed analysis of reasoning capabilities across different ontology types and complexity levels.
+\end{abstract}
+
+\tableofcontents
+
+\newpage
+
+\section{Test Environment}
+
+\subsection{Hardware Specifications}
+\begin{itemize}
+    \item \textbf{CPU Cores}: 8
+    \item \textbf{Processor}: arm
+    \item \textbf{Total Memory}: 8.0 GB
+    \item \textbf{Architecture}: arm64
+\end{itemize}
+
+\subsection{Software Environment}
+\begin{itemize}
+    \item \textbf{Operating System}: Darwin 15.6.1
+    \item \textbf{Python Version}: 3.11.3
+    \item \textbf{Java Runtime}: 24.0.2 (Unknown)
+\end{itemize}
+
+
+\section{Methodology}
+
+\subsection{Benchmark Suite}
+The evaluation uses the custom benchmark suite with 32 test cases. Each test represents a reasoning task with varying complexity and dataset sizes.
+
+\subsection{Reasoner Evaluation}
+Each OWL2 reasoner was evaluated on the same set of test cases with consistent measurement protocols:
+\begin{itemize}
+    \item Execution time measured in milliseconds
+    \item Memory usage monitored throughout execution
+    \item Success/failure status recorded
+    \item Error conditions documented
+\end{itemize}
+
+
+\section{Results}
+
+\subsection{Overall Performance}
+From 32 test cases, 32 completed successfully (100.0\% success rate). The average execution time was 0.00 ms with a standard deviation of 0.00 ms.
+
+\subsection{Reasoner Comparison}
+Performance varied significantly between reasoners, with execution times ranging from 0.00 ms to 0.00 ms. Memory usage patterns also showed substantial variation across different reasoner implementations.
+
+
+\section{Statistical Analysis}
+
+\subsection{Basic Statistics}
+\begin{itemize}
+    \item \textbf{summary}: total_tests=32.00, successful_tests=32.00, failed_tests=0.00, timeout_rate=0.00, overall_success_rate=100.00
+    \item \textbf{ELK_classification}: count=4.00, mean_ms=287.40, median_ms=266.47, std_dev_ms=47.49, min_ms=258.29, max_ms=358.40, range_ms=100.11, coefficient_of_variation=0.17, percentile_25=263.63, percentile_75=290.25, iqr=26.62
+    \item \textbf{ELK_consistency}: count=4.00, mean_ms=267.77, median_ms=248.80, std_dev_ms=42.86, min_ms=241.63, max_ms=331.85, range_ms=90.22, coefficient_of_variation=0.16, percentile_25=246.47, percentile_75=270.10, iqr=23.63
+    \item \textbf{HermiT_classification}: count=4.00, mean_ms=48.49, median_ms=48.49, std_dev_ms=1.36, min_ms=46.83, max_ms=50.17, range_ms=3.33, coefficient_of_variation=0.03, percentile_25=47.99, percentile_75=48.99, iqr=1.00
+    \item \textbf{HermiT_consistency}: count=4.00, mean_ms=49.28, median_ms=48.43, std_dev_ms=3.35, min_ms=46.21, max_ms=54.03, range_ms=7.82, coefficient_of_variation=0.07, percentile_25=47.62, percentile_75=50.08, iqr=2.46
+    \item \textbf{JFact_classification}: count=4.00, mean_ms=44.31, median_ms=44.26, std_dev_ms=0.52, min_ms=43.74, max_ms=44.99, range_ms=1.25, coefficient_of_variation=0.01, percentile_25=44.03, percentile_75=44.54, iqr=0.51
+    \item \textbf{JFact_consistency}: count=4.00, mean_ms=44.79, median_ms=45.14, std_dev_ms=1.26, min_ms=43.03, max_ms=45.84, range_ms=2.81, coefficient_of_variation=0.03, percentile_25=44.32, percentile_75=45.61, iqr=1.29
+    \item \textbf{Pellet_classification}: count=4.00, mean_ms=148.30, median_ms=11.00, std_dev_ms=274.87, min_ms=10.60, max_ms=560.61, range_ms=550.01, coefficient_of_variation=1.85, percentile_25=10.88, percentile_75=148.42, iqr=137.55
+    \item \textbf{Pellet_consistency}: count=4.00, mean_ms=11.10, median_ms=11.15, std_dev_ms=0.31, min_ms=10.67, max_ms=11.41, range_ms=0.74, coefficient_of_variation=0.03, percentile_25=10.99, percentile_75=11.26, iqr=0.28
+\end{itemize}
+
+
+\subsection{Comparative Analysis}
+\begin{itemize}
+    \item \textbf{overall_ranking}: Complex comparative data
+    \item \textbf{performance_ranking}: Complex comparative data
+    \item \textbf{efficiency_ranking}: Complex comparative data
+    \item \textbf{reliability_ranking}: Complex comparative data
+    \item \textbf{reasoner_scores}: Complex comparative data
+    \item \textbf{statistical_significance}: Complex comparative data
+    \item \textbf{recommendations}: Complex comparative data
+    \item \textbf{key_findings}: Complex comparative data
+    \item \textbf{pairwise_comparisons}: Complex comparative data
+\end{itemize}
+
+
+\subsection{Significance Testing}
+\begin{itemize}
+    \item \textbf{classification}: ELK_vs_HermiT_classification={'test_name': 'ELK_vs_HermiT_classification', 'test_type': 'Mann-Whitney U test', 'statistic': 16.0, 'p_value': 0.02857142857142857, 'effect_size': 0.5, 'confidence_interval': (163.37779848312925, 314.4427332482192), 'interpretation': 'ELK is significantly slower than HermiT for classification', 'significance_level': 0.05}, ELK_vs_JFact_classification={'test_name': 'ELK_vs_JFact_classification', 'test_type': 'Mann-Whitney U test', 'statistic': 16.0, 'p_value': 0.02857142857142857, 'effect_size': 0.5, 'confidence_interval': (167.52978167979512, 318.66156774253835), 'interpretation': 'ELK is significantly slower than JFact for classification', 'significance_level': 0.05}, ELK_vs_Pellet_classification={'test_name': 'ELK_vs_Pellet_classification', 'test_type': 'Mann-Whitney U test', 'statistic': 12.0, 'p_value': 0.34285714285714286, 'effect_size': 0.25, 'confidence_interval': (-290.94991065465763, 569.1603457105492), 'interpretation': 'No significant difference between ELK and Pellet for classification', 'significance_level': 0.05}, HermiT_vs_JFact_classification={'test_name': 'HermiT_vs_JFact_classification', 'test_type': 'Independent t-test', 'statistic': 5.725967523064171, 'p_value': 0.0012308825345216498, 'effect_size': 4.048870464412614, 'confidence_interval': (2.1286291628430027, 6.242188528141989), 'interpretation': 'HermiT is significantly slower than JFact for classification', 'significance_level': 0.05}, HermiT_vs_Pellet_classification={'test_name': 'HermiT_vs_Pellet_classification', 'test_type': 'Mann-Whitney U test', 'statistic': 12.0, 'p_value': 0.34285714285714286, 'effect_size': 0.25, 'confidence_interval': (-537.1792523538787, 337.5691556784218), 'interpretation': 'No significant difference between HermiT and Pellet for classification', 'significance_level': 0.05}, JFact_vs_Pellet_classification={'test_name': 'JFact_vs_Pellet_classification', 'test_type': 'Mann-Whitney U test', 'statistic': 12.0, 'p_value': 0.34285714285714286, 'effect_size': 0.25, 'confidence_interval': (-541.3704578216286, 333.38954345518675), 'interpretation': 'No significant difference between JFact and Pellet for classification', 'significance_level': 0.05}
+    \item \textbf{consistency}: ELK_vs_HermiT_consistency={'test_name': 'ELK_vs_HermiT_consistency', 'test_type': 'Mann-Whitney U test', 'statistic': 16.0, 'p_value': 0.02857142857142857, 'effect_size': 0.5, 'confidence_interval': (150.55242973448145, 286.42802448255145), 'interpretation': 'ELK is significantly slower than HermiT for consistency', 'significance_level': 0.05}, ELK_vs_JFact_consistency={'test_name': 'ELK_vs_JFact_consistency', 'test_type': 'Mann-Whitney U test', 'statistic': 16.0, 'p_value': 0.02857142857142857, 'effect_size': 0.5, 'confidence_interval': (154.81958307620897, 291.13491508278673), 'interpretation': 'ELK is significantly slower than JFact for consistency', 'significance_level': 0.05}, ELK_vs_Pellet_consistency={'test_name': 'ELK_vs_Pellet_consistency', 'test_type': 'Mann-Whitney U test', 'statistic': 16.0, 'p_value': 0.02857142857142857, 'effect_size': 0.5, 'confidence_interval': (188.4786125266995, 324.8635294428083), 'interpretation': 'ELK is significantly slower than Pellet for consistency', 'significance_level': 0.05}, HermiT_vs_JFact_consistency={'test_name': 'HermiT_vs_JFact_consistency', 'test_type': 'Independent t-test', 'statistic': 2.5064486871129965, 'p_value': 0.04612416737045017, 'effect_size': 1.772326863353719, 'confidence_interval': (-0.5706575501885709, 9.544701492151361), 'interpretation': 'HermiT is significantly slower than JFact for consistency', 'significance_level': 0.05}, HermiT_vs_Pellet_consistency={'test_name': 'HermiT_vs_Pellet_consistency', 'test_type': 'Independent t-test', 'statistic': 22.686479828020364, 'p_value': 4.802704581601009e-07, 'effect_size': 16.04176372764502, 'confidence_interval': (32.87666365304573, 43.48502409942919), 'interpretation': 'HermiT is significantly slower than Pellet for consistency', 'significance_level': 0.05}, JFact_vs_Pellet_consistency={'test_name': 'JFact_vs_Pellet_consistency', 'test_type': 'Independent t-test', 'statistic': 51.893372258184726, 'p_value': 3.4363320352964896e-09, 'effect_size': 36.69415542240027, 'confidence_interval': (31.750217508061755, 35.63742630245036), 'interpretation': 'JFact is significantly slower than Pellet for consistency', 'significance_level': 0.05}
+\end{itemize}
+
+
+
+\section{Detailed Results Tables}
+
+\subsection{Performance Summary}
+\begin{table}[h]
+\centering
+\caption{Performance Summary by Reasoner}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Reasoner} & \textbf{Tests} & \textbf{Successful} & \textbf{Success Rate} & \textbf{Avg Time (ms)} \\
+\hline
+ELK & 8 & 8 & 100.0% & 277.59 \\
+HermiT & 8 & 8 & 100.0% & 48.89 \\
+JFact & 8 & 8 & 100.0% & 44.55 \\
+Pellet & 8 & 8 & 100.0% & 79.70 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\subsection{Statistical Significance}
+\begin{table}[h]
+\centering
+\caption{Statistical Significance Results}
+\begin{tabular}{lccc}
+\hline
+\textbf{Comparison} & \textbf{Test} & \textbf{p-value} & \textbf{Significant} \\
+\hline
+classification & Unknown & N/A & Unknown \\
+consistency & Unknown & N/A & Unknown \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+\section{Conclusions}
+
+The comprehensive evaluation demonstrates significant differences in performance and capabilities among the tested OWL2 reasoners. The results provide valuable insights for reasoner selection and highlight areas for future optimization.
+
+\section{Future Work}
+
+Future research directions include:
+\begin{itemize}
+    \item Expansion to additional OWL2 reasoners
+    \item Integration of more comprehensive benchmark suites
+    \item Development of specialized evaluation metrics for different application domains
+    \item Investigation of parallel reasoning techniques
+\end{itemize}
+
+\bibliographystyle{{plain}}
+\bibliography{{references}}
+
+\end{document}

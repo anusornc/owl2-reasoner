@@ -1,0 +1,1 @@
+ObjectPropertyRange(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) <http://example.com/objectProperty> <http://www.semanticweb.org/owlapi/test#C>)

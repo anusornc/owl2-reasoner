@@ -1,0 +1,1 @@
+ObjectInverseOf(<http://example.com/objectProperty>)

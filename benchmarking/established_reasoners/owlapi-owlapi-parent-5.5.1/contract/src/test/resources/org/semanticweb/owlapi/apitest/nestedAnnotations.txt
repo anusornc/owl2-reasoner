@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="urn:t:o#" xml:base="urn:t:o"
+ xmlns:ann="http://www.semanticweb.org/owlapi/test#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <owl:Ontology rdf:about="urn:t:o"/>
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/owlapi/test#op1"/>
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/owlapi/test#i"><ann:r rdf:resource="http://www.semanticweb.org/owlapi/test#j"/></owl:NamedIndividual>
+    <owl:Annotation>
+        <owl:annotatedSource>
+            <owl:Axiom rdf:nodeID="_:genid1">
+                <owl:annotatedSource rdf:resource="http://www.semanticweb.org/owlapi/test#i"/><owl:annotatedProperty rdf:resource="http://www.semanticweb.org/owlapi/test#op1"/><owl:annotatedTarget rdf:resource="http://www.semanticweb.org/owlapi/test#j"/>
+                <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</rdfs:label><rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</rdfs:label>
+            </owl:Axiom>
+        </owl:annotatedSource>
+        <owl:annotatedProperty rdf:resource="http://www.w3.org/2000/01/rdf-schema#label"/><owl:annotatedTarget rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</owl:annotatedTarget>
+        <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">3</rdfs:comment></owl:Annotation>
+    <owl:Annotation>
+        <owl:annotatedSource>
+            <owl:Axiom rdf:nodeID="_:genid1">
+                <owl:annotatedSource rdf:resource="http://www.semanticweb.org/owlapi/test#i"/><owl:annotatedProperty rdf:resource="http://www.semanticweb.org/owlapi/test#op1"/><owl:annotatedTarget rdf:resource="http://www.semanticweb.org/owlapi/test#j"/>
+                <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</rdfs:label><rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</rdfs:label>
+            </owl:Axiom>
+        </owl:annotatedSource>
+        <owl:annotatedProperty rdf:resource="http://www.w3.org/2000/01/rdf-schema#label"/><owl:annotatedTarget rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</owl:annotatedTarget>
+        <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">4</rdfs:comment></owl:Annotation>
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/owlapi/test#j"/></rdf:RDF>

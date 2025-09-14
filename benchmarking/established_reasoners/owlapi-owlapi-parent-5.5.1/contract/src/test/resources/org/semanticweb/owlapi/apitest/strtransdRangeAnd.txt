@@ -1,0 +1,1 @@
+SubClassOf(owl:Thing DataAllValuesFrom(<http://www.semanticweb.org/owlapi/test#p> DataIntersectionOf(<http://www.semanticweb.org/owlapi/test#DT> DataOneOf("false"^^xsd:boolean))))

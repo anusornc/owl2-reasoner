@@ -1,0 +1,1 @@
+ReflexiveObjectProperty(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) <http://example.com/objectProperty>)

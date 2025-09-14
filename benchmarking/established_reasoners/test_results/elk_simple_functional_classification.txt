@@ -1,0 +1,8 @@
+Ontology(
+Declaration(Class(<http://example.org/test#Course>))
+Declaration(Class(<http://example.org/test#Person>))
+Declaration(Class(<http://example.org/test#Professor>))
+Declaration(Class(<http://example.org/test#Student>))
+SubClassOf(<http://example.org/test#Professor> <http://example.org/test#Person>)
+SubClassOf(<http://example.org/test#Student> <http://example.org/test#Person>)
+)

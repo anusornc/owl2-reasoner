@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://www.semanticweb.org/owlapi/test224612089629142#"
+     xml:base="http://www.semanticweb.org/owlapi/test224612089629142"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:ontology="http://www.semanticweb.org/owlapi/test#">
+    <owl:Ontology rdf:about="http://www.semanticweb.org/owlapi/test224612089629142"/>
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/owlapi/test#p"/>
+    <owl:Thing rdf:about="http://www.semanticweb.org/owlapi/test#a">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+        <ontology:p>test url</ontology:p>
+    </owl:Thing>
+</rdf:RDF>

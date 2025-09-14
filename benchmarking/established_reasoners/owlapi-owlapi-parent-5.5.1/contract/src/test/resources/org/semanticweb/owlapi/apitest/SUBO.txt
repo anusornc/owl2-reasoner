@@ -1,0 +1,1 @@
+SubObjectPropertyOf(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) ObjectPropertyChain(<http://www.semanticweb.org/owlapi/test#iri> <http://example.com/objectProperty>) <http://example.com/objectProperty>)

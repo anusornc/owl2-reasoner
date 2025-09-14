@@ -1,0 +1,1 @@
+ClassAssertion(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) DataAllValuesFrom(<http://www.semanticweb.org/owlapi/test#p> <http://www.semanticweb.org/owlapi/test#DT>) <http://www.semanticweb.org/owlapi/test#i>)

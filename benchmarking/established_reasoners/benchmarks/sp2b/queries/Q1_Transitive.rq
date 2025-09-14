@@ -1,0 +1,14 @@
+PREFIX sp2b: <http://purl.org/NET/rdfsp2b#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# This query tests transitive closure reasoning
+# Find all people indirectly known through the 'knows' relationship
+SELECT DISTINCT ?person1 ?person2 ?distance
+WHERE {
+    ?person1 rdf:type sp2b:Person .
+    ?person2 rdf:type sp2b:Person .
+    ?person1 sp2b:knows* ?person2 .
+    FILTER (?person1 != ?person2)
+}
+ORDER BY ?person1 ?person2
+LIMIT 200

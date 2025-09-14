@@ -1,0 +1,1 @@
+Ontology(OntologyID(OntologyIRI(<http://www.semanticweb.org/owlapi/test#test>) VersionIRI(<null>)) [Axioms: 0] [Logical axioms: 0])

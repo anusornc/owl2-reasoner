@@ -1,0 +1,1 @@
+DataPropertyAtom(<http://www.semanticweb.org/owlapi/test#p> Variable(<urn:swrl:var#var2>) "false"^^xsd:boolean)

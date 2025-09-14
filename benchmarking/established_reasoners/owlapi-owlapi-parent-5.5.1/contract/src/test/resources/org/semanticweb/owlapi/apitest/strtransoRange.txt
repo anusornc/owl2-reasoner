@@ -1,0 +1,2 @@
+SubClassOf(<http://www.semanticweb.org/ontology#X0> <http://www.semanticweb.org/owlapi/test#C>)
+SubClassOf(owl:Thing ObjectAllValuesFrom(<http://example.com/objectProperty> <http://www.semanticweb.org/ontology#X0>))

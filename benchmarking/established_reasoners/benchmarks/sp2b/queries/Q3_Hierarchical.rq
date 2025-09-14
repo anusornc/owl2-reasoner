@@ -1,0 +1,13 @@
+PREFIX sp2b: <http://purl.org/NET/rdfsp2b#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# This query tests hierarchical classification reasoning
+# Find professors and all their indirect subordinates
+SELECT DISTINCT ?professor ?student
+WHERE {
+    ?professor rdf:type sp2b:Professor .
+    ?student rdf:type sp2b:Student .
+    ?professor sp2b:supervisorOf+ ?student .
+}
+ORDER BY ?professor ?student
+LIMIT 100

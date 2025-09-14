@@ -1,0 +1,11 @@
+PREFIX univ-bench: <http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?student ?researchGroup
+WHERE {
+    ?student rdf:type univ-bench:GraduateStudent .
+    ?student univ-bench:memberOf ?researchGroup .
+    ?researchGroup rdf:type univ-bench:ResearchGroup .
+}
+ORDER BY ?student
+LIMIT 150

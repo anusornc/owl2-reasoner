@@ -1,0 +1,27 @@
+Prefix(:=<http://example.org/test#>)
+Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
+Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
+Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
+
+Ontology(<http://example.org/test>
+
+  Declaration(Class(:Person))
+  Declaration(Class(:Student))
+  Declaration(Class(:Professor))
+  Declaration(ObjectProperty(:teaches))
+  Declaration(ObjectProperty(:studies))
+  Declaration(ObjectProperty(:worksAt))
+
+  SubClassOf(:Student :Person)
+  SubClassOf(:Professor :Person)
+
+  DisjointClasses(:Student :Professor)
+
+  AsymmetricProperty(:teaches)
+  AsymmetricProperty(:studies)
+
+  InverseObjectProperties(:teaches :studies)
+
+  FunctionalProperty(:worksAt)
+
+)

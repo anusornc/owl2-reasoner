@@ -1,0 +1,2 @@
+SubClassOf(owl:Thing ObjectComplementOf(<http://www.semanticweb.org/owlapi/test#C>))
+SubClassOf(owl:Thing ObjectComplementOf(<http://www.semanticweb.org/owlapi/test#iri>))

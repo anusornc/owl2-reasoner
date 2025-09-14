@@ -1,0 +1,15 @@
+PREFIX sp2b: <http://purl.org/NET/rdfsp2b#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# This query tests complex type inference
+# Find researchers based on their publications and expertise
+SELECT DISTINCT ?person ?topic
+WHERE {
+    ?person rdf:type sp2b:Person .
+    ?person sp2b:authorOf ?document .
+    ?document sp2b:hasTopic ?topic .
+    ?person sp2b:expertIn ?topic .
+    ?topic rdf:type sp2b:Topic .
+}
+ORDER BY ?person ?topic
+LIMIT 150

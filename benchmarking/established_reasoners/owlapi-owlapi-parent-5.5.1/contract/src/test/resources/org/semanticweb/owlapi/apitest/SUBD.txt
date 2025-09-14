@@ -1,0 +1,1 @@
+SubDataPropertyOf(<http://www.semanticweb.org/owlapi/test#p> owl:topDataProperty)

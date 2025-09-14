@@ -1,0 +1,1 @@
+ObjectHasSelf(<http://example.com/objectProperty>)

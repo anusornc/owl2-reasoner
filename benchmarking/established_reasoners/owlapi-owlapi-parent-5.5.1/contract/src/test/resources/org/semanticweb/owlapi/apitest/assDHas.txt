@@ -1,0 +1,1 @@
+ClassAssertion(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) DataHasValue(<http://www.semanticweb.org/owlapi/test#p> "false"^^xsd:boolean) <http://www.semanticweb.org/owlapi/test#i>)

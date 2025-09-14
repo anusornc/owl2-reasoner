@@ -1,0 +1,1 @@
+DataPropertyRange(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) <http://www.semanticweb.org/owlapi/test#p> DataIntersectionOf(<http://www.semanticweb.org/owlapi/test#DT> DataOneOf("false"^^xsd:boolean)))

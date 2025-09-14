@@ -1,0 +1,1 @@
+DatatypeDefinition(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) <http://www.semanticweb.org/owlapi/test#DT> xsd:double)
