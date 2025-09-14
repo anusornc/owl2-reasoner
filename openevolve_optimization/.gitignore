@@ -1,0 +1,79 @@
+# OpenEvolve API Keys and Sensitive Data
+*.key
+*.secret
+*.token
+api_key.txt
+secret.txt
+
+# Environment files with sensitive data
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OpenEvolve temporary files
+openevolve_*.db
+openevolve_*.log
+openevolve_cache/
+openevolve_temp/
+
+# Rust build artifacts
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Evolution artifacts
+evolved_programs/
+best_programs/
+evolution_results/
+*.evolved
+
+# Temporary files
+*.tmp
+*.temp
+*.backup
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/

@@ -10,12 +10,12 @@ Test Configuration:
 - Subclass Checks Performed: 380
 
 Performance Results:
-- Reasoner Initialization: 26.042µs
-- Consistency Checking: 667ns
-- Reasoning Operations: 22.583µs
-- Bulk Reasoning (380 checks): 4.892375ms
-- Satisfiability Checking: 10.5µs
-- Total Time: 4.952167ms
+- Reasoner Initialization: 28.416µs
+- Consistency Checking: 792ns
+- Reasoning Operations: 25.25µs
+- Bulk Reasoning (380 checks): 5.031875ms
+- Satisfiability Checking: 12.083µs
+- Total Time: 5.098416ms
 
 Memory Usage:
 - Estimated Total Memory: 11.59 KB
@@ -23,8 +23,8 @@ Memory Usage:
 - Entity Count: 42
 
 Performance Metrics:
-- Average Time per Subclass Check: 12874.67 ns
-- Checks per Second: 77672
+- Average Time per Subclass Check: 13241.78 ns
+- Checks per Second: 75519
 - Memory Efficiency: 282.67 bytes/entity
 
 Test Notes:

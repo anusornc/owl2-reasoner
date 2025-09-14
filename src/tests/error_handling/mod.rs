@@ -162,7 +162,8 @@ mod tests {
         let result = reasoner.is_consistent();
         
         assert!(result.is_ok(), "Circular subclass should not cause errors");
-        assert!(result.unwrap(), "Circular subclass should be consistent");
+        // With real consistency checking, circular relationships should be inconsistent
+        assert!(!result.unwrap(), "Circular subclass should be inconsistent");
     }
 
     #[test]

@@ -411,8 +411,8 @@ fn validate_complex_query_support(reasoner: &SimpleReasoner) -> OwlResult<f64> {
     
     let mut successful_queries = 0;
     for (sub, sup) in &test_queries {
-        let sub_iri = IRI::new(sub)?;
-        let sup_iri = IRI::new(sup)?;
+        let sub_iri = IRI::new(*sub)?;
+        let sup_iri = IRI::new(*sup)?;
         if reasoner.is_subclass_of(&sub_iri, &sup_iri).unwrap_or(false) {
             successful_queries += 1;
         }
@@ -433,8 +433,8 @@ fn validate_rule_based_reasoning(reasoner: &SimpleReasoner) -> OwlResult<f64> {
     
     let mut classification_ok = 0;
     for (sub, sup) in &classification_tests {
-        let sub_iri = IRI::new(sub)?;
-        let sup_iri = IRI::new(sup)?;
+        let sub_iri = IRI::new(*sub)?;
+        let sup_iri = IRI::new(*sup)?;
         if reasoner.is_subclass_of(&sub_iri, &sup_iri).unwrap_or(false) {
             classification_ok += 1;
         }

@@ -2,24 +2,24 @@ Enhanced Memory Profiling Report
 =================================
 
 System Allocator Statistics:
-  Total Allocated: 8.20 MB
+  Total Allocated: 8.02 MB
   Current Allocated: 1.06 MB
   Peak Allocated: 1.58 MB
-  Allocation Count: 537579
-  Deallocation Count: 467993
+  Allocation Count: 525335
+  Deallocation Count: 455749
 
 Operation Memory Usage:
   ontology_creation:
     Memory Used: 1008.00 KB
     Peak Memory: 1479.33 KB
-    Allocations: 136000
-    Deallocations: 71488
+    Allocations: 136001
+    Deallocations: 71489
 
   reasoning_operations:
     Memory Used: 0.00 KB
     Peak Memory: 1618.73 KB
-    Allocations: 220014
-    Deallocations: 220014
+    Allocations: 201487
+    Deallocations: 201488
 
 Entity Memory Breakdown:
   Classes:

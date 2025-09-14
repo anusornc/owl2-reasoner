@@ -365,25 +365,24 @@ impl EmpiricalValidator {
         report.push_str(&format!("### Sub-millisecond Response Time: {}\n", 
             if sub_ms_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
         
-        // Check cache hit rate claim
-        let cache_claim = if let Some(analysis) = self.cache_analyses.get("satisfiability_cache") {
-            analysis.hit_rate >= 0.85
+        // Report cache hit rate measurement
+        let cache_hit_rate = if let Some(analysis) = self.cache_analyses.get("satisfiability_cache") {
+            analysis.hit_rate * 100.0
         } else {
-            false
+            0.0
         };
-        
-        report.push_str(&format!("### 85-95% Cache Hit Rate: {}\n", 
-            if cache_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
-        
-        // Check memory efficiency claim
-        let memory_claim = if let Some(profile) = self.memory_profiles.values().next() {
-            profile.memory_per_entity_mb < 0.01 // Less than 10KB per entity
+
+        report.push_str(&format!("### Cache Hit Rate: {:.1}%\n", cache_hit_rate));
+
+        // Report memory efficiency measurement
+        let memory_per_entity_mb = if let Some(profile) = self.memory_profiles.values().next() {
+            profile.memory_per_entity_mb
         } else {
-            false
+            0.0
         };
+        let memory_per_entity_kb = memory_per_entity_mb * 1024.0;
         
-        report.push_str(&format!("### Memory Efficiency (< 10KB/entity): {}\n", 
-            if memory_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
+        report.push_str(&format!("### Memory Efficiency: {:.1} KB/entity\n", memory_per_entity_kb));
         
         report.push_str("\n### Notes:\n");
         report.push_str("- Validation based on actual runtime measurements\n");

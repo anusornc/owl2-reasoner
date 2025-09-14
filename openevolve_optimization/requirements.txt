@@ -1,0 +1,21 @@
+# Python requirements for OpenEvolve OWL2 Reasoner evolution
+
+# Core OpenEvolve dependencies
+openevolve
+
+# Evaluation and benchmarking
+numpy>=1.21.0
+asyncio
+
+# JSON and data processing
+json5
+
+# System interaction
+subprocess
+
+# Optional: For enhanced monitoring
+matplotlib>=3.5.0  # For progress visualization
+pandas>=1.3.0      # For result analysis
+
+# Optional: For advanced profiling
+psutil>=5.8.0      # For system resource monitoring
