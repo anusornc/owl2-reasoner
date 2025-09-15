@@ -164,24 +164,41 @@ python3 run_simple_comprehensive_benchmark.py
 }
 ```
 
-## 📚 Documentation Structure
+## 📚 Project Structure
 
-The project documentation has been organized into the following structure:
+The project has been reorganized with a clean, modular structure:
 
 ```
-docs/
-├── performance/           # Performance analysis and benchmarking
-│   ├── COMPREHENSIVE_PERFORMANCE_ANALYSIS.md
-│   ├── HEAD_TO_HEAD_COMPARISON.md
-│   └── PERFORMANCE_COMPARISON.md
-├── project/              # Project management and planning
-│   ├── PROJECT_SUCCESS_SUMMARY.md
-│   ├── PRODUCTION_READINESS.md
-│   └── TESTING_IMPROVEMENT_PLAN.md
-├── technical/            # Technical specifications
-│   └── ARCHITECTURE.md
-└── archive/             # Historical and detailed documents
-    └── PaperAlgorithm.md
+owl2-reasoner/
+├── examples/              # Example usage and demonstrations
+│   ├── basic/             # Basic usage examples
+│   │   ├── family_ontology.rs
+│   │   └── biomedical_ontology.rs
+│   ├── benchmarking/      # Performance benchmarking examples
+│   │   ├── benchmark_cli.rs
+│   │   └── performance_benchmarking.rs
+│   ├── validation/        # Validation and testing examples
+│   │   └── complete_validation.rs
+│   └── advanced/          # Advanced use cases
+│       ├── comparative_analysis.rs
+│       └── epcis_validation_suite.rs
+├── benches/               # Rust Criterion benchmarks
+├── tests/                 # Unit and integration tests
+├── benchmarking/          # External benchmarking framework
+│   ├── framework/         # Python benchmarking tools
+│   ├── established_reasoners/  # External reasoners (HermiT, ELK, etc.)
+│   └── datasets/          # Benchmark datasets (LUBM, SP2B, BioPortal)
+├── scripts/               # Utility scripts
+│   ├── run_benchmarks.sh  # Complete benchmark suite
+│   └── validate_system.sh # System validation
+├── archive/               # Legacy and historical components
+│   ├── openevolve_optimization/
+│   └── legacy_examples/
+└── docs/                  # Documentation (organized by category)
+    ├── performance/        # Performance analysis
+    ├── project/           # Project management
+    ├── technical/         # Technical specifications
+    └── archive/           # Historical documents
 ```
 
 ### Key Documentation
