@@ -8,7 +8,6 @@ use crate::iri::IRI;
 use crate::entities::*;
 use crate::axioms::*;
 use crate::error::OwlResult;
-use crate::error::OwlError;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -45,7 +44,7 @@ impl Default for ReasoningConfig {
 }
 
 /// Individual node in the tableaux
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableauxNode {
     id: NodeId,
     concepts: HashSet<ClassExpression>,
@@ -140,22 +139,22 @@ impl TableauxReasoner {
     }
     
     /// Check if a class is satisfiable
-    pub fn is_class_satisfiable(&mut self, class: &IRI) -> OwlResult<bool> {
-        let concept = ClassExpression::Class(class.clone());
+    pub fn is_class_satisfiable(&mut self, class_iri: &IRI) -> OwlResult<bool> {
+        let concept = ClassExpression::Class(Class::new(class_iri.clone()));
         self.is_satisfiable(&concept)
     }
     
     /// Check if one class is a subclass of another
     pub fn is_subclass_of(&mut self, sub: &IRI, sup: &IRI) -> OwlResult<bool> {
-        let sub_concept = ClassExpression::Class(sub.clone());
-        let sup_concept = ClassExpression::Class(sup.clone());
-        
+        let sub_concept = ClassExpression::Class(Class::new(sub.clone()));
+        let sup_concept = ClassExpression::Class(Class::new(sup.clone()));
+
         // A ⊑ B iff A ⊓ ¬B is unsatisfiable
         let intersection = ClassExpression::ObjectIntersectionOf(vec![
             sub_concept,
             ClassExpression::ObjectComplementOf(Box::new(sup_concept)),
         ]);
-        
+
         Ok(!self.is_satisfiable(&intersection)?)
     }
     
@@ -166,12 +165,12 @@ impl TableauxReasoner {
     
     /// Check if two classes are disjoint
     pub fn are_disjoint_classes(&mut self, a: &IRI, b: &IRI) -> OwlResult<bool> {
-        let a_concept = ClassExpression::Class(a.clone());
-        let b_concept = ClassExpression::Class(b.clone());
-        
+        let a_concept = ClassExpression::Class(Class::new(a.clone()));
+        let b_concept = ClassExpression::Class(Class::new(b.clone()));
+
         // A and B are disjoint iff A ⊓ B is unsatisfiable
         let intersection = ClassExpression::ObjectIntersectionOf(vec![a_concept, b_concept]);
-        
+
         Ok(!self.is_satisfiable(&intersection)?)
     }
     
@@ -228,7 +227,7 @@ impl TableauxReasoner {
             
             // Apply reasoning rules
             let node = graph.nodes.get(&node_id).unwrap();
-            let mut new_nodes = Vec::new();
+            let mut new_nodes: Vec<NodeId> = Vec::new();
             
             for concept in &node.concepts {
                 if let Some((new_concepts, new_nodes_created)) = self.apply_rules(concept, node_id, graph)? {
@@ -272,8 +271,8 @@ impl TableauxReasoner {
     }
     
     /// Apply reasoning rules to a concept
-    fn apply_rules(&self, concept: &ClassExpression, node_id: NodeId, graph: &TableauxGraph) 
-        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>> 
+    fn apply_rules(&self, concept: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
     {
         match concept {
             ClassExpression::ObjectIntersectionOf(operands) => {
@@ -300,15 +299,14 @@ impl TableauxReasoner {
                 }
             }
             
-            ClassExpression::ObjectAllValuesFrom(_, _) => {
+            ClassExpression::ObjectAllValuesFrom(property, filler) => {
                 // ∀R.C → check all R-successors have C
-                // This is more complex and will be implemented later
-                Ok(None)
+                self.apply_all_values_from_rule(property, filler, node_id, graph)
             }
             
-            ClassExpression::ObjectComplementOf(_) => {
-                // ¬C → check for contradiction with C
-                Ok(None)
+            ClassExpression::ObjectComplementOf(concept) => {
+                // ¬C → check for contradiction with C and trigger propagation
+                self.apply_complement_rule(concept, node_id, graph)
             }
             
             ClassExpression::Class(_) => {
@@ -316,18 +314,256 @@ impl TableauxReasoner {
                 Ok(None)
             }
             
-            // More complex rules will be implemented later
-            _ => Ok(None),
+            ClassExpression::ObjectOneOf(individuals) => {
+                // {a₁, ..., aₙ} → create nominal nodes
+                self.apply_one_of_rule(individuals, node_id, graph)
+            }
+
+            ClassExpression::ObjectMinCardinality(n, property) => {
+                // ≥ n R → ensure at least n R-successors
+                self.apply_min_cardinality_rule(*n as usize, property, &ClassExpression::Class(Class::new(IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap())), node_id, graph)
+            }
+
+            ClassExpression::ObjectMaxCardinality(n, property) => {
+                // ≤ n R → ensure at most n R-successors
+                self.apply_max_cardinality_rule(*n as usize, property, &ClassExpression::Class(Class::new(IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap())), node_id, graph)
+            }
+
+            ClassExpression::ObjectExactCardinality(n, property) => {
+                // = n R → ensure exactly n R-successors
+                self.apply_exact_cardinality_rule(*n as usize, property, &ClassExpression::Class(Class::new(IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap())), node_id, graph)
+            }
+
+            ClassExpression::DataSomeValuesFrom(_, _) => {
+                // ∃P.D → data property restrictions (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::DataAllValuesFrom(_, _) => {
+                // ∀P.D → data property restrictions (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::DataMinCardinality(_, _) => {
+                // ≥ n P → data property restrictions (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::DataMaxCardinality(_, _) => {
+                // ≤ n P → data property restrictions (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::DataExactCardinality(_, _) => {
+                // = n P → data property restrictions (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::DataHasValue(_, _) => {
+                // P(v) → data property has value (to be implemented)
+                Ok(None)
+            }
         }
     }
     
     /// Create a successor node for existential restrictions
-    fn create_successor_node(&self, property: &IRI, filler: &ClassExpression, graph: &TableauxGraph) 
-        -> Option<NodeId> 
+    fn create_successor_node(&self, property: &ObjectPropertyExpression, filler: &ClassExpression, graph: &mut TableauxGraph)
+        -> Option<NodeId>
     {
-        // This is a simplified version - in practice, we need to check
-        // if a suitable successor already exists
-        Some(NodeId(graph.next_id))
+        // Check if a suitable successor already exists
+        let node_id = NodeId(graph.next_id);
+        graph.add_node();
+
+        let property_iri = match property {
+            ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
+            ObjectPropertyExpression::ObjectInverseOf(prop) => {
+                // For inverse properties, use the original property's IRI
+                match prop.as_ref() {
+                    ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
+                    ObjectPropertyExpression::ObjectInverseOf(_) => {
+                        // This is a more complex case - for now, return a dummy IRI
+                        return IRI::new("http://example.org/inverse").unwrap();
+                    }
+                }
+            }
+        };
+
+        graph.add_edge(graph.root, property_iri.clone(), node_id);
+        graph.add_concept(node_id, filler.clone());
+        Some(node_id)
+    }
+
+    /// Apply ∀R.C rule: check all R-successors have C
+    fn apply_all_values_from_rule(&self, property: &ObjectPropertyExpression, filler: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // Get all R-successors of the current node
+        let property_iri = match property {
+            ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
+            ObjectPropertyExpression::ObjectInverseOf(prop) => {
+                // For inverse properties, use the original property's IRI
+                match prop.as_ref() {
+                    ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
+                    ObjectPropertyExpression::ObjectInverseOf(_) => {
+                        // This is a more complex case - for now, return a dummy IRI
+                        return IRI::new("http://example.org/inverse").unwrap();
+                    }
+                }
+            }
+        };
+
+        if let Some(successors) = graph.get_successors(node_id, property_iri) {
+            // For each successor, ensure it has the filler concept
+            let mut new_concepts = Vec::new();
+            for successor_id in successors {
+                // Check if successor already has filler concept
+                let successor_node = graph.nodes.get(successor_id).unwrap();
+                if !successor_node.concepts.contains(filler) {
+                    new_concepts.push(filler.clone());
+                }
+            }
+
+            if !new_concepts.is_empty() {
+                return Ok(Some((new_concepts, Vec::new())));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Apply ¬C rule: check for contradiction and propagate
+    fn apply_complement_rule(&self, concept: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // Check if the complement concept exists in the node (contradiction)
+        let node = graph.nodes.get(&node_id).unwrap();
+
+        // Check for direct contradiction
+        if node.concepts.contains(concept) {
+            // Contradiction found - this will be handled by has_contradiction
+            return Ok(None);
+        }
+
+        // For negated class expressions, propagate the negation
+        match concept {
+            ClassExpression::Class(class) => {
+                // For ¬A, check if A exists in the node
+                let a_concept = ClassExpression::Class(class.clone());
+                if node.concepts.contains(&a_concept) {
+                    return Ok(None); // Contradiction will be detected
+                }
+            }
+            ClassExpression::ObjectIntersectionOf(operands) => {
+                // De Morgan's law: ¬(C₁ ⊓ ... ⊓ Cₙ) ≡ ¬C₁ ⊔ ... ⊔ ¬Cₙ
+                let new_concepts: Vec<ClassExpression> = operands.iter()
+                    .map(|op| ClassExpression::ObjectComplementOf(Box::new(op.clone())))
+                    .collect();
+                return Ok(Some((new_concepts, Vec::new())));
+            }
+            ClassExpression::ObjectUnionOf(operands) => {
+                // De Morgan's law: ¬(C₁ ⊔ ... ⊔ Cₙ) ≡ ¬C₁ ⊓ ... ⊓ ¬Cₙ
+                let new_concepts: Vec<ClassExpression> = operands.iter()
+                    .map(|op| ClassExpression::ObjectComplementOf(Box::new(op.clone())))
+                    .collect();
+                return Ok(Some((vec![ClassExpression::ObjectIntersectionOf(new_concepts)], Vec::new())));
+            }
+            _ => {}
+        }
+
+        Ok(None)
+    }
+
+    /// Apply {a₁, ..., aₙ} rule: create nominal nodes
+    fn apply_one_of_rule(&self, individuals: &[crate::entities::Individual], node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // For oneOf, we typically create individual nodes
+        // For now, just return the oneOf concept as is
+        let new_concepts = vec![ClassExpression::ObjectOneOf(individuals.to_vec())];
+        Ok(Some((new_concepts, Vec::new())))
+    }
+
+    /// Apply ≥ n R.C rule: ensure at least n R-successors with C
+    fn apply_min_cardinality_rule(&self, n: usize, property: &ObjectPropertyExpression, filler: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // Count existing R-successors with C
+        let mut matching_successors = 0;
+        let mut new_nodes = Vec::new();
+
+        let property_iri = match property {
+            ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
+            ObjectPropertyExpression::ObjectInverseOf(prop) => {
+                // For inverse properties, use the original property's IRI
+                match prop.as_ref() {
+                    ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
+                    ObjectPropertyExpression::ObjectInverseOf(_) => {
+                        // This is a more complex case - for now, return a dummy IRI
+                        return IRI::new("http://example.org/inverse").unwrap();
+                    }
+                }
+            }
+        };
+
+        if let Some(successors) = graph.get_successors(node_id, property_iri) {
+            for successor_id in successors {
+                let successor_node = graph.nodes.get(successor_id).unwrap();
+                if successor_node.concepts.contains(filler) {
+                    matching_successors += 1;
+                }
+            }
+        }
+
+        // Create additional successors if needed
+        while matching_successors < (n as u32) {
+            let new_node_id = graph.add_node();
+            graph.add_edge(node_id, property_iri.clone(), new_node_id);
+            graph.add_concept(new_node_id, filler.clone());
+            new_nodes.push(new_node_id);
+            matching_successors += 1;
+        }
+
+        if !new_nodes.is_empty() {
+            Ok(Some((Vec::new(), new_nodes)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Apply ≤ n R.C rule: ensure at most n R-successors with C
+    fn apply_max_cardinality_rule(&self, n: usize, property: &ObjectPropertyExpression, filler: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // This is complex and requires blocking or merging
+        // For now, return None (will be implemented later)
+        Ok(None)
+    }
+
+    /// Apply = n R.C rule: ensure exactly n R-successors with C
+    fn apply_exact_cardinality_rule(&self, n: usize, property: &ObjectPropertyExpression, filler: &ClassExpression, node_id: NodeId, graph: &mut TableauxGraph)
+        -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>>
+    {
+        // = n R.C is equivalent to ≥ n R.C ⊓ ≤ n R.C
+        let mut all_new_concepts = Vec::new();
+        let mut all_new_nodes = Vec::new();
+
+        // Apply min cardinality
+        if let Some((concepts, nodes)) = self.apply_min_cardinality_rule(n, property, filler, node_id, graph)? {
+            all_new_concepts.extend(concepts);
+            all_new_nodes.extend(nodes);
+        }
+
+        // Apply max cardinality (not implemented yet)
+        // if let Some((concepts, nodes)) = self.apply_max_cardinality_rule(n, property, filler, node_id, graph)? {
+        //     all_new_concepts.extend(concepts);
+        //     all_new_nodes.extend(nodes);
+        // }
+
+        if !all_new_concepts.is_empty() || !all_new_nodes.is_empty() {
+            Ok(Some((all_new_concepts, all_new_nodes)))
+        } else {
+            Ok(None)
+        }
     }
     
     /// Check if a node contains a contradiction

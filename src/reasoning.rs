@@ -5,18 +5,17 @@
 
 pub mod simple;
 pub mod query;
-// TODO: Re-enable advanced modules when axioms are fully implemented
-// pub mod tableaux;
-// pub mod rules;
-// pub mod consistency;
-// pub mod classification;
+pub mod tableaux;
+pub mod rules;
+pub mod consistency;
+pub mod classification;
 
 pub use simple::*;
 pub use query::*;
-// pub use tableaux::*;
-// pub use rules::*;
-// pub use consistency::*;
-// pub use classification::*;
+pub use tableaux::*;
+pub use rules::*;
+pub use consistency::*;
+pub use classification::*;
 
 use crate::ontology::Ontology;
 use crate::iri::IRI;
@@ -25,6 +24,8 @@ use crate::error::OwlResult;
 /// Main OWL2 reasoning engine
 pub struct OwlReasoner {
     simple: SimpleReasoner,
+    tableaux: Option<TableauxReasoner>,
+    use_advanced_reasoning: bool,
 }
 
 /// Reasoning configuration
@@ -32,12 +33,18 @@ pub struct OwlReasoner {
 pub struct ReasoningConfig {
     /// Enable basic reasoning
     pub enable_reasoning: bool,
+    /// Use advanced tableaux reasoning
+    pub use_advanced_reasoning: bool,
+    /// Tableaux reasoning configuration
+    pub tableaux_config: tableaux::ReasoningConfig,
 }
 
 impl Default for ReasoningConfig {
     fn default() -> Self {
         ReasoningConfig {
             enable_reasoning: true,
+            use_advanced_reasoning: true,
+            tableaux_config: tableaux::ReasoningConfig::default(),
         }
     }
 }
@@ -68,13 +75,20 @@ impl OwlReasoner {
     pub fn new(ontology: Ontology) -> Self {
         Self::with_config(ontology, ReasoningConfig::default())
     }
-    
+
     /// Create a new OWL2 reasoner with custom configuration
-    pub fn with_config(ontology: Ontology, _config: ReasoningConfig) -> Self {
-        let simple = SimpleReasoner::new(ontology);
-        
+    pub fn with_config(ontology: Ontology, config: ReasoningConfig) -> Self {
+        let simple = SimpleReasoner::new(ontology.clone());
+        let tableaux = if config.use_advanced_reasoning {
+            Some(TableauxReasoner::with_config(ontology, config.tableaux_config))
+        } else {
+            None
+        };
+
         OwlReasoner {
             simple,
+            tableaux,
+            use_advanced_reasoning: config.use_advanced_reasoning,
         }
     }
     
@@ -105,6 +119,13 @@ impl OwlReasoner {
 
 impl Reasoner for OwlReasoner {
     fn is_consistent(&mut self) -> OwlResult<bool> {
+        if self.use_advanced_reasoning {
+            if let Some(tableaux) = &mut self.tableaux {
+                // Check consistency using tableaux reasoning
+                // For now, fall back to simple reasoning until tableaux is complete
+                return self.simple.is_consistent();
+            }
+        }
         self.simple.is_consistent()
     }
     
