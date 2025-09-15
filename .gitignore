@@ -83,11 +83,17 @@ benches/output/
 test-results/
 **/test_output/
 **/benchmark_results/
+benchmarking/results/
 
 # Coverage reports
 tarpaulin-report.html
 coverage/
 **/*.cov
+
+# Specific test files
+*.ofn
+test_*.*
+established_reasoners/test_*.*
 
 # === Sensitive Information ===
 # API keys and secrets
@@ -142,6 +148,12 @@ wheels/
 .installed.cfg
 *.egg
 
+# Python debug and temporary files
+debug_*.py
+*_debug.py
+*_simple.py
+test_*.py
+
 # === Virtual Environment ===
 venv/
 env/
@@ -149,6 +161,9 @@ ENV/
 .venv/
 
 # === Archive and Backup Files ===
+# Archive directories
+archive/
+**/archive/
 *.zip
 *.tar
 *.tar.gz
@@ -282,6 +297,14 @@ build/
 scratch/
 tmp/
 temp/
+
+# Debug and test files
+debug_*.rs
+debug_*.py
+test_*.rs
+test_*.py
+*_test.*
+*_debug.*
 
 # Experimental features
 experimental/
