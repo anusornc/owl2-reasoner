@@ -306,6 +306,10 @@ test_*.py
 *_test.*
 *_debug.*
 
+# Exceptions for configuration files
+!ml/openevolve/openevolve_config.yaml
+!ml/openevolve/openevolve_config.py
+
 # ML and optimization outputs
 ml/openevolve/output/
 ml/results/temp/
