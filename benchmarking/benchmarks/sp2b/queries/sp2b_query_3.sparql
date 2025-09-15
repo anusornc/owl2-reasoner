@@ -1,0 +1,11 @@
+# Organization hierarchy reasoning
+# Reasoning Aspect: hierarchical reasoning
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX org: <http://www.w3.org/ns/org#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT ?person ?organization WHERE {
+    ?person foaf:member ?organization .
+    ?organization org:subOrganizationOf ?parent_organization .
+}

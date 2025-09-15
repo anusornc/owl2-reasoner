@@ -1,0 +1,12 @@
+# Social network reasoning - friends of friends
+# Reasoning Aspect: transitive reasoning
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT DISTINCT ?person WHERE {
+    ?person foaf:knows ?friend .
+    ?friend foaf:knows ?friend_of_friend .
+    FILTER(?person != ?friend_of_friend)
+}

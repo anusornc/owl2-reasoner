@@ -1,0 +1,49 @@
+[package]
+name = "owl2_reasoner_optimization"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core dependencies for competitive OWL2 reasoning
+rayon = "1.8"          # Parallel processing
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+crossbeam = "0.8"       # Advanced concurrency
+dashmap = "5.5"        # Lock-free HashMap
+parking_lot = "0.12"   # Fast locking primitives
+ahash = "0.8"          # Fast hashing
+itertools = "0.12"     # Iterator utilities
+bit-vec = "0.6"       # Bit vector operations
+once_cell = "1.19"    # Lazy initialization
+smallvec = "1.11"     # Small vector optimizations
+
+# Optional: For advanced memory management
+bumpalo = "3.14"       # Arena allocator
+
+# Optional: For SIMD operations
+packed_simd = { version = "0.3", optional = true }
+
+# Optional: For advanced parallel algorithms
+tokio = { version = "1.0", features = ["full"], optional = }
+
+[dev-dependencies]
+criterion = "0.5"      # Benchmarking
+proptest = "1.4"       # Property-based testing
+tempfile = "3.8"       # Test file management
+
+[features]
+default = ["parallel"]
+parallel = []
+simd = ["packed_simd"]
+async = ["tokio"]
+memory-pool = ["bumpalo"]
+
+[profile.release]
+lto = true           # Link-time optimization
+codegen-units = 1    # Better optimization
+panic = "abort"      # Smaller binaries
+opt-level = 3        # Maximum optimization
+
+[profile.bench]
+inherits = "release"
+debug = true

@@ -3,7 +3,7 @@ Performance Comparison Table
 
 | Reasoner          | Response (ms) | Memory/Entity | Checks/sec | Scale Limit | Score |
 |-------------------|---------------|---------------|------------|-------------|-------|
-| Our Implementation |          20.9 |           390 |      58673 |        5000 |  50.0 |
+| Our Implementation |          26.9 |           390 |      45531 |        5000 |  45.0 |
 | HermiT (Java)    |           0.5 |           500 |      50000 |      100000 |  48.0 |
 | Pellet (Java)    |           0.8 |           600 |      40000 |       50000 |  43.0 |
 | RacerPro (Lisp)  |           0.3 |           400 |      80000 |       75000 |  58.0 |

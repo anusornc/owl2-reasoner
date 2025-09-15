@@ -10,11 +10,13 @@ pub mod common;
 pub mod turtle;
 pub mod rdf_xml;
 pub mod owl_xml;
+pub mod owl_functional;
 
 pub use common::*;
 pub use turtle::*;
 pub use rdf_xml::*;
 pub use owl_xml::*;
+pub use owl_functional::*;
 
 use crate::ontology::Ontology;
 use crate::error::OwlResult;
@@ -39,7 +41,8 @@ impl ParserFactory {
     pub fn for_file_extension(ext: &str) -> Option<Box<dyn OntologyParser>> {
         match ext.to_lowercase().as_str() {
             "ttl" | "turtle" => Some(Box::new(TurtleParser::new())),
-            "rdf" | "rdfs" | "owl" => Some(Box::new(RdfXmlParser::new())),
+            "rdf" | "rdfs" => Some(Box::new(RdfXmlParser::new())),
+            "owl" | "ofn" => Some(Box::new(OwlFunctionalSyntaxParser::new())), // OWL Functional Syntax files
             "owx" | "xml" => Some(Box::new(OwlXmlParser::new())),
             "nt" => Some(Box::new(NtriplesParser::new())),
             _ => None,
@@ -59,11 +62,18 @@ impl ParserFactory {
     
     /// Auto-detect format and create appropriate parser
     pub fn auto_detect(content: &str) -> Option<Box<dyn OntologyParser>> {
-        if content.trim().starts_with("@prefix") || content.trim().starts_with("PREFIX") {
+        let content_trimmed = content.trim();
+
+        // Check for OWL Functional Syntax (highest priority for .owl files)
+        if content_trimmed.starts_with("Prefix(") ||
+           content_trimmed.contains("Ontology(") ||
+           (content_trimmed.starts_with("Document(") && content_trimmed.contains("Prefix(")) {
+            Some(Box::new(OwlFunctionalSyntaxParser::new()))
+        } else if content_trimmed.starts_with("@prefix") || content_trimmed.starts_with("PREFIX") {
             Some(Box::new(TurtleParser::new()))
-        } else if content.trim().starts_with("<rdf:RDF") || content.contains("<rdf:Description") {
+        } else if content_trimmed.starts_with("<rdf:RDF") || content.contains("<rdf:Description") {
             Some(Box::new(RdfXmlParser::new()))
-        } else if content.trim().starts_with("<?xml") && content.contains("Ontology") {
+        } else if content_trimmed.starts_with("<?xml") && content.contains("Ontology") {
             Some(Box::new(OwlXmlParser::new()))
         } else if content.lines().next().map_or(false, |line| line.contains("> <") && line.contains(" .")) {
             Some(Box::new(NtriplesParser::new()))

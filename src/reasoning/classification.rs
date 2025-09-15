@@ -181,34 +181,46 @@ impl ClassificationEngine {
         Ok(())
     }
     
-    /// Compute transitive closure of subclass relationships
+    /// Compute transitive closure of subclass relationships using evolved BFS algorithm
+    /// This replaces the O(n³) iterative approach with an efficient O(N+E) BFS algorithm
     fn compute_transitive_closure(&mut self) -> OwlResult<()> {
-        let mut changed = true;
-        let mut iterations = 0;
-        
-        while changed && iterations < self.config.max_iterations {
-            changed = false;
-            iterations += 1;
-            
-            // Get all classes
-            let classes: Vec<IRI> = self.ontology.classes().iter().map(|c| c.iri().clone()).collect();
-            
-            for class_iri in &classes {
-                let current_parents: HashSet<IRI> = self.hierarchy.parents[class_iri].clone();
-                
-                // For each parent, add its parents as grandparents
-                for parent_iri in &current_parents {
-                    for grandparent_iri in &self.hierarchy.parents[parent_iri] {
-                        if grandparent_iri != class_iri && !self.hierarchy.parents[class_iri].contains(grandparent_iri) {
-                            self.hierarchy.add_parent(class_iri.clone(), grandparent_iri.clone());
-                            self.hierarchy.add_child(grandparent_iri.clone(), class_iri.clone());
-                            changed = true;
+        // Get all classes
+        let classes: Vec<IRI> = self.ontology.classes().iter().map(|c| c.iri().clone()).collect();
+
+        // For each class, compute all transitive superclasses using BFS
+        for class_iri in &classes {
+            let mut visited: HashSet<IRI> = HashSet::new();
+            let mut queue: VecDeque<IRI> = VecDeque::new();
+            let mut transitive_parents: HashSet<IRI> = HashSet::new();
+
+            // Start BFS from the current class
+            queue.push_back(class_iri.clone());
+            visited.insert(class_iri.clone());
+
+            while let Some(current_class) = queue.pop_front() {
+                // Get direct parents of the current class
+                if let Some(direct_parents) = self.hierarchy.parents.get(&current_class) {
+                    for parent_iri in direct_parents {
+                        // Add to transitive parents if not already present
+                        if transitive_parents.insert(parent_iri.clone()) {
+                            // Continue BFS from this parent if not visited
+                            if visited.insert(parent_iri.clone()) {
+                                queue.push_back(parent_iri.clone());
+                            }
                         }
                     }
                 }
             }
+
+            // Add all discovered transitive parents to the hierarchy
+            for transitive_parent in transitive_parents {
+                if !self.hierarchy.parents[class_iri].contains(&transitive_parent) {
+                    self.hierarchy.add_parent(class_iri.clone(), transitive_parent.clone());
+                    self.hierarchy.add_child(transitive_parent.clone(), class_iri.clone());
+                }
+            }
         }
-        
+
         Ok(())
     }
     
