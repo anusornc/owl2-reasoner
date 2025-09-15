@@ -113,7 +113,7 @@ impl TurtleParser {
             let local = &s[colon_pos + 1..];
             
             if let Some(namespace) = self.prefixes.get(prefix) {
-                IRI::new(&format!("{}{}", namespace, local))
+                IRI::new(&format!("{namespace}{local}"))
             } else {
                 // Treat as full IRI
                 IRI::new(s)
@@ -201,6 +201,12 @@ impl OntologyParser for TurtleParser {
     
     fn format_name(&self) -> &'static str {
         "Turtle"
+    }
+}
+
+impl Default for TurtleParser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -214,8 +214,8 @@ mod tests {
     #[test]
     fn test_rl_validator_creation() {
         let ontology = Arc::new(Ontology::new());
-        let validator = RlProfileValidator::new(ontology);
-        
+        let _validator = RlProfileValidator::new(ontology);
+
         assert!(true); // Should create without error
     }
     

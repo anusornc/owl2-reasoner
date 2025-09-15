@@ -16,7 +16,7 @@
 //! Uses simplified measurements for basic performance tracking and estimation.
 //! Results are estimates and may vary based on actual implementation details.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::entities::{Class, ObjectProperty, NamedIndividual};
 use owl2_reasoner::axioms::{SubClassOfAxiom, ClassExpression};
@@ -31,6 +31,8 @@ fn performance_validation_suite(c: &mut Criterion) {
     println!("==========================================");
     println!("📈 Measuring Basic Performance Metrics");
     println!("");
+
+    // Note: Configure individual benchmark groups for faster execution
 
     // Measure basic performance metrics
     measure_response_times(c);
@@ -51,8 +53,10 @@ fn measure_response_times(c: &mut Criterion) {
     println!("   Measuring basic operation timing");
 
     let mut group = c.benchmark_group("response_time_measurement");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
-    for size in [10, 50, 100, 500].iter() {
+    for size in [10, 50, 100, 250].iter() {
         let ontology = create_test_ontology(*size);
         let reasoner = SimpleReasoner::new(ontology);
 
@@ -93,8 +97,10 @@ fn measure_memory_usage(c: &mut Criterion) {
     println!("   Measuring basic entity size estimation");
 
     let mut group = c.benchmark_group("memory_usage_measurement");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
-    for size in [10, 50, 100, 500].iter() {
+    for size in [10, 50, 100, 250].iter() {
         group.bench_with_input(BenchmarkId::new("entity_memory", size), size, |b, size| {
             b.iter(|| {
                 let ontology = create_test_ontology(*size);
@@ -145,10 +151,12 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
     println!("   Measuring basic cache hit rates");
 
     let mut group = c.benchmark_group("cache_effectiveness_measurement");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
     for size in [10, 50, 100].iter() {
         let ontology = create_test_ontology(*size);
-        let mut reasoner = SimpleReasoner::new(ontology.clone());
+        let reasoner = SimpleReasoner::new(ontology.clone());
 
         // Warm up caches first
         let _ = reasoner.warm_up_caches();
@@ -195,6 +203,8 @@ fn measure_arc_sharing(c: &mut Criterion) {
     println!("   Measuring basic deduplication metrics");
 
     let mut group = c.benchmark_group("arc_sharing_measurement");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
     for size in [10, 50, 100].iter() {
         group.bench_with_input(BenchmarkId::new("arc_sharing", size), size, |b, _| {
@@ -245,6 +255,8 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
     println!("🎯 COMPREHENSIVE BENCHMARK: All Performance Metrics");
 
     let mut group = c.benchmark_group("comprehensive_benchmark");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
     for size in [25, 75, 150].iter() {
         group.bench_with_input(BenchmarkId::new("full_benchmark", size), size, |b, _| {
@@ -274,7 +286,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
 
                 // MEASUREMENT 3: Cache effectiveness
                 reasoner.reset_cache_stats();
-                reasoner.warm_up_caches();
+                let _result = reasoner.warm_up_caches();
 
                 // Perform cache operations
                 for _ in 0..5 {

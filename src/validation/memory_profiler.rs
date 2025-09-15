@@ -68,6 +68,7 @@ impl EntitySizeCalculator {
     }
 
     /// Estimate annotation size
+    #[allow(dead_code)]
     fn estimate_annotation_size(_annotation: &crate::entities::Annotation) -> usize {
         // Conservative estimate for annotation overhead
         64
@@ -113,7 +114,7 @@ impl MemoryProfiler {
             .ok_or_else(|| crate::error::OwlError::ValidationError("Baseline not taken".to_string()))?.total_allocated_mb;
         let baseline_current = self.baseline_stats.as_ref()
             .ok_or_else(|| crate::error::OwlError::ValidationError("Baseline not taken".to_string()))?.current_memory_mb;
-        let baseline_peak = self.baseline_stats.as_ref()
+        let _baseline_peak = self.baseline_stats.as_ref()
             .ok_or_else(|| crate::error::OwlError::ValidationError("Baseline not taken".to_string()))?.peak_memory_mb;
         let baseline_allocations = self.baseline_stats.as_ref()
             .ok_or_else(|| crate::error::OwlError::ValidationError("Baseline not taken".to_string()))?.allocation_count;
@@ -366,28 +367,30 @@ impl MemoryProfiler {
     }
 
     /// Estimate number of unique entities
+    #[allow(dead_code)]
     fn estimate_unique_entities(&self, ontology: &Ontology) -> usize {
         // This is a simplified estimation
         // In practice, you'd track actual Arc references
-        
+
         let mut unique_iris = std::collections::HashSet::new();
-        
+
         for class in ontology.classes() {
             unique_iris.insert(class.iri().as_str());
         }
-        
+
         for prop in ontology.object_properties() {
             unique_iris.insert(prop.iri().as_str());
         }
-        
+
         unique_iris.len()
     }
 
     /// Calculate overhead ratio
+    #[allow(dead_code)]
     fn calculate_overhead_ratio(&self, before: &MemoryStats, after: &MemoryStats) -> f64 {
         let actual_data = after.current_memory_mb - before.current_memory_mb;
         let total_allocation = after.total_allocated_mb - before.total_allocated_mb;
-        
+
         if total_allocation > 0.0 {
             (total_allocation - actual_data) / total_allocation
         } else {

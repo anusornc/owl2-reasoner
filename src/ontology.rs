@@ -313,7 +313,7 @@ impl Ontology {
                 // Update class instances index
                 if let Some(class_iri) = axiom.class_expr().as_named().map(|c| c.iri().clone()) {
                     self.class_instances.entry(axiom.individual().clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(class_iri);
                 }
             }
@@ -322,10 +322,10 @@ impl Ontology {
                 self.property_assertions.push(assertion_arc);
                 // Update property domains and ranges indexes
                 self.property_domains.entry(axiom.property().clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(axiom.subject().clone());
                 self.property_ranges.entry(axiom.property().clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(axiom.object().clone());
             }
             axioms::Axiom::SubObjectProperty(axiom) => {

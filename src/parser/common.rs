@@ -47,7 +47,7 @@ pub fn parse_curie(curie: &str, prefixes: &HashMap<String, String>) -> OwlResult
         let local = &curie[colon_pos + 1..];
         
         if let Some(namespace) = prefixes.get(prefix) {
-            let iri_str = format!("{}{}", namespace, local);
+            let iri_str = format!("{namespace}{local}");
             return IRI::new(iri_str);
         }
     }
@@ -66,18 +66,18 @@ pub fn parse_bool(s: &str) -> OwlResult<bool> {
     match s.to_lowercase().as_str() {
         "true" | "1" | "yes" => Ok(true),
         "false" | "0" | "no" => Ok(false),
-        _ => Err(OwlError::ParseError(format!("Invalid boolean value: {}", s))),
+        _ => Err(OwlError::ParseError(format!("Invalid boolean value: {s}"))),
     }
 }
 
 /// Parse an integer string
 pub fn parse_int(s: &str) -> OwlResult<i64> {
-    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid integer value: {}", s)))
+    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid integer value: {s}")))
 }
 
 /// Parse a float string
 pub fn parse_float(s: &str) -> OwlResult<f64> {
-    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid float value: {}", s)))
+    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid float value: {s}")))
 }
 
 /// Validate IRI syntax
@@ -88,12 +88,12 @@ pub fn validate_iri(iri: &str) -> OwlResult<()> {
     
     // Basic validation - check for invalid characters
     if iri.contains(' ') || iri.contains('<') || iri.contains('>') {
-        return Err(OwlError::InvalidIRI(format!("Invalid characters in IRI: {}", iri)));
+        return Err(OwlError::InvalidIRI(format!("Invalid characters in IRI: {iri}")));
     }
     
     // Check for valid scheme
     if !iri.contains(':') {
-        return Err(OwlError::InvalidIRI(format!("Missing scheme in IRI: {}", iri)));
+        return Err(OwlError::InvalidIRI(format!("Missing scheme in IRI: {iri}")));
     }
     
     // TODO: Add more thorough IRI validation according to RFC 3987

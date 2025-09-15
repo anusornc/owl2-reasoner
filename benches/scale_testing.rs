@@ -21,9 +21,13 @@ fn scale_iri_caching(c: &mut Criterion) {
     println!("🔗 SCALE TEST 1: IRI Caching Performance");
     println!("   Testing IRI management with large numbers of unique IRIs");
 
-    let mut group = c.benchmark_group("iri_caching_scale");
+    // Note: Configure individual benchmark groups for faster execution
 
-    for iri_count in [1000, 5000, 10000, 25000].iter() {
+    let mut group = c.benchmark_group("iri_caching_scale");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
+
+    for iri_count in [500, 1000, 2500, 5000].iter() {
         group.bench_with_input(BenchmarkId::new("iri_creation", iri_count), iri_count, |b, count| {
             b.iter(|| {
                 let start = Instant::now();
@@ -50,6 +54,8 @@ fn scale_ontology_operations(c: &mut Criterion) {
     println!("   Testing basic ontology management at scale");
 
     let mut group = c.benchmark_group("ontology_operations_scale");
+    group.measurement_time(std::time::Duration::from_millis(500));
+    group.warm_up_time(std::time::Duration::from_millis(200));
 
     for entity_count in [500, 1000, 2500, 5000].iter() {
         group.bench_with_input(BenchmarkId::new("ontology_creation", entity_count), entity_count, |b, count| {
@@ -98,6 +104,8 @@ fn scale_consistency_checking(c: &mut Criterion) {
     println!("   Testing basic consistency checking performance at scale");
 
     let mut group = c.benchmark_group("consistency_checking_scale");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
     for ontology_size in [250, 500, 1000, 2000].iter() {
         // Pre-create ontology for consistency testing
@@ -124,6 +132,8 @@ fn scale_memory_usage(c: &mut Criterion) {
     println!("   Measuring memory usage with large ontologies");
 
     let mut group = c.benchmark_group("memory_usage_scale");
+    group.measurement_time(std::time::Duration::from_millis(300));
+    group.warm_up_time(std::time::Duration::from_millis(100));
 
     for entity_count in [1000, 2500, 5000, 10000].iter() {
         group.bench_with_input(BenchmarkId::new("memory_measurement", entity_count), entity_count, |b, count| {
@@ -162,6 +172,8 @@ fn scale_combined_operations(c: &mut Criterion) {
     println!("   Testing realistic combined workload at scale");
 
     let mut group = c.benchmark_group("combined_operations_scale");
+    group.measurement_time(std::time::Duration::from_millis(500));
+    group.warm_up_time(std::time::Duration::from_millis(200));
 
     for scale_factor in [500, 1000, 2000].iter() {
         group.bench_with_input(BenchmarkId::new("combined_workload", scale_factor), scale_factor, |b, size| {
@@ -169,7 +181,7 @@ fn scale_combined_operations(c: &mut Criterion) {
                 let start = Instant::now();
 
                 // Create ontology
-                let mut ontology = create_large_test_ontology(*size);
+                let ontology = create_large_test_ontology(*size);
 
                 // Initialize reasoner
                 let reasoner = SimpleReasoner::new(ontology.clone());

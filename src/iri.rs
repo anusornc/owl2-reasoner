@@ -307,7 +307,7 @@ impl IRIRegistry {
         let namespace = self.namespace(prefix)
             .ok_or_else(|| OwlError::UnknownPrefix(prefix.to_string()))?;
         
-        let full_iri = format!("{}{}", namespace, local_name);
+        let full_iri = format!("{namespace}{local_name}");
         let iri = IRI::with_prefix(full_iri, prefix)?;
         
         // Cache the IRI locally as well
@@ -356,22 +356,22 @@ impl IRIRegistry {
     
     /// Create commonly used OWL IRIs efficiently
     pub fn owl_class(&mut self, class_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/2002/07/owl#{}", class_name))
+        self.get_or_create_iri(&format!("http://www.w3.org/2002/07/owl#{class_name}"))
     }
     
     /// Create commonly used RDF IRIs efficiently
     pub fn rdf_property(&mut self, prop_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/1999/02/22-rdf-syntax-ns#{}", prop_name))
+        self.get_or_create_iri(&format!("http://www.w3.org/1999/02/22-rdf-syntax-ns#{prop_name}"))
     }
     
     /// Create commonly used RDFS IRIs efficiently
     pub fn rdfs_class(&mut self, class_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/2000/01/rdf-schema#{}", class_name))
+        self.get_or_create_iri(&format!("http://www.w3.org/2000/01/rdf-schema#{class_name}"))
     }
     
     /// Create commonly used XSD IRIs efficiently
     pub fn xsd_datatype(&mut self, type_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/2001/XMLSchema#{}", type_name))
+        self.get_or_create_iri(&format!("http://www.w3.org/2001/XMLSchema#{type_name}"))
     }
 }
 

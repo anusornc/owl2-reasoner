@@ -55,7 +55,7 @@ class SimpleBenchmarkRunner:
             },
             'owl2-reasoner': {
                 'name': 'OWL2-Reasoner',
-                'command': ['./owl2-reasoner-cli'],
+                'command': ['../../target/debug/examples/benchmark_cli'],
                 'args': {
                     'classification': ['--classify'],
                     'consistency': ['--consistent']

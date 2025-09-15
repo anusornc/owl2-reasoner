@@ -72,8 +72,17 @@ impl OwlFunctionalSyntaxParser {
                 // Extract prefix and namespace
                 let prefix_content = &line[7..line.len()-1];
                 if let Some((prefix_part, namespace_part)) = prefix_content.split_once('=') {
-                    let prefix = prefix_part.trim().trim_matches('<').trim_matches('>');
+                    let mut prefix = prefix_part.trim().trim_matches('<').trim_matches('>');
                     let namespace = namespace_part.trim().trim_matches('<').trim_matches('>');
+
+                    // Special case: empty prefix ":=" should be stored as ":"
+                    if prefix == ":" {
+                        prefix = ":";
+                    } else {
+                        // Remove trailing colon for non-empty prefixes
+                        prefix = prefix.trim_end_matches(':');
+                    }
+
                     self.prefixes.insert(prefix.to_string(), namespace.to_string());
                 }
             }
@@ -216,10 +225,10 @@ impl OwlFunctionalSyntaxParser {
             };
 
             if let Some(namespace) = self.prefixes.get(prefix) {
-                let full_iri = format!("{}{}", namespace, local_name);
+                let full_iri = format!("{namespace}{local_name}");
                 IRI::new(&full_iri)
             } else {
-                Err(crate::error::OwlError::ParseError(format!("Unknown prefix: {}", prefix)))
+                Err(crate::error::OwlError::ParseError(format!("Unknown prefix: {prefix}")))
             }
         } else {
             // Assume it's a full IRI without angle brackets
@@ -266,6 +275,12 @@ impl OntologyParser for OwlFunctionalSyntaxParser {
 
     fn format_name(&self) -> &'static str {
         "OWL Functional Syntax"
+    }
+}
+
+impl Default for OwlFunctionalSyntaxParser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -316,6 +331,29 @@ SubClassOf(:Professor :Person)
 
         // Test unknown prefix
         assert!(parser.resolve_iri("unknown:Person").is_err());
+    }
+
+    #[test]
+    fn test_hyphenated_prefix_parsing() {
+        let hyphen_test = r#"
+Prefix(univ-bench:=<http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#>)
+Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
+
+Ontology(<http://example.org/test>
+
+Declaration(Class(univ-bench:University))
+
+)
+"#;
+
+        let parser = OwlFunctionalSyntaxParser::new();
+        let result = parser.parse_str(hyphen_test);
+
+        assert!(result.is_ok(), "Hyphenated prefix parsing failed: {:?}", result);
+
+        if let Ok(ontology) = result {
+            assert_eq!(ontology.classes().len(), 1, "Should have parsed 1 class");
+        }
     }
 
     #[test]

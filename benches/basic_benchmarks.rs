@@ -4,7 +4,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use owl2_reasoner::ontology::Ontology;
-use owl2_reasoner::entities::{Class, NamedIndividual};
+use owl2_reasoner::entities::Class;
 use owl2_reasoner::axioms::{SubClassOfAxiom, ClassExpression};
 use owl2_reasoner::reasoning::SimpleReasoner;
 use owl2_reasoner::iri::IRI;
@@ -12,18 +12,20 @@ use owl2_reasoner::iri::IRI;
 fn benchmark_suite(c: &mut Criterion) {
     println!("Running OWL2 Reasoner Benchmark Suite...");
     println!("==========================================");
-    
+
     // Basic reasoning benchmarks
     bench_consistency_checking(c);
     bench_ontology_creation(c);
     bench_class_operations(c);
-    
+
     println!("==========================================");
     println!("Benchmark suite completed!");
 }
 
 fn bench_consistency_checking(c: &mut Criterion) {
     let mut group = c.benchmark_group("consistency_checking");
+    group.measurement_time(std::time::Duration::from_millis(500));
+    group.warm_up_time(std::time::Duration::from_millis(200));
     
     for size in [10, 50, 100].iter() {
         let ontology = create_hierarchy_ontology(*size);
@@ -32,7 +34,7 @@ fn bench_consistency_checking(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("consistency", size), size, |b, _| {
             b.iter(|| {
                 let result = reasoner.is_consistent();
-                black_box(result);
+                let _ = black_box(result);  // Handle the Result properly
             })
         });
     }
@@ -42,6 +44,8 @@ fn bench_consistency_checking(c: &mut Criterion) {
 
 fn bench_ontology_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("ontology_creation");
+    group.measurement_time(std::time::Duration::from_millis(500));
+    group.warm_up_time(std::time::Duration::from_millis(200));
     
     for size in [10, 50, 100].iter() {
         group.bench_with_input(BenchmarkId::new("create_ontology", size), size, |b, size| {
@@ -57,6 +61,8 @@ fn bench_ontology_creation(c: &mut Criterion) {
 
 fn bench_class_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("class_operations");
+    group.measurement_time(std::time::Duration::from_millis(500));
+    group.warm_up_time(std::time::Duration::from_millis(200));
     
     for size in [10, 50, 100].iter() {
         group.bench_with_input(BenchmarkId::new("add_classes", size), size, |b, size| {

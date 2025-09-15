@@ -49,6 +49,7 @@ pub struct EPCISSimpleEvent {
 
 /// EPCIS Document Parser - Simplified version for compilation
 pub struct EPCISDocumentParser {
+    #[allow(dead_code)]
     config: EPCISParserConfig,
 }
 
@@ -265,6 +266,7 @@ impl EPCISDocumentParser {
 
 /// Simple EPCIS Document Writer
 pub struct EPCISDocumentWriter {
+    #[allow(dead_code)]
     base_uri: String,
 }
 

@@ -275,8 +275,8 @@ mod tests {
     #[test]
     fn test_el_validator_creation() {
         let ontology = Arc::new(Ontology::new());
-        let validator = ElProfileValidator::new(ontology);
-        
+        let _validator = ElProfileValidator::new(ontology);
+
         // Should create without error
         assert!(true);
     }
@@ -305,7 +305,7 @@ mod tests {
         // For now, this test is conceptual
         
         let validator = ElProfileValidator::new(Arc::new(ontology));
-        let violations = validator.validate().unwrap();
+        let _violations = validator.validate().unwrap();
         
         // Should detect disjoint classes as violation
         // assert!(!violations.is_empty());

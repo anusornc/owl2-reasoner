@@ -71,7 +71,7 @@ impl RdfXmlParser {
                     
                     // Handle self-closing tags by removing trailing slash
                     if tag_content.ends_with('/') {
-                        tag_content = &tag_content[..tag_content.len() - 1].trim_end();
+                        tag_content = tag_content[..tag_content.len() - 1].trim_end();
                     }
                     
                     if !tag_content.starts_with("!--") && !tag_content.starts_with("?") {
@@ -133,8 +133,7 @@ impl RdfXmlParser {
                     element.attributes.insert(key.to_string(), clean_value.to_string());
                     
                     // Track namespace declarations
-                    if key.starts_with("xmlns:") {
-                        let prefix = &key[6..];
+                    if let Some(prefix) = key.strip_prefix("xmlns:") {
                         self.namespaces.insert(prefix.to_string(), clean_value.to_string());
                     } else if key == "xmlns" {
                         self.namespaces.insert("".to_string(), clean_value.to_string());
@@ -208,13 +207,9 @@ impl RdfXmlParser {
     
     /// Get subject for RDF element
     fn get_element_subject(&self, element: &XmlElement) -> Option<String> {
-        if let Some(about) = element.attributes.get("rdf:about") {
-            Some(about.clone())
-        } else if let Some(id) = element.attributes.get("rdf:ID") {
-            Some(format!("#{}", id))
-        } else {
-            None
-        }
+        element.attributes.get("rdf:about")
+            .cloned()
+            .or_else(|| element.attributes.get("rdf:ID").map(|id| format!("#{id}")))
     }
     
     /// Validate the parsed ontology
@@ -259,6 +254,12 @@ impl OntologyParser for RdfXmlParser {
     }
 }
 
+impl Default for RdfXmlParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Simple XML document structure for RDF/XML parsing
 #[derive(Debug, Clone)]
 struct XmlDocument {
@@ -271,6 +272,7 @@ struct XmlDocument {
 struct XmlElement {
     name: String,
     attributes: HashMap<String, String>,
+    #[allow(dead_code)]
     content: String,
     children: Vec<XmlElement>,
 }

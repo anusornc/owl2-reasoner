@@ -63,6 +63,7 @@ pub struct EmpiricalValidator {
     results: HashMap<String, BenchmarkResult>,
     memory_profiles: HashMap<String, MemoryProfile>,
     cache_analyses: HashMap<String, CacheAnalysis>,
+    #[allow(dead_code)]
     comparative_results: HashMap<String, ComparativeBenchmark>,
 }
 

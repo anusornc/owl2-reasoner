@@ -95,7 +95,7 @@ pub fn run_comprehensive_validation() -> OwlResult<ValidationReport> {
 }
 
 // Helper functions would be implemented here
-fn parse_validation_results(report: &str) -> Vec<ValidationResult> {
+fn parse_validation_results(_report: &str) -> Vec<ValidationResult> {
     // Parse the report and extract validation results
     // This is a simplified implementation
     vec![]

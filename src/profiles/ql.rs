@@ -154,8 +154,8 @@ mod tests {
     #[test]
     fn test_ql_validator_creation() {
         let ontology = Arc::new(Ontology::new());
-        let validator = QlProfileValidator::new(ontology);
-        
+        let _validator = QlProfileValidator::new(ontology);
+
         assert!(true); // Should create without error
     }
     

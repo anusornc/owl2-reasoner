@@ -84,7 +84,7 @@ impl OwlXmlParser {
                         // Handle self-closing tags by removing trailing slash
                         let is_self_closing = tag_content.ends_with('/');
                         if is_self_closing {
-                            tag_content = &tag_content[..tag_content.len() - 1].trim_end();
+                            tag_content = tag_content[..tag_content.len() - 1].trim_end();
                         }
                         
                         if !tag_content.starts_with("!--") && !tag_content.starts_with("?") {
@@ -160,8 +160,7 @@ impl OwlXmlParser {
                     element.attributes.insert(key.to_string(), clean_value.to_string());
                     
                     // Track namespace declarations
-                    if key.starts_with("xmlns:") {
-                        let prefix = &key[6..];
+                    if let Some(prefix) = key.strip_prefix("xmlns:") {
                         self.namespaces.insert(prefix.to_string(), clean_value.to_string());
                     } else if key == "xmlns" {
                         self.namespaces.insert("".to_string(), clean_value.to_string());
@@ -223,6 +222,7 @@ impl OwlXmlParser {
     }
     
     /// Process element and all its children recursively (legacy method - now uses tracking)
+    #[allow(dead_code)]
     fn process_element_recursive(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
         let mut processed_ids = std::collections::HashSet::new();
         for child in &element.children {
@@ -290,11 +290,11 @@ impl OwlXmlParser {
                         } else {
                             format!("{}/", base_str)
                         };
-                        format!("{}{}", base, iri)
+                        format!("{base}{iri}")
                     } else {
                         // Try to extract xml:base from the root element
                         // For now, use example.org as fallback
-                        format!("http://example.org/{}", iri)
+                        format!("http://example.org/{iri}")
                     }
                 };
                 
@@ -431,6 +431,12 @@ impl OntologyParser for OwlXmlParser {
     }
 }
 
+impl Default for OwlXmlParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Simple XML document structure for OWL/XML parsing
 #[derive(Debug, Clone)]
 struct XmlDocument {
@@ -443,6 +449,7 @@ struct XmlDocument {
 struct XmlElement {
     name: String,
     attributes: HashMap<String, String>,
+    #[allow(dead_code)]
     content: String,
     children: Vec<XmlElement>,
 }

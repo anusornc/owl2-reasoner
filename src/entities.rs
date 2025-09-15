@@ -10,8 +10,8 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 /// Global entity cache for sharing IRIs across all entities
-static GLOBAL_ENTITY_CACHE: Lazy<dashmap::DashMap<String, Arc<IRI>>> = 
-    Lazy::new(|| dashmap::DashMap::new());
+static GLOBAL_ENTITY_CACHE: Lazy<dashmap::DashMap<String, Arc<IRI>>> =
+    Lazy::new(dashmap::DashMap::new);
 
 /// Get a shared Arc<IRI> from the global cache
 fn get_shared_iri<S: Into<String>>(iri: S) -> OwlResult<Arc<IRI>> {
