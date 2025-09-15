@@ -164,6 +164,31 @@ python3 run_simple_comprehensive_benchmark.py
 }
 ```
 
+## 📚 Documentation Structure
+
+The project documentation has been organized into the following structure:
+
+```
+docs/
+├── performance/           # Performance analysis and benchmarking
+│   ├── COMPREHENSIVE_PERFORMANCE_ANALYSIS.md
+│   ├── HEAD_TO_HEAD_COMPARISON.md
+│   └── PERFORMANCE_COMPARISON.md
+├── project/              # Project management and planning
+│   ├── PROJECT_SUCCESS_SUMMARY.md
+│   ├── PRODUCTION_READINESS.md
+│   └── TESTING_IMPROVEMENT_PLAN.md
+├── technical/            # Technical specifications
+│   └── ARCHITECTURE.md
+└── archive/             # Historical and detailed documents
+    └── PaperAlgorithm.md
+```
+
+### Key Documentation
+- **Performance Analysis**: See `docs/performance/COMPREHENSIVE_PERFORMANCE_ANALYSIS.md` for complete performance metrics
+- **Project Status**: See `docs/project/PROJECT_SUCCESS_SUMMARY.md` for project completion status
+- **Technical Details**: See `docs/technical/ARCHITECTURE.md` for architecture overview
+
 ## 🚀 Getting Started
 
 ### Prerequisites
