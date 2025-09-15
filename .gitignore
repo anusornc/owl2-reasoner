@@ -84,9 +84,9 @@ test-results/
 **/test_output/
 **/benchmark_results/
 benchmarking/results/
+target/reports/
 
 # Coverage reports
-tarpaulin-report.html
 coverage/
 **/*.cov
 
@@ -305,6 +305,12 @@ test_*.rs
 test_*.py
 *_test.*
 *_debug.*
+
+# ML and optimization outputs
+ml/openevolve/output/
+ml/results/temp/
+**/optimization_output/
+**/evolution_output/
 
 # Experimental features
 experimental/
