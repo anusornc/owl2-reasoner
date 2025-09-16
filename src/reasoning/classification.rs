@@ -155,11 +155,11 @@ impl ClassificationEngine {
         
         // Process direct subclass axioms
         for axiom in self.ontology.subclass_axioms() {
-            if let (ClassExpression::Class(sub_iri), ClassExpression::Class(super_iri)) = 
+            if let (ClassExpression::Class(sub_class), ClassExpression::Class(super_class)) =
                 (axiom.sub_class(), axiom.super_class()) {
-                
-                self.hierarchy.add_parent(sub_iri.clone(), super_iri.clone());
-                self.hierarchy.add_child(super_iri.clone(), sub_iri.clone());
+
+                self.hierarchy.add_parent(sub_class.iri().clone(), super_class.iri().clone());
+                self.hierarchy.add_child(super_class.iri().clone(), sub_class.iri().clone());
             }
         }
         
@@ -410,12 +410,12 @@ impl ClassificationEngine {
     
     /// Count equivalences in the hierarchy
     fn count_equivalences(&self) -> usize {
-        self.hierarchy.equivalences.values().map(|eqs| eqs.len()).sum() / 2 // Divide by 2 because each equivalence is stored twice
+        self.hierarchy.equivalences.values().map(|eqs| eqs.len()).sum::<usize>() / 2 // Divide by 2 because each equivalence is stored twice
     }
     
     /// Count disjointness relationships in the hierarchy
     fn count_disjointness(&self) -> usize {
-        self.hierarchy.disjointness.values().map(|disjs| disjs.len()).sum() / 2 // Divide by 2 because each disjointness is stored twice
+        self.hierarchy.disjointness.values().map(|disjs| disjs.len()).sum::<usize>() / 2 // Divide by 2 because each disjointness is stored twice
     }
     
     /// Get the computed class hierarchy
@@ -593,13 +593,13 @@ mod tests {
         let person_class = Class::new(person_iri.clone());
         let animal_class = Class::new(animal_iri.clone());
         
-        ontology.add_class(person_class).unwrap();
-        ontology.add_class(animal_class).unwrap();
-        
+        ontology.add_class(person_class.clone()).unwrap();
+        ontology.add_class(animal_class.clone()).unwrap();
+
         // Add subclass axiom: Person ⊑ Animal
         let subclass_axiom = SubClassOfAxiom::new(
-            ClassExpression::Class(person_iri.clone()),
-            ClassExpression::Class(animal_iri.clone()),
+            ClassExpression::Class(person_class.clone()),
+            ClassExpression::Class(animal_class.clone()),
         );
         ontology.add_subclass_axiom(subclass_axiom).unwrap();
         

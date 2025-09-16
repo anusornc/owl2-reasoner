@@ -162,7 +162,30 @@ pub struct Ontology {
     subobject_property_axioms: Vec<Arc<axioms::SubObjectPropertyAxiom>>,
     equivalent_object_properties_axioms: Vec<Arc<axioms::EquivalentObjectPropertiesAxiom>>,
     disjoint_object_properties_axioms: Vec<Arc<axioms::DisjointObjectPropertiesAxiom>>,
-    
+    functional_property_axioms: Vec<Arc<axioms::FunctionalPropertyAxiom>>,
+    inverse_functional_property_axioms: Vec<Arc<axioms::InverseFunctionalPropertyAxiom>>,
+    reflexive_property_axioms: Vec<Arc<axioms::ReflexivePropertyAxiom>>,
+    irreflexive_property_axioms: Vec<Arc<axioms::IrreflexivePropertyAxiom>>,
+    symmetric_property_axioms: Vec<Arc<axioms::SymmetricPropertyAxiom>>,
+    asymmetric_property_axioms: Vec<Arc<axioms::AsymmetricPropertyAxiom>>,
+    transitive_property_axioms: Vec<Arc<axioms::TransitivePropertyAxiom>>,
+    subdata_property_axioms: Vec<Arc<axioms::SubDataPropertyAxiom>>,
+    equivalent_data_properties_axioms: Vec<Arc<axioms::EquivalentDataPropertiesAxiom>>,
+    disjoint_data_properties_axioms: Vec<Arc<axioms::DisjointDataPropertiesAxiom>>,
+    functional_data_property_axioms: Vec<Arc<axioms::FunctionalDataPropertyAxiom>>,
+    same_individual_axioms: Vec<Arc<axioms::SameIndividualAxiom>>,
+    different_individuals_axioms: Vec<Arc<axioms::DifferentIndividualsAxiom>>,
+    has_key_axioms: Vec<Arc<axioms::HasKeyAxiom>>,
+    annotation_assertion_axioms: Vec<Arc<axioms::AnnotationAssertionAxiom>>,
+    sub_property_chain_axioms: Vec<Arc<axioms::SubPropertyChainOfAxiom>>,
+    inverse_object_properties_axioms: Vec<Arc<axioms::InverseObjectPropertiesAxiom>>,
+    object_min_qualified_cardinality_axioms: Vec<Arc<axioms::ObjectMinQualifiedCardinalityAxiom>>,
+    object_max_qualified_cardinality_axioms: Vec<Arc<axioms::ObjectMaxQualifiedCardinalityAxiom>>,
+    object_exact_qualified_cardinality_axioms: Vec<Arc<axioms::ObjectExactQualifiedCardinalityAxiom>>,
+    data_min_qualified_cardinality_axioms: Vec<Arc<axioms::DataMinQualifiedCardinalityAxiom>>,
+    data_max_qualified_cardinality_axioms: Vec<Arc<axioms::DataMaxQualifiedCardinalityAxiom>>,
+    data_exact_qualified_cardinality_axioms: Vec<Arc<axioms::DataExactQualifiedCardinalityAxiom>>,
+
     // Performance indexes
     class_instances: HashMap<IRI, Vec<IRI>>,
     property_domains: HashMap<IRI, Vec<IRI>>,
@@ -193,6 +216,29 @@ impl Ontology {
             subobject_property_axioms: Vec::new(),
             equivalent_object_properties_axioms: Vec::new(),
             disjoint_object_properties_axioms: Vec::new(),
+            functional_property_axioms: Vec::new(),
+            inverse_functional_property_axioms: Vec::new(),
+            reflexive_property_axioms: Vec::new(),
+            irreflexive_property_axioms: Vec::new(),
+            symmetric_property_axioms: Vec::new(),
+            asymmetric_property_axioms: Vec::new(),
+            transitive_property_axioms: Vec::new(),
+            subdata_property_axioms: Vec::new(),
+            equivalent_data_properties_axioms: Vec::new(),
+            disjoint_data_properties_axioms: Vec::new(),
+            functional_data_property_axioms: Vec::new(),
+            same_individual_axioms: Vec::new(),
+            different_individuals_axioms: Vec::new(),
+            has_key_axioms: Vec::new(),
+            annotation_assertion_axioms: Vec::new(),
+            sub_property_chain_axioms: Vec::new(),
+            inverse_object_properties_axioms: Vec::new(),
+            object_min_qualified_cardinality_axioms: Vec::new(),
+            object_max_qualified_cardinality_axioms: Vec::new(),
+            object_exact_qualified_cardinality_axioms: Vec::new(),
+            data_min_qualified_cardinality_axioms: Vec::new(),
+            data_max_qualified_cardinality_axioms: Vec::new(),
+            data_exact_qualified_cardinality_axioms: Vec::new(),
             class_instances: HashMap::new(),
             property_domains: HashMap::new(),
             property_ranges: HashMap::new(),
@@ -340,6 +386,98 @@ impl Ontology {
                 let disjoint_arc = Arc::new(axiom.clone());
                 self.disjoint_object_properties_axioms.push(disjoint_arc);
             }
+            axioms::Axiom::FunctionalProperty(axiom) => {
+                let functional_arc = Arc::new(axiom.clone());
+                self.functional_property_axioms.push(functional_arc);
+            }
+            axioms::Axiom::InverseFunctionalProperty(axiom) => {
+                let inv_functional_arc = Arc::new(axiom.clone());
+                self.inverse_functional_property_axioms.push(inv_functional_arc);
+            }
+            axioms::Axiom::ReflexiveProperty(axiom) => {
+                let reflexive_arc = Arc::new(axiom.clone());
+                self.reflexive_property_axioms.push(reflexive_arc);
+            }
+            axioms::Axiom::IrreflexiveProperty(axiom) => {
+                let irreflexive_arc = Arc::new(axiom.clone());
+                self.irreflexive_property_axioms.push(irreflexive_arc);
+            }
+            axioms::Axiom::SymmetricProperty(axiom) => {
+                let symmetric_arc = Arc::new(axiom.clone());
+                self.symmetric_property_axioms.push(symmetric_arc);
+            }
+            axioms::Axiom::AsymmetricProperty(axiom) => {
+                let asymmetric_arc = Arc::new(axiom.clone());
+                self.asymmetric_property_axioms.push(asymmetric_arc);
+            }
+            axioms::Axiom::TransitiveProperty(axiom) => {
+                let transitive_arc = Arc::new(axiom.clone());
+                self.transitive_property_axioms.push(transitive_arc);
+            }
+            axioms::Axiom::SubDataProperty(axiom) => {
+                let subdata_arc = Arc::new(axiom.clone());
+                self.subdata_property_axioms.push(subdata_arc);
+            }
+            axioms::Axiom::EquivalentDataProperties(axiom) => {
+                let equiv_data_arc = Arc::new(axiom.clone());
+                self.equivalent_data_properties_axioms.push(equiv_data_arc);
+            }
+            axioms::Axiom::DisjointDataProperties(axiom) => {
+                let disjoint_data_arc = Arc::new(axiom.clone());
+                self.disjoint_data_properties_axioms.push(disjoint_data_arc);
+            }
+            axioms::Axiom::FunctionalDataProperty(axiom) => {
+                let functional_data_arc = Arc::new(axiom.clone());
+                self.functional_data_property_axioms.push(functional_data_arc);
+            }
+            axioms::Axiom::SameIndividual(axiom) => {
+                let same_individual_arc = Arc::new(axiom.clone());
+                self.same_individual_axioms.push(same_individual_arc);
+            }
+            axioms::Axiom::DifferentIndividuals(axiom) => {
+                let different_individuals_arc = Arc::new(axiom.clone());
+                self.different_individuals_axioms.push(different_individuals_arc);
+            }
+            axioms::Axiom::HasKey(axiom) => {
+                let has_key_arc = Arc::new(axiom.clone());
+                self.has_key_axioms.push(has_key_arc);
+            }
+            axioms::Axiom::AnnotationAssertion(axiom) => {
+                let annotation_assertion_arc = Arc::new(axiom.clone());
+                self.annotation_assertion_axioms.push(annotation_assertion_arc);
+            }
+            axioms::Axiom::SubPropertyChainOf(axiom) => {
+                let sub_property_chain_arc = Arc::new(axiom.clone());
+                self.sub_property_chain_axioms.push(sub_property_chain_arc);
+            }
+            axioms::Axiom::InverseObjectProperties(axiom) => {
+                let inverse_object_properties_arc = Arc::new(axiom.clone());
+                self.inverse_object_properties_axioms.push(inverse_object_properties_arc);
+            }
+            axioms::Axiom::ObjectMinQualifiedCardinality(axiom) => {
+                let object_min_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.object_min_qualified_cardinality_axioms.push(object_min_qualified_cardinality_arc);
+            }
+            axioms::Axiom::ObjectMaxQualifiedCardinality(axiom) => {
+                let object_max_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.object_max_qualified_cardinality_axioms.push(object_max_qualified_cardinality_arc);
+            }
+            axioms::Axiom::ObjectExactQualifiedCardinality(axiom) => {
+                let object_exact_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.object_exact_qualified_cardinality_axioms.push(object_exact_qualified_cardinality_arc);
+            }
+            axioms::Axiom::DataMinQualifiedCardinality(axiom) => {
+                let data_min_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.data_min_qualified_cardinality_axioms.push(data_min_qualified_cardinality_arc);
+            }
+            axioms::Axiom::DataMaxQualifiedCardinality(axiom) => {
+                let data_max_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.data_max_qualified_cardinality_axioms.push(data_max_qualified_cardinality_arc);
+            }
+            axioms::Axiom::DataExactQualifiedCardinality(axiom) => {
+                let data_exact_qualified_cardinality_arc = Arc::new(axiom.clone());
+                self.data_exact_qualified_cardinality_axioms.push(data_exact_qualified_cardinality_arc);
+            }
         }
         
         Ok(())
@@ -438,7 +576,122 @@ impl Ontology {
     pub fn disjoint_object_properties_axioms(&self) -> Vec<&crate::axioms::DisjointObjectPropertiesAxiom> {
         self.disjoint_object_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
     }
-    
+
+    /// Get all functional property axioms
+    pub fn functional_property_axioms(&self) -> Vec<&crate::axioms::FunctionalPropertyAxiom> {
+        self.functional_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all inverse functional property axioms
+    pub fn inverse_functional_property_axioms(&self) -> Vec<&crate::axioms::InverseFunctionalPropertyAxiom> {
+        self.inverse_functional_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all reflexive property axioms
+    pub fn reflexive_property_axioms(&self) -> Vec<&crate::axioms::ReflexivePropertyAxiom> {
+        self.reflexive_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all irreflexive property axioms
+    pub fn irreflexive_property_axioms(&self) -> Vec<&crate::axioms::IrreflexivePropertyAxiom> {
+        self.irreflexive_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all symmetric property axioms
+    pub fn symmetric_property_axioms(&self) -> Vec<&crate::axioms::SymmetricPropertyAxiom> {
+        self.symmetric_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all asymmetric property axioms
+    pub fn asymmetric_property_axioms(&self) -> Vec<&crate::axioms::AsymmetricPropertyAxiom> {
+        self.asymmetric_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all transitive property axioms
+    pub fn transitive_property_axioms(&self) -> Vec<&crate::axioms::TransitivePropertyAxiom> {
+        self.transitive_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all subdata property axioms
+    pub fn subdata_property_axioms(&self) -> Vec<&crate::axioms::SubDataPropertyAxiom> {
+        self.subdata_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all equivalent data properties axioms
+    pub fn equivalent_data_properties_axioms(&self) -> Vec<&crate::axioms::EquivalentDataPropertiesAxiom> {
+        self.equivalent_data_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all disjoint data properties axioms
+    pub fn disjoint_data_properties_axioms(&self) -> Vec<&crate::axioms::DisjointDataPropertiesAxiom> {
+        self.disjoint_data_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all functional data property axioms
+    pub fn functional_data_property_axioms(&self) -> Vec<&crate::axioms::FunctionalDataPropertyAxiom> {
+        self.functional_data_property_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all same individual axioms
+    pub fn same_individual_axioms(&self) -> Vec<&crate::axioms::SameIndividualAxiom> {
+        self.same_individual_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all different individuals axioms
+    pub fn different_individuals_axioms(&self) -> Vec<&crate::axioms::DifferentIndividualsAxiom> {
+        self.different_individuals_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all has key axioms
+    pub fn has_key_axioms(&self) -> Vec<&crate::axioms::HasKeyAxiom> {
+        self.has_key_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all annotation assertion axioms
+    pub fn annotation_assertion_axioms(&self) -> Vec<&crate::axioms::AnnotationAssertionAxiom> {
+        self.annotation_assertion_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all sub property chain axioms
+    pub fn sub_property_chain_axioms(&self) -> Vec<&crate::axioms::SubPropertyChainOfAxiom> {
+        self.sub_property_chain_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all inverse object properties axioms
+    pub fn inverse_object_properties_axioms(&self) -> Vec<&crate::axioms::InverseObjectPropertiesAxiom> {
+        self.inverse_object_properties_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all object minimum qualified cardinality axioms
+    pub fn object_min_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::ObjectMinQualifiedCardinalityAxiom> {
+        self.object_min_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all object maximum qualified cardinality axioms
+    pub fn object_max_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::ObjectMaxQualifiedCardinalityAxiom> {
+        self.object_max_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all object exact qualified cardinality axioms
+    pub fn object_exact_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::ObjectExactQualifiedCardinalityAxiom> {
+        self.object_exact_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all data minimum qualified cardinality axioms
+    pub fn data_min_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::DataMinQualifiedCardinalityAxiom> {
+        self.data_min_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all data maximum qualified cardinality axioms
+    pub fn data_max_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::DataMaxQualifiedCardinalityAxiom> {
+        self.data_max_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
+    /// Get all data exact qualified cardinality axioms
+    pub fn data_exact_qualified_cardinality_axioms(&self) -> Vec<&crate::axioms::DataExactQualifiedCardinalityAxiom> {
+        self.data_exact_qualified_cardinality_axioms.iter().map(|axiom| axiom.as_ref()).collect()
+    }
+
     /// Add a subclass axiom
     pub fn add_subclass_axiom(&mut self, axiom: axioms::SubClassOfAxiom) -> OwlResult<()> {
         self.add_axiom(axioms::Axiom::SubClassOf(axiom))

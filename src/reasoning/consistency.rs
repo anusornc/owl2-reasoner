@@ -265,12 +265,14 @@ impl ConsistencyChecker {
         let characteristics = prop.characteristics();
         
         // Check for incompatible characteristics
-        if characteristics.is_functional() && characteristics.is_inverse_functional() {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Functional) &&
+           characteristics.contains(&ObjectPropertyCharacteristic::InverseFunctional) {
             // Check if the property has both functional and inverse-functional characteristics
             // This might lead to contradictions in certain scenarios
         }
-        
-        if characteristics.is_asymmetric() && characteristics.is_reflexive() {
+
+        if characteristics.contains(&ObjectPropertyCharacteristic::Asymmetric) &&
+           characteristics.contains(&ObjectPropertyCharacteristic::Reflexive) {
             // Asymmetric and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both asymmetric and reflexive", prop.iri()),
@@ -282,8 +284,9 @@ impl ConsistencyChecker {
                 ),
             });
         }
-        
-        if characteristics.is_irreflexive() && characteristics.is_reflexive() {
+
+        if characteristics.contains(&ObjectPropertyCharacteristic::Irreflexive) &&
+           characteristics.contains(&ObjectPropertyCharacteristic::Reflexive) {
             // Irreflexive and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both irreflexive and reflexive", prop.iri()),
@@ -301,12 +304,13 @@ impl ConsistencyChecker {
     fn find_unsatisfiable_classes(&mut self) -> OwlResult<Vec<InconsistencyExplanation>> {
         let mut unsatisfiable = Vec::new();
         
-        for class in self.tableaux_reasoner.ontology.classes() {
+        let classes: Vec<_> = self.tableaux_reasoner.ontology.classes().iter().cloned().collect();
+        for class in classes {
             let class_iri = class.iri();
-            
+
             // Check if the class is satisfiable
             let is_satisfiable = self.tableaux_reasoner.is_class_satisfiable(class_iri)?;
-            
+
             if !is_satisfiable {
                 unsatisfiable.push(InconsistencyExplanation {
                     description: format!("Class {} is unsatisfiable", class_iri),
@@ -399,8 +403,8 @@ mod tests {
     #[test]
     fn test_consistency_checker_creation() {
         let ontology = Ontology::new();
-        let checker = ConsistencyChecker::new(ontology);
-        
+        let mut checker = ConsistencyChecker::new(ontology);
+
         // Empty ontology should be consistent
         assert!(checker.is_consistent().unwrap());
     }

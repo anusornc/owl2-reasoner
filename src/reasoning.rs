@@ -121,9 +121,10 @@ impl Reasoner for OwlReasoner {
     fn is_consistent(&mut self) -> OwlResult<bool> {
         if self.use_advanced_reasoning {
             if let Some(tableaux) = &mut self.tableaux {
-                // Check consistency using tableaux reasoning
-                // For now, fall back to simple reasoning until tableaux is complete
-                return self.simple.is_consistent();
+                // Use tableaux reasoning for proper consistency checking
+                // Check if owl:Thing is satisfiable - if not, ontology is inconsistent
+                let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
+                return tableaux.is_class_satisfiable(&thing_iri);
             }
         }
         self.simple.is_consistent()
@@ -181,6 +182,8 @@ mod tests {
         let ontology = Ontology::new();
         let config = ReasoningConfig {
             enable_reasoning: false,
+            use_advanced_reasoning: false,
+            tableaux_config: tableaux::ReasoningConfig::default(),
         };
         
         let reasoner = OwlReasoner::with_config(ontology, config);

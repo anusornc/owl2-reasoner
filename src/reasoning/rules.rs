@@ -249,8 +249,9 @@ impl RuleEngine {
         while iterations < self.config.max_iterations {
             let mut new_facts_this_iteration = 0;
             
-            for rule in &self.rules {
-                if let Some(new_facts) = self.apply_rule(rule)? {
+            let rules: Vec<ReasoningRule> = self.rules.clone();
+            for rule in rules {
+                if let Some(new_facts) = self.apply_rule(&rule)? {
                     rules_applied += 1;
                     new_facts_this_iteration += new_facts;
                 }
@@ -379,18 +380,18 @@ impl RuleEngine {
                 for axiom in self.ontology.subclass_axioms() {
                     if let (ClassExpression::Class(sub_axiom), ClassExpression::Class(super_axiom)) = 
                         (axiom.sub_class(), axiom.super_class()) {
-                        let sub_matches = match_iri(&sub_iri, sub_axiom);
-                        let super_matches = match_iri(&super_iri, super_axiom);
+                        let sub_matches = match_iri(&sub_iri, sub_axiom.iri());
+                        let super_matches = match_iri(&super_iri, super_axiom.iri());
                         
                         if sub_matches && super_matches {
                             let mut binding = HashMap::new();
                             
                             if let PatternVar::Variable(var_name) = sub_class {
-                                binding.insert(var_name.clone(), sub_axiom.clone());
+                                binding.insert(var_name.clone(), sub_axiom.iri().clone());
                             }
                             
                             if let PatternVar::Variable(var_name) = super_class {
-                                binding.insert(var_name.clone(), super_axiom.clone());
+                                binding.insert(var_name.clone(), super_axiom.iri().clone());
                             }
                             
                             matches.push(binding);
@@ -517,7 +518,7 @@ fn match_iri(pattern: &PatternVar, iri: &IRI) -> bool {
 
 fn extract_class_iri(class_expr: &ClassExpression) -> Option<IRI> {
     match class_expr {
-        ClassExpression::Class(iri) => Some(iri.clone()),
+        ClassExpression::Class(class) => Some(class.iri().clone()),
         _ => None,
     }
 }
@@ -549,21 +550,21 @@ mod tests {
         let human_class = Class::new(human_iri.clone());
         let individual = NamedIndividual::new(individual_iri.clone());
         
-        ontology.add_class(person_class).unwrap();
-        ontology.add_class(human_class).unwrap();
+        ontology.add_class(person_class.clone()).unwrap();
+        ontology.add_class(human_class.clone()).unwrap();
         ontology.add_named_individual(individual).unwrap();
         
         // Add subclass axiom: Person ⊑ Human
         let subclass_axiom = SubClassOfAxiom::new(
-            ClassExpression::Class(person_iri.clone()),
-            ClassExpression::Class(human_iri.clone()),
+            ClassExpression::Class(person_class.clone()),
+            ClassExpression::Class(human_class.clone()),
         );
         ontology.add_subclass_axiom(subclass_axiom).unwrap();
         
         // Add class assertion: john ∈ Person
-        let class_assertion = ClassAssertion::new(
+        let class_assertion = crate::axioms::ClassAssertionAxiom::new(
             individual_iri.clone(),
-            ClassExpression::Class(person_iri.clone()),
+            ClassExpression::Class(person_class.clone()),
         );
         ontology.add_class_assertion(class_assertion).unwrap();
         

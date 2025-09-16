@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 /// Tableaux reasoning engine for OWL2 ontologies
 pub struct TableauxReasoner {
-    ontology: Arc<Ontology>,
+    pub ontology: Arc<Ontology>,
     rules: ReasoningRules,
     cache: ReasoningCache,
 }
@@ -179,7 +179,8 @@ impl TableauxReasoner {
         let mut instances = HashSet::new();
         
         // Get named individuals from ontology
-        for individual in self.ontology.named_individuals() {
+        let individuals: Vec<_> = self.ontology.named_individuals().iter().cloned().collect();
+        for individual in individuals {
             if self.is_instance_of(&individual.iri(), class)? {
                 instances.insert(individual.iri().clone());
             }
@@ -200,6 +201,7 @@ impl TableauxReasoner {
         
         Ok(false)
     }
+
     
     /// Run the tableaux algorithm
     fn run_tableaux(&mut self, graph: &mut TableauxGraph, config: ReasoningConfig) -> OwlResult<ReasoningResult> {
@@ -226,13 +228,13 @@ impl TableauxReasoner {
             }
             
             // Apply reasoning rules
-            let node = graph.nodes.get(&node_id).unwrap();
+            let concepts: Vec<_> = graph.nodes.get(&node_id).unwrap().concepts.iter().cloned().collect();
             let mut new_nodes: Vec<NodeId> = Vec::new();
-            
-            for concept in &node.concepts {
-                if let Some((new_concepts, new_nodes_created)) = self.apply_rules(concept, node_id, graph)? {
+
+            for concept in concepts {
+                if let Some((new_concepts, new_nodes_created)) = self.apply_rules(&concept, node_id, graph)? {
                     stats.rules_applied += 1;
-                    
+
                     // Add new concepts to current node
                     for new_concept in new_concepts {
                         graph.add_concept(node_id, new_concept);
@@ -247,25 +249,35 @@ impl TableauxReasoner {
             }
             
             // Check for contradictions
-            if self.has_contradiction(node) {
+            if self.has_contradiction(graph.nodes.get(&node_id).unwrap()) {
                 stats.backtracks += 1;
-                // Backtrack or return unsatisfiable
+                continue; // Skip this branch and try other paths
+            }
+
+            // Check blocking conditions
+            if self.is_blocked(node_id, graph) {
+                continue;
+            }
+
+            // Check if we've found a complete model (satisfiable)
+            if self.is_complete_model(graph) {
+                stats.time_ms = start_time.elapsed().as_millis() as u64;
                 return Ok(ReasoningResult {
-                    is_satisfiable: false,
-                    explanation: Some("Contradiction found".to_string()),
-                    model: None,
+                    is_satisfiable: true,
+                    explanation: Some("Complete model found".to_string()),
+                    model: Some(self.extract_model(graph)),
                     stats,
                 });
             }
         }
         
         stats.time_ms = start_time.elapsed().as_millis() as u64;
-        
-        // If we reach here, the tableau is complete and satisfiable
+
+        // If we exhausted all possibilities without finding a model, it's unsatisfiable
         Ok(ReasoningResult {
-            is_satisfiable: true,
-            explanation: None,
-            model: Some(self.extract_model(graph)),
+            is_satisfiable: false,
+            explanation: Some("No complete model found".to_string()),
+            model: None,
             stats,
         })
     }
@@ -363,9 +375,99 @@ impl TableauxReasoner {
                 // P(v) → data property has value (to be implemented)
                 Ok(None)
             }
+
+            ClassExpression::ObjectHasValue(_, _) => {
+                // R(a) → object property has value (to be implemented)
+                Ok(None)
+            }
+
+            ClassExpression::ObjectHasSelf(_) => {
+                // R(a,a) → object has self (to be implemented)
+                Ok(None)
+            }
         }
     }
-    
+
+    /// Check if a node contains a contradiction
+    fn has_contradiction(&self, node: &TableauxNode) -> bool {
+        // Check for direct contradictions: C and ¬C in the same node
+        let concepts: Vec<_> = node.concepts.iter().collect();
+
+        for i in 0..concepts.len() {
+            for j in i + 1..concepts.len() {
+                if self.are_contradictory(concepts[i], concepts[j]) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if two class expressions are contradictory
+    fn are_contradictory(&self, expr1: &ClassExpression, expr2: &ClassExpression) -> bool {
+        use ClassExpression::*;
+
+        match (expr1, expr2) {
+            (Class(class1), Class(class2)) => {
+                // Check if classes are declared disjoint
+                for disjoint_axiom in self.ontology.disjoint_classes_axioms() {
+                    let classes = disjoint_axiom.classes();
+                    if classes.contains(&class1.iri()) && classes.contains(&class2.iri()) {
+                        return true;
+                    }
+                }
+                false
+            },
+            (ObjectComplementOf(comp1), ObjectComplementOf(comp2)) => {
+                // ¬¬C ≡ C, so check if the inner expressions are contradictory
+                self.are_contradictory(comp1.as_ref(), comp2.as_ref())
+            },
+            (ObjectComplementOf(comp), other) | (other, ObjectComplementOf(comp)) => {
+                // Check if C and ¬C are contradictory (this is the main case)
+                if let (ClassExpression::Class(class1), ClassExpression::Class(class2)) = (comp.as_ref(), other) {
+                    class1.iri() == class2.iri()
+                } else if let (ClassExpression::Class(class1), ClassExpression::Class(class2)) = (other, comp.as_ref()) {
+                    class1.iri() == class2.iri()
+                } else {
+                    false
+                }
+            },
+            _ => false,
+        }
+    }
+
+    /// Check if a node is blocked (simplified blocking detection)
+    fn is_blocked(&self, node_id: NodeId, graph: &TableauxGraph) -> bool {
+        let node = &graph.nodes[&node_id];
+
+        // Check if this node is blocked by any ancestor
+        let mut current = node_id;
+        while let Some(parent) = graph.get_parent(current) {
+            if parent == node_id {
+                continue; // Skip self-reference
+            }
+
+            let parent_node = &graph.nodes[&parent];
+
+            // Simple blocking: if parent has the same concepts (subset)
+            if parent_node.concepts.is_superset(&node.concepts) {
+                return true;
+            }
+
+            current = parent;
+        }
+
+        false
+    }
+
+    /// Check if we have a complete model (simplified)
+    fn is_complete_model(&self, graph: &TableauxGraph) -> bool {
+        // For now, consider any contradiction-free model as complete
+        // In a full implementation, we'd check all applicable rules have been applied
+        !graph.nodes.values().any(|node| self.has_contradiction(node))
+    }
+
     /// Create a successor node for existential restrictions
     fn create_successor_node(&self, property: &ObjectPropertyExpression, filler: &ClassExpression, graph: &mut TableauxGraph)
         -> Option<NodeId>
@@ -381,8 +483,8 @@ impl TableauxReasoner {
                 match prop.as_ref() {
                     ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
                     ObjectPropertyExpression::ObjectInverseOf(_) => {
-                        // This is a more complex case - for now, return a dummy IRI
-                        return IRI::new("http://example.org/inverse").unwrap();
+                        // This is a more complex case - for now, use a dummy IRI
+                        &IRI::new("http://example.org/inverse").unwrap()
                     }
                 }
             }
@@ -405,8 +507,8 @@ impl TableauxReasoner {
                 match prop.as_ref() {
                     ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
                     ObjectPropertyExpression::ObjectInverseOf(_) => {
-                        // This is a more complex case - for now, return a dummy IRI
-                        return IRI::new("http://example.org/inverse").unwrap();
+                        // This is a more complex case - for now, use a dummy IRI
+                        &IRI::new("http://example.org/inverse").unwrap()
                     }
                 }
             }
@@ -498,8 +600,8 @@ impl TableauxReasoner {
                 match prop.as_ref() {
                     ObjectPropertyExpression::ObjectProperty(inner_prop) => inner_prop.iri(),
                     ObjectPropertyExpression::ObjectInverseOf(_) => {
-                        // This is a more complex case - for now, return a dummy IRI
-                        return IRI::new("http://example.org/inverse").unwrap();
+                        // This is a more complex case - for now, use a dummy IRI
+                        &IRI::new("http://example.org/inverse").unwrap()
                     }
                 }
             }
@@ -564,23 +666,6 @@ impl TableauxReasoner {
         } else {
             Ok(None)
         }
-    }
-    
-    /// Check if a node contains a contradiction
-    fn has_contradiction(&self, node: &TableauxNode) -> bool {
-        // Check for complementary concepts
-        let concepts: Vec<_> = node.concepts.iter().collect();
-        
-        for i in 0..concepts.len() {
-            for j in i + 1..concepts.len() {
-                if self.are_complementary(concepts[i], concepts[j]) {
-                    return true;
-                }
-            }
-        }
-        
-        // Check for cardinality contradictions (to be implemented)
-        false
     }
     
     /// Check if two concepts are complementary
@@ -664,6 +749,19 @@ impl TableauxGraph {
             .entry(property).or_insert_with(HashSet::new)
             .insert(to);
     }
+
+    /// Get the parent of a node (simplified - returns first parent found)
+    pub fn get_parent(&self, node_id: NodeId) -> Option<NodeId> {
+        // Search through all edges to find which node has this node as a child
+        for (parent, edges) in &self.edges {
+            for children in edges.values() {
+                if children.contains(&node_id) {
+                    return Some(*parent);
+                }
+            }
+        }
+        None
+    }
     
     /// Get all successors of a node via a property
     pub fn get_successors(&self, node_id: NodeId, property: &IRI) -> Option<&HashSet<NodeId>> {
@@ -681,13 +779,13 @@ impl ReasoningCache {
             let sub = subclass_axiom.sub_class();
             let sup = subclass_axiom.super_class();
             
-            if let (ClassExpression::Class(sub_iri), ClassExpression::Class(sup_iri)) = (sub, sup) {
-                cache.class_hierarchy.entry(sub_iri.clone()).or_insert_with(HashSet::new).insert(sup_iri.clone());
+            if let (ClassExpression::Class(sub_class), ClassExpression::Class(sup_class)) = (sub, sup) {
+                cache.class_hierarchy.entry(sub_class.iri().clone()).or_insert_with(HashSet::new).insert(sup_class.iri().clone());
             }
         }
         
         // Pre-compute property hierarchy
-        for subprop_axiom in ontology.subproperty_axioms() {
+        for subprop_axiom in ontology.subobject_property_axioms() {
             let sub = subprop_axiom.sub_property();
             let sup = subprop_axiom.super_property();
             
@@ -757,7 +855,8 @@ mod tests {
         let reasoner = TableauxReasoner::new(ontology);
         
         let class_iri = IRI::new("http://example.org/Person").unwrap();
-        let concept = ClassExpression::Class(class_iri.clone());
+        let person_class = Class::new(class_iri.clone());
+        let concept = ClassExpression::Class(person_class.clone());
         let complement = ClassExpression::ObjectComplementOf(Box::new(concept.clone()));
         
         assert!(reasoner.are_complementary(&concept, &complement));
