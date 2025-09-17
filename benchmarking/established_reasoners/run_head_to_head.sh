@@ -38,18 +38,22 @@ run_rust_benchmark() {
     echo "🦀 Testing Rust OWL2 Reasoner with $ontology_name..."
     cd "$RUST_DIR"
 
-    # Run the benchmark and capture results
-    local result=$(cargo run --example performance_benchmarking --quiet 2>/dev/null | grep -E "(Average|Creation rate|Retrieval rate|Query rate|Cache speedup)" || echo "No benchmark results found")
+    # Test Simple Reasoner
+    echo "   🔬 Simple Reasoner..."
+    local simple_output=$(cargo run --example simple_test_runner --quiet 2>/dev/null)
+    local simple_result=$(echo "$simple_output" | grep -E "(Total:|Passed:|Failed:|Pass Rate:|Execution Time:)" | tail -4 || echo "No results")
 
-    echo "   Results: $result"
+    # Test Advanced Reasoner
+    echo "   🚀 Advanced Reasoner..."
+    local advanced_output=$(cargo run --example advanced_test_runner --quiet 2>/dev/null)
+    local advanced_result=$(echo "$advanced_output" | grep -E "(Total Tests:|Passed:|Failed:|Pass Rate:|Execution Time:)" | tail -4 || echo "No results")
+
     cd "$SCRIPT_DIR"
 
-    # Parse results
-    local query_time=$(echo "$result" | grep "Average query time" | grep -o "[0-9.]*µs" | head -1)
-    local retrieval_time=$(echo "$result" | grep "Average retrieval time" | grep -o "[0-9.]*µs" | head -1)
-
-    echo "   Query Time: ${query_time:-N/A}"
-    echo "   Retrieval Time: ${retrieval_time:-N/A}"
+    echo "   Simple Results:"
+    echo "$simple_result" | sed 's/^/     /'
+    echo "   Advanced Results:"
+    echo "$advanced_result" | sed 's/^/     /'
     echo ""
 }
 
@@ -71,19 +75,37 @@ run_java_benchmark() {
     # Simple timing test - load and process ontology
     local start_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
 
-    # Try to run the reasoner (basic functionality test)
-    if java -jar "$reasoner_jar" --help > /dev/null 2>&1; then
-        # For ELK CLI
-        local end_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
-        local load_time=$((end_time - start_time))
-        echo "   ✅ $reasoner_name working"
-        echo "   Load Time: ${load_time}µs"
-    elif java -cp "$reasoner_jar" uk.ac.manchester.cs.jfact.JFact --help > /dev/null 2>&1; then
-        # For JFact
-        local end_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
-        local load_time=$((end_time - start_time))
-        echo "   ✅ $reasoner_name working"
-        echo "   Load Time: ${load_time}µs"
+    # Try different reasoner invocation methods
+    if [ "$reasoner_name" = "ELK" ]; then
+        # ELK has working CLI
+        if java -jar "$reasoner_jar" --help > /dev/null 2>&1; then
+            local end_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
+            local load_time=$((end_time - start_time))
+            echo "   ✅ $reasoner_name working"
+            echo "   Load Time: ${load_time}µs"
+        else
+            echo "   ❌ $reasoner_name CLI not working"
+        fi
+    elif [ "$reasoner_name" = "HermiT" ]; then
+        # HermiT needs OWLAPI classpath
+        if java -cp "$reasoner_jar" org.semanticweb.HermiT.cli.CommandLine --help > /dev/null 2>&1; then
+            local end_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
+            local load_time=$((end_time - start_time))
+            echo "   ✅ $reasoner_name working"
+            echo "   Load Time: ${load_time}µs"
+        else
+            echo "   ❌ $reasoner_name missing OWLAPI dependencies"
+        fi
+    elif [ "$reasoner_name" = "JFact" ]; then
+        # JFact has no main manifest - needs classpath
+        if java -cp "$reasoner_jar" uk.ac.manchester.cs.jfact.JFact --help > /dev/null 2>&1; then
+            local end_time=$(python3 -c "import time; print(int(time.time() * 1000000))")
+            local load_time=$((end_time - start_time))
+            echo "   ✅ $reasoner_name working"
+            echo "   Load Time: ${load_time}µs"
+        else
+            echo "   ❌ $reasoner_name no main manifest or missing dependencies"
+        fi
     else
         echo "   ❌ $reasoner_name not working properly"
     fi
@@ -110,8 +132,8 @@ run_java_benchmark "ELK" "elk-distribution-cli-0.6.0/elk.jar" "$MEDIUM_ONTOLOGY"
 # Test HermiT
 echo "🧠 HermiT Reasoner"
 echo "------------------"
-run_java_benchmark "HermiT" "HermiT.jar" "$SMALL_ONTOLOGY"
-run_java_benchmark "HermiT" "HermiT.jar" "$MEDIUM_ONTOLOGY"
+run_java_benchmark "HermiT" "org.semanticweb.HermiT.jar" "$SMALL_ONTOLOGY"
+run_java_benchmark "HermiT" "org.semanticweb.HermiT.jar" "$MEDIUM_ONTOLOGY"
 
 # Test JFact
 echo "🏭 JFact Reasoner"

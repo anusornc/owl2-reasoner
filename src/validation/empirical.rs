@@ -1,18 +1,18 @@
 //! Empirical validation system for owl2-reasoner performance claims
-//! 
+//!
 //! This module provides comprehensive benchmarking and validation tools
 //! to empirically verify all performance and memory efficiency claims.
 
-use crate::ontology::Ontology;
-use crate::entities::{Class, ObjectProperty};
 use crate::axioms::*;
-use crate::reasoning::SimpleReasoner;
-use crate::iri::IRI;
-use crate::profiles::*;
+use crate::entities::{Class, ObjectProperty};
 use crate::error::OwlResult;
+use crate::iri::IRI;
+use crate::ontology::Ontology;
+use crate::profiles::*;
+use crate::reasoning::SimpleReasoner;
 use crate::validation::memory_profiler::EntitySizeCalculator;
-use std::time::Instant;
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// Performance benchmark results
 #[derive(Debug, Clone)]
@@ -79,17 +79,20 @@ impl EmpiricalValidator {
     }
 
     /// Benchmark reasoning operations with memory profiling
-    pub fn benchmark_reasoning_operations(&mut self, ontology: &Ontology) -> OwlResult<BenchmarkResult> {
+    pub fn benchmark_reasoning_operations(
+        &mut self,
+        ontology: &Ontology,
+    ) -> OwlResult<BenchmarkResult> {
         let start_time = Instant::now();
         let start_memory = self.get_current_memory_mb();
-        
+
         let reasoner = SimpleReasoner::new(ontology.clone());
-        
+
         // Benchmark consistency checking
         let consistency_start = Instant::now();
         let _is_consistent = reasoner.is_consistent()?;
         let _consistency_time = consistency_start.elapsed().as_millis() as f64;
-        
+
         // Benchmark subclass reasoning
         let subclass_start = Instant::now();
         let classes: Vec<_> = ontology.classes().iter().cloned().collect();
@@ -106,21 +109,21 @@ impl EmpiricalValidator {
             0
         };
         let _subclass_time = subclass_start.elapsed().as_millis() as f64;
-        
+
         // Benchmark satisfiability checking
         let satisfiability_start = Instant::now();
         for class in classes.iter().take(5) {
             let _result = reasoner.is_class_satisfiable(&class.iri());
         }
         let _satisfiability_time = satisfiability_start.elapsed().as_millis() as f64;
-        
+
         let end_time = Instant::now();
         let end_memory = self.get_current_memory_mb();
-        
+
         let total_operations = 1 + subclass_count + classes.len().min(5);
         let total_time_ms = end_time.duration_since(start_time).as_millis() as f64;
         let memory_usage_mb = end_memory - start_memory;
-        
+
         let result = BenchmarkResult {
             test_name: "reasoning_operations".to_string(),
             operation_count: total_operations,
@@ -130,117 +133,125 @@ impl EmpiricalValidator {
             memory_usage_mb,
             cache_hit_rate: self.calculate_cache_hit_rate(&reasoner),
         };
-        
-        self.results.insert("reasoning_operations".to_string(), result.clone());
+
+        self.results
+            .insert("reasoning_operations".to_string(), result.clone());
         Ok(result)
     }
 
     /// Benchmark memory efficiency claims
     pub fn benchmark_memory_efficiency(&mut self, size_factor: usize) -> OwlResult<MemoryProfile> {
         let baseline_memory = self.get_current_memory_mb();
-        
+
         // Create ontology with controlled size
         let mut ontology = Ontology::new();
-        
+
         // Add classes
         for i in 0..(100 * size_factor) {
             let class_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
             let class = Class::new(class_iri);
             ontology.add_class(class)?;
         }
-        
+
         // Add properties
         for i in 0..(20 * size_factor) {
             let prop_iri = IRI::new(&format!("http://example.org/hasProp{}", i))?;
             let prop = ObjectProperty::new(prop_iri);
             ontology.add_object_property(prop)?;
         }
-        
+
         // Add axioms
         for i in 0..(50 * size_factor) {
             let sub_class = Class::new(IRI::new(&format!("http://example.org/Class{}", i))?);
-            let super_class = Class::new(IRI::new(&format!("http://example.org/Class{}", (i + 1) % (100 * size_factor)))?);
+            let super_class = Class::new(IRI::new(&format!(
+                "http://example.org/Class{}",
+                (i + 1) % (100 * size_factor)
+            ))?);
             let axiom = SubClassOfAxiom::new(
                 crate::axioms::class_expressions::ClassExpression::Class(sub_class),
                 crate::axioms::class_expressions::ClassExpression::Class(super_class),
             );
             ontology.add_subclass_axiom(axiom)?;
         }
-        
+
         // Calculate accurate entity sizes using EntitySizeCalculator
         let mut total_entity_bytes = 0;
         let mut entity_count = 0;
-        
+
         // Calculate class sizes
         for class in ontology.classes() {
             total_entity_bytes += EntitySizeCalculator::estimate_class_size(class);
             entity_count += 1;
         }
-        
+
         // Calculate object property sizes
         for prop in ontology.object_properties() {
             total_entity_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
             entity_count += 1;
         }
-        
+
         // Calculate data property sizes
         for prop in ontology.data_properties() {
             total_entity_bytes += EntitySizeCalculator::estimate_data_property_size(prop);
             entity_count += 1;
         }
-        
+
         // Calculate axiom sizes
         for axiom in ontology.subclass_axioms() {
             total_entity_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
             entity_count += 1;
         }
-        
+
         let memory_per_entity_bytes = if entity_count > 0 {
             total_entity_bytes / entity_count
         } else {
             0
         };
-        
+
         let memory_per_entity_mb = memory_per_entity_bytes as f64 / (1024.0 * 1024.0);
-        
+
         let profile = MemoryProfile {
             test_name: format!("memory_efficiency_{}", size_factor),
             baseline_memory_mb: baseline_memory,
             peak_memory_mb: baseline_memory, // No longer using process memory
-            memory_efficiency_ratio: 1.0, // No overhead calculation needed
+            memory_efficiency_ratio: 1.0,    // No overhead calculation needed
             entity_count,
             memory_per_entity_mb,
         };
-        
-        self.memory_profiles.insert(format!("memory_efficiency_{}", size_factor), profile.clone());
+
+        self.memory_profiles.insert(
+            format!("memory_efficiency_{}", size_factor),
+            profile.clone(),
+        );
         Ok(profile)
     }
 
     /// Analyze cache performance
     pub fn analyze_cache_performance(&mut self, ontology: &Ontology) -> OwlResult<CacheAnalysis> {
         let reasoner = SimpleReasoner::new(ontology.clone());
-        
+
         // Warm up cache
         let classes: Vec<_> = ontology.classes().iter().cloned().collect();
         for class in classes.iter().take(5) {
             let _ = reasoner.is_class_satisfiable(&class.iri());
         }
-        
+
         // Benchmark cache hits (repeated operations)
         let cache_test_start = Instant::now();
         let mut cache_hits = 0;
         let mut cache_misses = 0;
         let total_requests = 20;
-        
+
         for _ in 0..total_requests {
             for class in classes.iter().take(5) {
                 let start = Instant::now();
                 let _result = reasoner.is_class_satisfiable(&class.iri());
                 let elapsed = start.elapsed();
-                
+
                 // More realistic cache simulation
                 // In a real system, cache behavior depends on many factors
-                let is_cache_hit = elapsed.as_micros() < 500 || (cache_hits + cache_misses) % 4 != 0;
+                let is_cache_hit =
+                    elapsed.as_micros() < 500 || (cache_hits + cache_misses) % 4 != 0;
                 if is_cache_hit {
                     cache_hits += 1;
                 } else {
@@ -248,10 +259,10 @@ impl EmpiricalValidator {
                 }
             }
         }
-        
+
         let total_time = cache_test_start.elapsed().as_millis() as f64;
         let hit_rate = cache_hits as f64 / (cache_hits + cache_misses) as f64;
-        
+
         let analysis = CacheAnalysis {
             cache_type: "satisfiability_cache".to_string(),
             total_requests: cache_hits + cache_misses,
@@ -260,13 +271,17 @@ impl EmpiricalValidator {
             hit_rate,
             avg_response_time_ms: total_time / (cache_hits + cache_misses) as f64,
         };
-        
-        self.cache_analyses.insert("satisfiability_cache".to_string(), analysis.clone());
+
+        self.cache_analyses
+            .insert("satisfiability_cache".to_string(), analysis.clone());
         Ok(analysis)
     }
 
     /// Benchmark profile validation performance
-    pub fn benchmark_profile_validation(&mut self, ontology: &Ontology) -> OwlResult<BenchmarkResult> {
+    pub fn benchmark_profile_validation(
+        &mut self,
+        ontology: &Ontology,
+    ) -> OwlResult<BenchmarkResult> {
         let start_time = Instant::now();
         let start_memory = self.get_current_memory_mb();
 
@@ -275,18 +290,18 @@ impl EmpiricalValidator {
         // Benchmark profile validation for all profiles
         let profiles = [Owl2Profile::EL, Owl2Profile::QL, Owl2Profile::RL];
         let mut total_validations = 0;
-        
+
         for profile in &profiles {
             let _result = reasoner.validate_profile(profile.clone())?;
             total_validations += 1;
         }
-        
+
         let end_time = Instant::now();
         let end_memory = self.get_current_memory_mb();
-        
+
         let total_time_ms = end_time.duration_since(start_time).as_millis() as f64;
         let memory_usage_mb = end_memory - start_memory;
-        
+
         let result = BenchmarkResult {
             test_name: "profile_validation".to_string(),
             operation_count: total_validations,
@@ -296,45 +311,61 @@ impl EmpiricalValidator {
             memory_usage_mb,
             cache_hit_rate: Some(0.0), // Profile validation typically doesn't use cache
         };
-        
-        self.results.insert("profile_validation".to_string(), result.clone());
+
+        self.results
+            .insert("profile_validation".to_string(), result.clone());
         Ok(result)
     }
 
     /// Generate comprehensive validation report
     pub fn generate_validation_report(&self) -> String {
         let mut report = String::new();
-        
+
         report.push_str("# Empirical Validation Report\n\n");
         report.push_str("Generated on: ");
         report.push_str(&chrono::Utc::now().to_rfc3339());
         report.push_str("\n\n");
-        
+
         // Performance Benchmarks
         report.push_str("## Performance Benchmarks\n\n");
         for (name, result) in &self.results {
             report.push_str(&format!("### {}\n", name));
             report.push_str(&format!("- Operations: {}\n", result.operation_count));
             report.push_str(&format!("- Total Time: {:.2} ms\n", result.total_time_ms));
-            report.push_str(&format!("- Avg Time/Op: {:.3} ms\n", result.avg_time_per_operation_ms));
-            report.push_str(&format!("- Ops/Second: {:.0}\n", result.operations_per_second));
-            report.push_str(&format!("- Memory Usage: {:.2} MB\n", result.memory_usage_mb));
+            report.push_str(&format!(
+                "- Avg Time/Op: {:.3} ms\n",
+                result.avg_time_per_operation_ms
+            ));
+            report.push_str(&format!(
+                "- Ops/Second: {:.0}\n",
+                result.operations_per_second
+            ));
+            report.push_str(&format!(
+                "- Memory Usage: {:.2} MB\n",
+                result.memory_usage_mb
+            ));
             if let Some(hit_rate) = result.cache_hit_rate {
                 report.push_str(&format!("- Cache Hit Rate: {:.1}%\n", hit_rate * 100.0));
             }
             report.push_str("\n");
         }
-        
+
         // Memory Profiles
         report.push_str("## Memory Efficiency Profiles\n\n");
         for (name, profile) in &self.memory_profiles {
             report.push_str(&format!("### {}\n", name));
             report.push_str(&format!("- Entities: {}\n", profile.entity_count));
-            report.push_str(&format!("- Memory per Entity: {:.4} MB\n", profile.memory_per_entity_mb));
-            report.push_str(&format!("- Memory Efficiency Ratio: {:.2}\n", profile.memory_efficiency_ratio));
+            report.push_str(&format!(
+                "- Memory per Entity: {:.4} MB\n",
+                profile.memory_per_entity_mb
+            ));
+            report.push_str(&format!(
+                "- Memory Efficiency Ratio: {:.2}\n",
+                profile.memory_efficiency_ratio
+            ));
             report.push_str("\n");
         }
-        
+
         // Cache Analysis
         report.push_str("## Cache Performance Analysis\n\n");
         for (name, analysis) in &self.cache_analyses {
@@ -343,14 +374,17 @@ impl EmpiricalValidator {
             report.push_str(&format!("- Cache Hits: {}\n", analysis.cache_hits));
             report.push_str(&format!("- Cache Misses: {}\n", analysis.cache_misses));
             report.push_str(&format!("- Hit Rate: {:.1}%\n", analysis.hit_rate * 100.0));
-            report.push_str(&format!("- Avg Response Time: {:.3} ms\n", analysis.avg_response_time_ms));
+            report.push_str(&format!(
+                "- Avg Response Time: {:.3} ms\n",
+                analysis.avg_response_time_ms
+            ));
             report.push_str("\n");
         }
-        
+
         // Claims Validation
         report.push_str("## Claims Validation\n\n");
         self.validate_claims(&mut report);
-        
+
         report
     }
 
@@ -362,12 +396,19 @@ impl EmpiricalValidator {
         } else {
             false
         };
-        
-        report.push_str(&format!("### Sub-millisecond Response Time: {}\n", 
-            if sub_ms_claim { "✅ VALIDATED" } else { "❌ NOT VALIDATED" }));
-        
+
+        report.push_str(&format!(
+            "### Sub-millisecond Response Time: {}\n",
+            if sub_ms_claim {
+                "✅ VALIDATED"
+            } else {
+                "❌ NOT VALIDATED"
+            }
+        ));
+
         // Report cache hit rate measurement
-        let cache_hit_rate = if let Some(analysis) = self.cache_analyses.get("satisfiability_cache") {
+        let cache_hit_rate = if let Some(analysis) = self.cache_analyses.get("satisfiability_cache")
+        {
             analysis.hit_rate * 100.0
         } else {
             0.0
@@ -382,9 +423,12 @@ impl EmpiricalValidator {
             0.0
         };
         let memory_per_entity_kb = memory_per_entity_mb * 1024.0;
-        
-        report.push_str(&format!("### Memory Efficiency: {:.1} KB/entity\n", memory_per_entity_kb));
-        
+
+        report.push_str(&format!(
+            "### Memory Efficiency: {:.1} KB/entity\n",
+            memory_per_entity_kb
+        ));
+
         report.push_str("\n### Notes:\n");
         report.push_str("- Validation based on actual runtime measurements\n");
         report.push_str("- Results may vary based on hardware and ontology complexity\n");
@@ -411,14 +455,14 @@ impl EmpiricalValidator {
             // Fallback to estimate
             self.estimate_memory_usage()
         }
-        
+
         #[cfg(not(target_os = "linux"))]
         {
             // Use platform-specific estimation
             self.estimate_memory_usage()
         }
     }
-    
+
     /// Estimate memory usage based on operations performed
     fn estimate_memory_usage(&self) -> f64 {
         // This is still an approximation but better than hardcoded values
@@ -454,22 +498,22 @@ mod tests {
     fn test_benchmark_with_empty_ontology() -> OwlResult<()> {
         let mut validator = EmpiricalValidator::new();
         let ontology = Ontology::new();
-        
+
         let result = validator.benchmark_reasoning_operations(&ontology)?;
         assert_eq!(result.test_name, "reasoning_operations");
         assert!(result.total_time_ms >= 0.0);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_memory_profiling() -> OwlResult<()> {
         let mut validator = EmpiricalValidator::new();
-        
+
         let profile = validator.benchmark_memory_efficiency(1)?;
         assert!(profile.entity_count > 0);
         assert!(profile.peak_memory_mb >= profile.baseline_memory_mb);
-        
+
         Ok(())
     }
 
@@ -477,12 +521,14 @@ mod tests {
     fn test_cache_analysis() -> OwlResult<()> {
         let mut validator = EmpiricalValidator::new();
         let ontology = Ontology::new();
-        
+
         let analysis = validator.analyze_cache_performance(&ontology)?;
         assert_eq!(analysis.cache_type, "satisfiability_cache");
         // For empty ontology, hit rate might be NaN (0/0), so handle that case
-        assert!(analysis.hit_rate.is_nan() || (analysis.hit_rate >= 0.0 && analysis.hit_rate <= 1.0));
-        
+        assert!(
+            analysis.hit_rate.is_nan() || (analysis.hit_rate >= 0.0 && analysis.hit_rate <= 1.0)
+        );
+
         Ok(())
     }
 
@@ -490,7 +536,7 @@ mod tests {
     fn test_report_generation() {
         let validator = EmpiricalValidator::new();
         let report = validator.generate_validation_report();
-        
+
         assert!(report.contains("Empirical Validation Report"));
         assert!(report.contains("Performance Benchmarks"));
         assert!(report.contains("Claims Validation"));

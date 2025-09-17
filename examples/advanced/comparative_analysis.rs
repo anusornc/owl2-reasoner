@@ -26,46 +26,90 @@ fn main() -> OwlResult<()> {
 
     let comparison_data: Vec<(String, ReasonerPerformance)> = vec![
         ("Our Implementation".to_string(), our_performance.clone()),
-        ("HermiT (Java)".to_string(), ReasonerPerformance {
-            response_time_ms: 0.5,
-            memory_per_entity_bytes: 500,
-            reasoning_checks_per_sec: 50000,
-            scale_limit_entities: 100000,
-            strengths: vec!["Mature tableaux implementation", "Full OWL2 DL support", "Widely used in research"],
-            limitations: vec!["Higher memory usage", "JVM overhead", "Slower for small ontologies"],
-        }),
-        ("Pellet (Java)".to_string(), ReasonerPerformance {
-            response_time_ms: 0.8,
-            memory_per_entity_bytes: 600,
-            reasoning_checks_per_sec: 40000,
-            scale_limit_entities: 50000,
-            strengths: vec!["Rule-based reasoning", "Explanation generation", "OWL2 Full support"],
-            limitations: vec!["Complex setup", "Memory intensive", "Slower for real-time applications"],
-        }),
-        ("RacerPro (Lisp)".to_string(), ReasonerPerformance {
-            response_time_ms: 0.3,
-            memory_per_entity_bytes: 400,
-            reasoning_checks_per_sec: 80000,
-            scale_limit_entities: 75000,
-            strengths: vec!["Very fast reasoning", "Optimized for performance", "Mature implementation"],
-            limitations: vec!["Lisp dependency", "Limited OWL2 features", "Commercial license"],
-        }),
-        ("ELK (Java)".to_string(), ReasonerPerformance {
-            response_time_ms: 0.1,
-            memory_per_entity_bytes: 200,
-            reasoning_checks_per_sec: 200000,
-            scale_limit_entities: 1000000,
-            strengths: vec!["Extremely fast", "EL++ profile optimized", "Lightweight", "Open source"],
-            limitations: vec!["EL++ profile only", "Limited expressivity", "Not full OWL2"],
-        }),
-        ("JFact (Java)".to_string(), ReasonerPerformance {
-            response_time_ms: 0.4,
-            memory_per_entity_bytes: 450,
-            reasoning_checks_per_sec: 60000,
-            scale_limit_entities: 200000,
-            strengths: vec!["Fact++ port", "Good performance", "Active development"],
-            limitations: vec!["Java dependency", "Memory usage", "Setup complexity"],
-        }),
+        (
+            "HermiT (Java)".to_string(),
+            ReasonerPerformance {
+                response_time_ms: 0.5,
+                memory_per_entity_bytes: 500,
+                reasoning_checks_per_sec: 50000,
+                scale_limit_entities: 100000,
+                strengths: vec![
+                    "Mature tableaux implementation",
+                    "Full OWL2 DL support",
+                    "Widely used in research",
+                ],
+                limitations: vec![
+                    "Higher memory usage",
+                    "JVM overhead",
+                    "Slower for small ontologies",
+                ],
+            },
+        ),
+        (
+            "Pellet (Java)".to_string(),
+            ReasonerPerformance {
+                response_time_ms: 0.8,
+                memory_per_entity_bytes: 600,
+                reasoning_checks_per_sec: 40000,
+                scale_limit_entities: 50000,
+                strengths: vec![
+                    "Rule-based reasoning",
+                    "Explanation generation",
+                    "OWL2 Full support",
+                ],
+                limitations: vec![
+                    "Complex setup",
+                    "Memory intensive",
+                    "Slower for real-time applications",
+                ],
+            },
+        ),
+        (
+            "RacerPro (Lisp)".to_string(),
+            ReasonerPerformance {
+                response_time_ms: 0.3,
+                memory_per_entity_bytes: 400,
+                reasoning_checks_per_sec: 80000,
+                scale_limit_entities: 75000,
+                strengths: vec![
+                    "Very fast reasoning",
+                    "Optimized for performance",
+                    "Mature implementation",
+                ],
+                limitations: vec![
+                    "Lisp dependency",
+                    "Limited OWL2 features",
+                    "Commercial license",
+                ],
+            },
+        ),
+        (
+            "ELK (Java)".to_string(),
+            ReasonerPerformance {
+                response_time_ms: 0.1,
+                memory_per_entity_bytes: 200,
+                reasoning_checks_per_sec: 200000,
+                scale_limit_entities: 1000000,
+                strengths: vec![
+                    "Extremely fast",
+                    "EL++ profile optimized",
+                    "Lightweight",
+                    "Open source",
+                ],
+                limitations: vec!["EL++ profile only", "Limited expressivity", "Not full OWL2"],
+            },
+        ),
+        (
+            "JFact (Java)".to_string(),
+            ReasonerPerformance {
+                response_time_ms: 0.4,
+                memory_per_entity_bytes: 450,
+                reasoning_checks_per_sec: 60000,
+                scale_limit_entities: 200000,
+                strengths: vec!["Fact++ port", "Good performance", "Active development"],
+                limitations: vec!["Java dependency", "Memory usage", "Setup complexity"],
+            },
+        ),
     ];
 
     // Generate comparison table
@@ -77,8 +121,14 @@ fn main() -> OwlResult<()> {
     for (name, perf) in &comparison_data {
         println!("\n   {}:", name);
         println!("     Response Time: {:.1}ms", perf.response_time_ms);
-        println!("     Memory per Entity: {} bytes", perf.memory_per_entity_bytes);
-        println!("     Reasoning Speed: {} checks/sec", perf.reasoning_checks_per_sec);
+        println!(
+            "     Memory per Entity: {} bytes",
+            perf.memory_per_entity_bytes
+        );
+        println!(
+            "     Reasoning Speed: {} checks/sec",
+            perf.reasoning_checks_per_sec
+        );
         println!("     Scale Limit: {} entities", perf.scale_limit_entities);
         println!("     Strengths: {}", perf.strengths.join(", "));
         println!("     Limitations: {}", perf.limitations.join(", "));
@@ -104,8 +154,12 @@ fn main() -> OwlResult<()> {
     println!("     🔄 Missing comprehensive OWL2 compliance");
 
     println!("\n   Market Position:");
-    println!("     🎯 Good for: Educational purposes, small/medium ontologies, memory-constrained environments");
-    println!("     🎯 Not suitable for: Large-scale production, full OWL2 reasoning, research requiring advanced features");
+    println!(
+        "     🎯 Good for: Educational purposes, small/medium ontologies, memory-constrained environments"
+    );
+    println!(
+        "     🎯 Not suitable for: Large-scale production, full OWL2 reasoning, research requiring advanced features"
+    );
 
     // Generate comprehensive report
     generate_comparative_report(&comparison_data, &our_performance, our_score)?;
@@ -181,7 +235,8 @@ fn measure_our_implementation() -> OwlResult<ReasonerPerformance> {
     let reasoning_time = start.elapsed();
 
     // Calculate performance metrics
-    let avg_response_time = (consistency_time.as_nanos() as f64 + reasoning_time.as_nanos() as f64) / 2_000_000.0;
+    let avg_response_time =
+        (consistency_time.as_nanos() as f64 + reasoning_time.as_nanos() as f64) / 2_000_000.0;
     let checks_per_second = (checks as f64 / reasoning_time.as_secs_f64()) as usize;
 
     // Memory estimation based on earlier tests
@@ -303,7 +358,7 @@ fn generate_performance_comparison_table(data: &[(String, ReasonerPerformance)])
 fn generate_comparative_report(
     comparison_data: &[(String, ReasonerPerformance)],
     our_performance: &ReasonerPerformance,
-    our_score: f64
+    our_score: f64,
 ) -> OwlResult<()> {
     let mut report = String::new();
 
@@ -322,19 +377,24 @@ fn generate_comparative_report(
     report.push_str("===========================\n\n");
 
     report.push_str(&format!(
-        "- Response Time: {:.1}ms\n", our_performance.response_time_ms
+        "- Response Time: {:.1}ms\n",
+        our_performance.response_time_ms
     ));
     report.push_str(&format!(
-        "- Memory per Entity: {} bytes\n", our_performance.memory_per_entity_bytes
+        "- Memory per Entity: {} bytes\n",
+        our_performance.memory_per_entity_bytes
     ));
     report.push_str(&format!(
-        "- Reasoning Speed: {} subclass checks/second\n", our_performance.reasoning_checks_per_sec
+        "- Reasoning Speed: {} subclass checks/second\n",
+        our_performance.reasoning_checks_per_sec
     ));
     report.push_str(&format!(
-        "- Tested Scale: Up to {} entities\n", our_performance.scale_limit_entities
+        "- Tested Scale: Up to {} entities\n",
+        our_performance.scale_limit_entities
     ));
     report.push_str(&format!(
-        "- Overall Performance Score: {:.1}/100\n", our_score
+        "- Overall Performance Score: {:.1}/100\n",
+        our_score
     ));
 
     report.push_str("\nComparative Analysis:\n");
@@ -352,7 +412,10 @@ fn generate_comparative_report(
             report.push_str("(slower than ours)\n");
         }
 
-        report.push_str(&format!("  Memory Usage: {} bytes ", perf.memory_per_entity_bytes));
+        report.push_str(&format!(
+            "  Memory Usage: {} bytes ",
+            perf.memory_per_entity_bytes
+        ));
 
         if perf.memory_per_entity_bytes < our_performance.memory_per_entity_bytes {
             report.push_str("(more efficient)\n");
@@ -367,9 +430,13 @@ fn generate_comparative_report(
     report.push_str("=============\n\n");
 
     report.push_str("1. Memory Efficiency: Our implementation shows excellent memory efficiency\n");
-    report.push_str("   (390 bytes/entity) compared to industry averages (500-600 bytes/entity).\n\n");
+    report.push_str(
+        "   (390 bytes/entity) compared to industry averages (500-600 bytes/entity).\n\n",
+    );
 
-    report.push_str("2. Response Time: Good performance for small to medium ontologies, competitive\n");
+    report.push_str(
+        "2. Response Time: Good performance for small to medium ontologies, competitive\n",
+    );
     report.push_str("   with established reasoners in this category.\n\n");
 
     report.push_str("3. Reasoning Speed: Moderate performance (77k checks/sec) - adequate for\n");

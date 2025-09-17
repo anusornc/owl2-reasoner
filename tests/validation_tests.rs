@@ -16,24 +16,36 @@ mod validation {
 
         // Check for common hardcoded value patterns
         let hardcoded_patterns = [
-            "1000000", // Hardcoded performance numbers
-            "0.9999",  // Hardcoded accuracy
-            "perfect",  // Hardcoded perfect results
-            "always true", // Hardcoded boolean results
+            "1000000",       // Hardcoded performance numbers
+            "0.9999",        // Hardcoded accuracy
+            "perfect",       // Hardcoded perfect results
+            "always true",   // Hardcoded boolean results
             "PERFECT_SCORE", // Hardcoded perfect scores
-            "HARDCODED", // Explicit hardcoded markers
+            "HARDCODED",     // Explicit hardcoded markers
         ];
 
         for pattern in &hardcoded_patterns {
             if classification_code.contains(pattern) {
-                panic!("Found potential hardcoded value in classification.rs: {}", pattern);
+                panic!(
+                    "Found potential hardcoded value in classification.rs: {}",
+                    pattern
+                );
             }
         }
 
         // Check that the BFS algorithm doesn't have hardcoded limits
-        assert!(classification_code.contains("VecDeque::new()"), "Should use proper queue initialization");
-        assert!(classification_code.contains("HashSet::new()"), "Should use proper set initialization");
-        assert!(classification_code.contains("queue.push_back"), "Should use proper queue operations");
+        assert!(
+            classification_code.contains("VecDeque::new()"),
+            "Should use proper queue initialization"
+        );
+        assert!(
+            classification_code.contains("HashSet::new()"),
+            "Should use proper set initialization"
+        );
+        assert!(
+            classification_code.contains("queue.push_back"),
+            "Should use proper queue operations"
+        );
     }
 
     #[test]
@@ -48,7 +60,11 @@ mod validation {
         hierarchy.insert("D".to_string(), vec![]);
 
         // Test BFS implementation (extracted from evolved algorithm)
-        fn is_subclass_of_bfs(hierarchy: &HashMap<String, Vec<String>>, sub_class: &str, super_class: &str) -> bool {
+        fn is_subclass_of_bfs(
+            hierarchy: &HashMap<String, Vec<String>>,
+            sub_class: &str,
+            super_class: &str,
+        ) -> bool {
             if sub_class == super_class {
                 return true;
             }
@@ -111,7 +127,11 @@ mod validation {
         let duration = start.elapsed();
 
         assert!(result, "Should find deep relationship");
-        assert!(duration.as_millis() < 10, "Deep query should complete quickly: {:?}", duration);
+        assert!(
+            duration.as_millis() < 10,
+            "Deep query should complete quickly: {:?}",
+            duration
+        );
 
         // Test that shallow queries are fast
         let start = Instant::now();
@@ -119,7 +139,11 @@ mod validation {
         let duration = start.elapsed();
 
         assert!(result, "Should find shallow relationship");
-        assert!(duration.as_millis() < 1, "Shallow query should be very fast: {:?}", duration);
+        assert!(
+            duration.as_millis() < 1,
+            "Shallow query should be very fast: {:?}",
+            duration
+        );
     }
 
     #[test]
@@ -138,7 +162,11 @@ mod validation {
         let duration = start.elapsed();
 
         assert!(!result, "Should not find non-existent relationship");
-        assert!(duration.as_millis() < 10, "Cycle handling should be fast: {:?}", duration);
+        assert!(
+            duration.as_millis() < 10,
+            "Cycle handling should be fast: {:?}",
+            duration
+        );
     }
 
     #[test]
@@ -175,12 +203,24 @@ mod validation {
         assert!(is_subclass_of_bfs(&empty_hierarchy, "A", "A"));
 
         // Test non-existent classes
-        assert!(!is_subclass_of_bfs(&empty_hierarchy, "nonexistent", "also_nonexistent"));
-        assert!(is_subclass_of_bfs(&empty_hierarchy, "nonexistent", "nonexistent"));
+        assert!(!is_subclass_of_bfs(
+            &empty_hierarchy,
+            "nonexistent",
+            "also_nonexistent"
+        ));
+        assert!(is_subclass_of_bfs(
+            &empty_hierarchy,
+            "nonexistent",
+            "nonexistent"
+        ));
     }
 
     // Helper function extracted from the evolved algorithm
-    fn is_subclass_of_bfs(hierarchy: &HashMap<String, Vec<String>>, sub_class: &str, super_class: &str) -> bool {
+    fn is_subclass_of_bfs(
+        hierarchy: &HashMap<String, Vec<String>>,
+        sub_class: &str,
+        super_class: &str,
+    ) -> bool {
         if sub_class == super_class {
             return true;
         }
@@ -242,7 +282,11 @@ mod correctness_tests {
         assert!(!is_subclass_of_bfs(&hierarchy, "C", "A"));
     }
 
-    fn is_subclass_of_bfs(hierarchy: &HashMap<String, Vec<String>>, sub_class: &str, super_class: &str) -> bool {
+    fn is_subclass_of_bfs(
+        hierarchy: &HashMap<String, Vec<String>>,
+        sub_class: &str,
+        super_class: &str,
+    ) -> bool {
         if sub_class == super_class {
             return true;
         }

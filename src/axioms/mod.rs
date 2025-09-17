@@ -1,14 +1,14 @@
 //! OWL2 Axioms - Logical statements about entities
-//! 
+//!
 //! This module defines all OWL2 axiom types that express logical relationships
 //! between classes, properties, and individuals.
 
 pub mod class_expressions;
 pub mod property_expressions;
 
+pub use crate::entities::ObjectProperty;
 pub use class_expressions::*;
 pub use property_expressions::*;
-pub use crate::entities::ObjectProperty;
 
 use crate::iri::IRI;
 
@@ -25,6 +25,8 @@ pub enum Axiom {
     ClassAssertion(ClassAssertionAxiom),
     /// Property assertion: (a, b) ∈ P
     PropertyAssertion(PropertyAssertionAxiom),
+    /// Data property assertion: (a, v) ∈ P where v is a literal
+    DataPropertyAssertion(DataPropertyAssertionAxiom),
     /// Subproperty axiom: P ⊑ Q
     SubObjectProperty(SubObjectPropertyAxiom),
     /// Equivalent properties axiom: P ≡ Q
@@ -88,23 +90,26 @@ pub struct SubClassOfAxiom {
 
 impl SubClassOfAxiom {
     /// Create a new subclass axiom
-    pub fn new(sub_class: class_expressions::ClassExpression, super_class: class_expressions::ClassExpression) -> Self {
+    pub fn new(
+        sub_class: class_expressions::ClassExpression,
+        super_class: class_expressions::ClassExpression,
+    ) -> Self {
         SubClassOfAxiom {
             sub_class,
             super_class,
         }
     }
-    
+
     /// Get the subclass
     pub fn sub_class(&self) -> &class_expressions::ClassExpression {
         &self.sub_class
     }
-    
+
     /// Get the superclass
     pub fn super_class(&self) -> &class_expressions::ClassExpression {
         &self.super_class
     }
-    
+
     /// Check if this axiom involves a specific class
     pub fn involves_class(&self, class_iri: &IRI) -> bool {
         self.sub_class.contains_class(class_iri) || self.super_class.contains_class(class_iri)
@@ -122,7 +127,7 @@ impl EquivalentClassesAxiom {
     pub fn new(classes: Vec<IRI>) -> Self {
         EquivalentClassesAxiom { classes }
     }
-    
+
     /// Get the equivalent classes
     pub fn classes(&self) -> &Vec<IRI> {
         &self.classes
@@ -140,7 +145,7 @@ impl DisjointClassesAxiom {
     pub fn new(classes: Vec<IRI>) -> Self {
         DisjointClassesAxiom { classes }
     }
-    
+
     /// Get the disjoint classes
     pub fn classes(&self) -> &Vec<IRI> {
         &self.classes
@@ -162,12 +167,12 @@ impl ClassAssertionAxiom {
             class_expr,
         }
     }
-    
+
     /// Get the individual
     pub fn individual(&self) -> &IRI {
         &self.individual
     }
-    
+
     /// Get the class expression
     pub fn class_expr(&self) -> &class_expressions::ClassExpression {
         &self.class_expr
@@ -182,6 +187,40 @@ pub struct PropertyAssertionAxiom {
     object: IRI,
 }
 
+/// Data property assertion axiom: (a, v) ∈ P
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataPropertyAssertionAxiom {
+    subject: IRI,
+    property: IRI,
+    value: crate::entities::Literal,
+}
+
+impl DataPropertyAssertionAxiom {
+    /// Create a new data property assertion axiom
+    pub fn new(subject: IRI, property: IRI, value: crate::entities::Literal) -> Self {
+        DataPropertyAssertionAxiom {
+            subject,
+            property,
+            value,
+        }
+    }
+
+    /// Get the subject
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the literal value
+    pub fn value(&self) -> &crate::entities::Literal {
+        &self.value
+    }
+}
+
 impl PropertyAssertionAxiom {
     /// Create a new property assertion axiom
     pub fn new(subject: IRI, property: IRI, object: IRI) -> Self {
@@ -191,17 +230,17 @@ impl PropertyAssertionAxiom {
             object,
         }
     }
-    
+
     /// Get the subject
     pub fn subject(&self) -> &IRI {
         &self.subject
     }
-    
+
     /// Get the property
     pub fn property(&self) -> &IRI {
         &self.property
     }
-    
+
     /// Get the object
     pub fn object(&self) -> &IRI {
         &self.object
@@ -223,12 +262,12 @@ impl SubObjectPropertyAxiom {
             super_property,
         }
     }
-    
+
     /// Get the subproperty
     pub fn sub_property(&self) -> &IRI {
         &self.sub_property
     }
-    
+
     /// Get the superproperty
     pub fn super_property(&self) -> &IRI {
         &self.super_property
@@ -246,7 +285,7 @@ impl EquivalentObjectPropertiesAxiom {
     pub fn new(properties: Vec<IRI>) -> Self {
         EquivalentObjectPropertiesAxiom { properties }
     }
-    
+
     /// Get the equivalent properties
     pub fn properties(&self) -> &Vec<IRI> {
         &self.properties
@@ -406,7 +445,10 @@ pub struct SubPropertyChainOfAxiom {
 
 impl SubPropertyChainOfAxiom {
     /// Create a new property chain axiom
-    pub fn new(property_chain: Vec<ObjectPropertyExpression>, super_property: ObjectPropertyExpression) -> Self {
+    pub fn new(
+        property_chain: Vec<ObjectPropertyExpression>,
+        super_property: ObjectPropertyExpression,
+    ) -> Self {
         SubPropertyChainOfAxiom {
             property_chain,
             super_property,
@@ -578,7 +620,10 @@ pub struct HasKeyAxiom {
 impl HasKeyAxiom {
     /// Create a new has key axiom
     pub fn new(class_expression: class_expressions::ClassExpression, properties: Vec<IRI>) -> Self {
-        HasKeyAxiom { class_expression, properties }
+        HasKeyAxiom {
+            class_expression,
+            properties,
+        }
     }
 
     /// Get the class expression
@@ -602,8 +647,16 @@ pub struct AnnotationAssertionAxiom {
 
 impl AnnotationAssertionAxiom {
     /// Create a new annotation assertion axiom
-    pub fn new(annotation_property: IRI, subject: IRI, value: crate::entities::AnnotationValue) -> Self {
-        AnnotationAssertionAxiom { annotation_property, subject, value }
+    pub fn new(
+        annotation_property: IRI,
+        subject: IRI,
+        value: crate::entities::AnnotationValue,
+    ) -> Self {
+        AnnotationAssertionAxiom {
+            annotation_property,
+            subject,
+            value,
+        }
     }
 
     /// Get the annotation property
@@ -632,7 +685,11 @@ pub struct ObjectMinQualifiedCardinalityAxiom {
 
 impl ObjectMinQualifiedCardinalityAxiom {
     /// Create a new object minimum qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: class_expressions::ClassExpression) -> Self {
+    pub fn new(
+        cardinality: u32,
+        property: ObjectPropertyExpression,
+        filler: class_expressions::ClassExpression,
+    ) -> Self {
         Self {
             cardinality,
             property,
@@ -666,7 +723,11 @@ pub struct ObjectMaxQualifiedCardinalityAxiom {
 
 impl ObjectMaxQualifiedCardinalityAxiom {
     /// Create a new object maximum qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: class_expressions::ClassExpression) -> Self {
+    pub fn new(
+        cardinality: u32,
+        property: ObjectPropertyExpression,
+        filler: class_expressions::ClassExpression,
+    ) -> Self {
         Self {
             cardinality,
             property,
@@ -700,7 +761,11 @@ pub struct ObjectExactQualifiedCardinalityAxiom {
 
 impl ObjectExactQualifiedCardinalityAxiom {
     /// Create a new object exact qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: class_expressions::ClassExpression) -> Self {
+    pub fn new(
+        cardinality: u32,
+        property: ObjectPropertyExpression,
+        filler: class_expressions::ClassExpression,
+    ) -> Self {
         Self {
             cardinality,
             property,
@@ -836,12 +901,26 @@ mod tests {
         let animal_iri = IRI::new("http://example.org/Animal").unwrap();
 
         let axiom = SubClassOfAxiom::new(
-            class_expressions::ClassExpression::Class(crate::entities::Class::new(person_iri.clone())),
-            class_expressions::ClassExpression::Class(crate::entities::Class::new(animal_iri.clone())),
+            class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                person_iri.clone(),
+            )),
+            class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                animal_iri.clone(),
+            )),
         );
 
-        assert_eq!(axiom.sub_class(), &class_expressions::ClassExpression::Class(crate::entities::Class::new(person_iri.clone())));
-        assert_eq!(axiom.super_class(), &class_expressions::ClassExpression::Class(crate::entities::Class::new(animal_iri.clone())));
+        assert_eq!(
+            axiom.sub_class(),
+            &class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                person_iri.clone()
+            ))
+        );
+        assert_eq!(
+            axiom.super_class(),
+            &class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                animal_iri.clone()
+            ))
+        );
         assert!(axiom.involves_class(&person_iri));
         assert!(axiom.involves_class(&animal_iri));
     }
@@ -851,10 +930,7 @@ mod tests {
         let person_iri = IRI::new("http://example.org/Person").unwrap();
         let human_iri = IRI::new("http://example.org/Human").unwrap();
 
-        let axiom = EquivalentClassesAxiom::new(vec![
-            person_iri.clone(),
-            human_iri.clone(),
-        ]);
+        let axiom = EquivalentClassesAxiom::new(vec![person_iri.clone(), human_iri.clone()]);
 
         assert_eq!(axiom.classes().len(), 2);
         assert!(axiom.classes().contains(&person_iri));
@@ -868,11 +944,18 @@ mod tests {
 
         let axiom = ClassAssertionAxiom::new(
             john_iri.clone(),
-            class_expressions::ClassExpression::Class(crate::entities::Class::new(person_iri.clone())),
+            class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                person_iri.clone(),
+            )),
         );
 
         assert_eq!(axiom.individual(), &john_iri);
-        assert_eq!(axiom.class_expr(), &class_expressions::ClassExpression::Class(crate::entities::Class::new(person_iri.clone())));
+        assert_eq!(
+            axiom.class_expr(),
+            &class_expressions::ClassExpression::Class(crate::entities::Class::new(
+                person_iri.clone()
+            ))
+        );
     }
 
     #[test]
@@ -881,11 +964,8 @@ mod tests {
         let hasParent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let mary_iri = IRI::new("http://example.org/mary").unwrap();
 
-        let axiom = PropertyAssertionAxiom::new(
-            john_iri.clone(),
-            hasParent_iri.clone(),
-            mary_iri.clone(),
-        );
+        let axiom =
+            PropertyAssertionAxiom::new(john_iri.clone(), hasParent_iri.clone(), mary_iri.clone());
 
         assert_eq!(axiom.subject(), &john_iri);
         assert_eq!(axiom.property(), &hasParent_iri);
@@ -955,9 +1035,12 @@ mod tests {
         let knows_iri = IRI::new("http://example.org/knows").unwrap();
         let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
 
-        let functional_axiom = Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(hasFather_iri.clone()));
-        let reflexive_axiom = Axiom::ReflexiveProperty(ReflexivePropertyAxiom::new(knows_iri.clone()));
-        let transitive_axiom = Axiom::TransitiveProperty(TransitivePropertyAxiom::new(ancestor_iri.clone()));
+        let functional_axiom =
+            Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(hasFather_iri.clone()));
+        let reflexive_axiom =
+            Axiom::ReflexiveProperty(ReflexivePropertyAxiom::new(knows_iri.clone()));
+        let transitive_axiom =
+            Axiom::TransitiveProperty(TransitivePropertyAxiom::new(ancestor_iri.clone()));
 
         // Test that axioms can be created and matched
         match functional_axiom {
@@ -992,10 +1075,8 @@ mod tests {
         let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
         let age_in_years_iri = IRI::new("http://example.org/ageInYears").unwrap();
 
-        let axiom = EquivalentDataPropertiesAxiom::new(vec![
-            has_age_iri.clone(),
-            age_in_years_iri.clone(),
-        ]);
+        let axiom =
+            EquivalentDataPropertiesAxiom::new(vec![has_age_iri.clone(), age_in_years_iri.clone()]);
 
         assert_eq!(axiom.properties().len(), 2);
         assert!(axiom.properties().contains(&has_age_iri));
@@ -1007,10 +1088,8 @@ mod tests {
         let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
         let has_weight_iri = IRI::new("http://example.org/hasWeight").unwrap();
 
-        let axiom = DisjointDataPropertiesAxiom::new(vec![
-            has_age_iri.clone(),
-            has_weight_iri.clone(),
-        ]);
+        let axiom =
+            DisjointDataPropertiesAxiom::new(vec![has_age_iri.clone(), has_weight_iri.clone()]);
 
         assert_eq!(axiom.properties().len(), 2);
         assert!(axiom.properties().contains(&has_age_iri));
@@ -1036,15 +1115,19 @@ mod tests {
             has_age_iri.clone(),
             height_iri.clone(),
         ));
-        let functional_data_axiom = Axiom::FunctionalDataProperty(FunctionalDataPropertyAxiom::new(has_birth_date_iri.clone()));
-        let equivalent_data_axiom = Axiom::EquivalentDataProperties(EquivalentDataPropertiesAxiom::new(vec![
-            has_age_iri.clone(),
-            height_iri.clone(),
-        ]));
-        let disjoint_data_axiom = Axiom::DisjointDataProperties(DisjointDataPropertiesAxiom::new(vec![
-            has_age_iri.clone(),
-            weight_iri.clone(),
-        ]));
+        let functional_data_axiom = Axiom::FunctionalDataProperty(
+            FunctionalDataPropertyAxiom::new(has_birth_date_iri.clone()),
+        );
+        let equivalent_data_axiom =
+            Axiom::EquivalentDataProperties(EquivalentDataPropertiesAxiom::new(vec![
+                has_age_iri.clone(),
+                height_iri.clone(),
+            ]));
+        let disjoint_data_axiom =
+            Axiom::DisjointDataProperties(DisjointDataPropertiesAxiom::new(vec![
+                has_age_iri.clone(),
+                weight_iri.clone(),
+            ]));
 
         // Test that axioms can be created and matched
         match sub_data_axiom {
@@ -1086,7 +1169,11 @@ mod tests {
         let individual2 = IRI::new("http://example.org/individual2").unwrap();
         let individual3 = IRI::new("http://example.org/individual3").unwrap();
 
-        let axiom = DifferentIndividualsAxiom::new(vec![individual1.clone(), individual2.clone(), individual3.clone()]);
+        let axiom = DifferentIndividualsAxiom::new(vec![
+            individual1.clone(),
+            individual2.clone(),
+            individual3.clone(),
+        ]);
 
         assert_eq!(axiom.individuals().len(), 3);
         assert_eq!(axiom.individuals()[0], individual1);
@@ -1099,8 +1186,14 @@ mod tests {
         let individual1 = IRI::new("http://example.org/individual1").unwrap();
         let individual2 = IRI::new("http://example.org/individual2").unwrap();
 
-        let same_axiom = Axiom::SameIndividual(SameIndividualAxiom::new(vec![individual1.clone(), individual2.clone()]));
-        let different_axiom = Axiom::DifferentIndividuals(DifferentIndividualsAxiom::new(vec![individual1.clone(), individual2.clone()]));
+        let same_axiom = Axiom::SameIndividual(SameIndividualAxiom::new(vec![
+            individual1.clone(),
+            individual2.clone(),
+        ]));
+        let different_axiom = Axiom::DifferentIndividuals(DifferentIndividualsAxiom::new(vec![
+            individual1.clone(),
+            individual2.clone(),
+        ]));
 
         match same_axiom {
             Axiom::SameIndividual(_) => assert!(true),
@@ -1118,8 +1211,11 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
 
-        let has_parent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_grandparent_iri.clone()));
+        let has_parent =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(
+            has_grandparent_iri.clone(),
+        ));
 
         let axiom = SubPropertyChainOfAxiom::new(
             vec![has_parent.clone(), has_parent.clone()],
@@ -1137,8 +1233,10 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_child = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
+        let has_parent =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_child =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
 
         let axiom = InverseObjectPropertiesAxiom::new(has_parent.clone(), has_child.clone());
 
@@ -1151,15 +1249,14 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_parent =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
         let has_child_inverse = ObjectPropertyExpression::ObjectInverseOf(Box::new(
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()))
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone())),
         ));
 
-        let axiom = SubPropertyChainOfAxiom::new(
-            vec![has_child_inverse.clone()],
-            has_parent.clone(),
-        );
+        let axiom =
+            SubPropertyChainOfAxiom::new(vec![has_child_inverse.clone()], has_parent.clone());
 
         assert_eq!(axiom.property_chain().len(), 1);
         assert_eq!(axiom.property_chain()[0], has_child_inverse);
@@ -1171,8 +1268,11 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
 
-        let has_parent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_grandparent_iri.clone()));
+        let has_parent =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(
+            has_grandparent_iri.clone(),
+        ));
 
         let chain_axiom = Axiom::SubPropertyChainOf(SubPropertyChainOfAxiom::new(
             vec![has_parent.clone()],
@@ -1190,8 +1290,10 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_child = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
+        let has_parent =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_child =
+            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
 
         let inverse_axiom = Axiom::InverseObjectProperties(InverseObjectPropertiesAxiom::new(
             has_parent.clone(),

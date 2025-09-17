@@ -3,8 +3,8 @@
 //! This tool provides honest performance measurements for the OWL2 Reasoner.
 //! It measures actual performance without making false claims or guarantees.
 
-use owl2_reasoner::*;
 use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
+use owl2_reasoner::*;
 use std::time::Instant;
 
 fn main() -> OwlResult<()> {
@@ -23,8 +23,16 @@ fn main() -> OwlResult<()> {
 
     // Add some classes and properties for realistic testing
     let base_classes = vec![
-        "Entity", "Agent", "Person", "Organization", "Location",
-        "Event", "Process", "Artifact", "Concept", "Relation"
+        "Entity",
+        "Agent",
+        "Person",
+        "Organization",
+        "Location",
+        "Event",
+        "Process",
+        "Artifact",
+        "Concept",
+        "Relation",
     ];
 
     for class_name in &base_classes {
@@ -43,8 +51,12 @@ fn main() -> OwlResult<()> {
         if i > 0 {
             let parent_idx = (i - 1) / 4;
             if parent_idx < base_classes.len() {
-                let sub_class = ClassExpression::Class(Class::new(format!("http://example.org/Class{}", i)));
-                let super_class = ClassExpression::Class(Class::new(format!("http://example.org/{}", base_classes[parent_idx])));
+                let sub_class =
+                    ClassExpression::Class(Class::new(format!("http://example.org/Class{}", i)));
+                let super_class = ClassExpression::Class(Class::new(format!(
+                    "http://example.org/{}",
+                    base_classes[parent_idx]
+                )));
                 let subclass_axiom = SubClassOfAxiom::new(sub_class, super_class);
                 ontology.add_subclass_axiom(subclass_axiom)?;
             }
@@ -58,10 +70,12 @@ fn main() -> OwlResult<()> {
         ontology.add_object_property(prop)?;
     }
 
-    println!("   ✅ Created {} classes, {} properties, {} axioms",
-             ontology.classes().len(),
-             ontology.object_properties().len(),
-             ontology.subclass_axioms().len());
+    println!(
+        "   ✅ Created {} classes, {} properties, {} axioms",
+        ontology.classes().len(),
+        ontology.object_properties().len(),
+        ontology.subclass_axioms().len()
+    );
 
     // Create reasoner
     println!("\n🧠 Initializing reasoner...");
@@ -99,8 +113,11 @@ fn main() -> OwlResult<()> {
     response_times.push(cache_time);
 
     let cache_stats = reasoner.get_cache_stats();
-    println!("📊 Cache operations: {:.3} ms ({}% hit rate)",
-             cache_time, cache_stats.hit_rate() * 100.0);
+    println!(
+        "📊 Cache operations: {:.3} ms ({}% hit rate)",
+        cache_time,
+        cache_stats.hit_rate() * 100.0
+    );
 
     // Calculate average response time
     let avg_response_time_ms = response_times.iter().sum::<f64>() / response_times.len() as f64;
@@ -140,7 +157,10 @@ fn main() -> OwlResult<()> {
     let memory_per_entity_kb = memory_per_entity_bytes as f64 / 1024.0;
 
     println!("📊 Total entities: {}", entity_count);
-    println!("📊 Total memory: {:.2} KB", total_entity_bytes as f64 / 1024.0);
+    println!(
+        "📊 Total memory: {:.2} KB",
+        total_entity_bytes as f64 / 1024.0
+    );
     println!("📊 Memory per entity: {:.2} KB", memory_per_entity_kb);
 
     // Arc sharing analysis
@@ -161,7 +181,8 @@ fn main() -> OwlResult<()> {
     }
 
     let total_references: usize = iri_references.values().sum();
-    let shared_references: usize = iri_references.values()
+    let shared_references: usize = iri_references
+        .values()
         .filter(|&&count| count > 1)
         .map(|&count| count - 1)
         .sum();

@@ -440,6 +440,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
+
+[[package]]
 name = "half"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,12 +650,14 @@ dependencies = [
  "crossbeam",
  "dashmap",
  "env_logger",
+ "glob",
  "hashbrown 0.14.5",
  "indexmap",
  "itertools 0.12.1",
  "log",
  "num_cpus",
  "once_cell",
+ "owl2-reasoner-test-suite",
  "oxiri",
  "petgraph",
  "proptest",
@@ -666,6 +674,21 @@ dependencies = [
  "tempfile",
  "thiserror",
  "xmltree",
+]
+
+[[package]]
+name = "owl2-reasoner-test-suite"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "env_logger",
+ "glob",
+ "log",
+ "num_cpus",
+ "owl2-reasoner",
+ "rayon",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,36 +1,36 @@
 //! Parser module for OWL2 ontology formats
-//! 
+//!
 //! Provides parsers for various RDF/OWL serialization formats including:
 //! - Turtle (TTL)
-//! - RDF/XML 
+//! - RDF/XML
 //! - OWL/XML
 //! - N-Triples
 
 pub mod common;
-pub mod turtle;
-pub mod rdf_xml;
-pub mod owl_xml;
 pub mod owl_functional;
+pub mod owl_xml;
+pub mod rdf_xml;
+pub mod turtle;
 
 pub use common::*;
-pub use turtle::*;
-pub use rdf_xml::*;
-pub use owl_xml::*;
 pub use owl_functional::*;
+pub use owl_xml::*;
+pub use rdf_xml::*;
+pub use turtle::*;
 
-use crate::ontology::Ontology;
+use crate::entities::Class;
 use crate::error::OwlResult;
 use crate::iri::IRI;
-use crate::entities::Class;
+use crate::ontology::Ontology;
 
 /// Parser trait for different serialization formats
 pub trait OntologyParser {
     /// Parse an ontology from a string
     fn parse_str(&self, content: &str) -> OwlResult<Ontology>;
-    
+
     /// Parse an ontology from a file
     fn parse_file(&self, path: &std::path::Path) -> OwlResult<Ontology>;
-    
+
     /// Get the supported format name
     fn format_name(&self) -> &'static str;
 }
@@ -50,7 +50,7 @@ impl ParserFactory {
             _ => None,
         }
     }
-    
+
     /// Create a parser based on content type
     pub fn for_content_type(content_type: &str) -> Option<Box<dyn OntologyParser>> {
         match content_type {
@@ -61,15 +61,16 @@ impl ParserFactory {
             _ => None,
         }
     }
-    
+
     /// Auto-detect format and create appropriate parser
     pub fn auto_detect(content: &str) -> Option<Box<dyn OntologyParser>> {
         let content_trimmed = content.trim();
 
         // Check for OWL Functional Syntax (highest priority for .owl files)
-        if content_trimmed.starts_with("Prefix(") ||
-           content_trimmed.contains("Ontology(") ||
-           (content_trimmed.starts_with("Document(") && content_trimmed.contains("Prefix(")) {
+        if content_trimmed.starts_with("Prefix(")
+            || content_trimmed.contains("Ontology(")
+            || (content_trimmed.starts_with("Document(") && content_trimmed.contains("Prefix("))
+        {
             Some(Box::new(OwlFunctionalSyntaxParser::new()))
         } else if content_trimmed.starts_with("@prefix") || content_trimmed.starts_with("PREFIX") {
             Some(Box::new(TurtleParser::new()))
@@ -77,7 +78,11 @@ impl ParserFactory {
             Some(Box::new(RdfXmlParser::new()))
         } else if content_trimmed.starts_with("<?xml") && content.contains("Ontology") {
             Some(Box::new(OwlXmlParser::new()))
-        } else if content.lines().next().map_or(false, |line| line.contains("> <") && line.contains(" .")) {
+        } else if content
+            .lines()
+            .next()
+            .is_some_and(|line| line.contains("> <") && line.contains(" ."))
+        {
             Some(Box::new(NtriplesParser::new()))
         } else {
             None
@@ -117,15 +122,17 @@ impl OntologyParser for NtriplesParser {
             match self.parse_ntriples_line(line) {
                 Ok(triple) => {
                     if let Err(e) = self.add_triple_to_ontology(&mut ontology, &triple) {
-                        return Err(crate::error::OwlError::ParseError(
-                            format!("Error at line {}: {}", line_num, e)
-                        ));
+                        return Err(crate::error::OwlError::ParseError(format!(
+                            "Error at line {}: {}",
+                            line_num, e
+                        )));
                     }
                 }
                 Err(e) => {
-                    return Err(crate::error::OwlError::ParseError(
-                        format!("Parse error at line {}: {}", line_num, e)
-                    ));
+                    return Err(crate::error::OwlError::ParseError(format!(
+                        "Parse error at line {}: {}",
+                        line_num, e
+                    )));
                 }
             }
         }
@@ -150,7 +157,6 @@ impl OntologyParser for NtriplesParser {
 
 impl NtriplesParser {
     fn parse_ntriples_line(&self, line: &str) -> OwlResult<NtriplesTriple> {
-
         let mut chars = line.char_indices();
 
         // Parse subject
@@ -174,7 +180,9 @@ impl NtriplesParser {
         // Expect trailing '.'
         if let Some((_, c)) = chars.next() {
             if c != '.' {
-                return Err(crate::error::OwlError::ParseError("Expected '.' at end of triple".to_string()));
+                return Err(crate::error::OwlError::ParseError(
+                    "Expected '.' at end of triple".to_string(),
+                ));
             }
         }
 
@@ -185,7 +193,10 @@ impl NtriplesParser {
         })
     }
 
-    fn parse_ntriples_term(&self, chars: &mut std::str::CharIndices<'_>) -> OwlResult<NtriplesTerm> {
+    fn parse_ntriples_term(
+        &self,
+        chars: &mut std::str::CharIndices<'_>,
+    ) -> OwlResult<NtriplesTerm> {
         self.skip_whitespace(chars);
 
         if let Some((_, c)) = chars.next() {
@@ -205,10 +216,12 @@ impl NtriplesParser {
                     }
 
                     // Validate and create IRI
-                    let iri = IRI::new(&iri_str)
-                        .map_err(|e| crate::error::OwlError::ParseError(
-                            format!("Invalid IRI '{}': {}", iri_str, e)
-                        ))?;
+                    let iri = IRI::new(&iri_str).map_err(|e| {
+                        crate::error::OwlError::ParseError(format!(
+                            "Invalid IRI '{}': {}",
+                            iri_str, e
+                        ))
+                    })?;
 
                     Ok(NtriplesTerm::IRI(iri))
                 }
@@ -243,7 +256,8 @@ impl NtriplesParser {
                                             }
                                         }
                                         if let Ok(code) = u16::from_str_radix(&hex, 16) {
-                                            literal_str.push(char::from_u32(code as u32).unwrap_or('?'));
+                                            literal_str
+                                                .push(char::from_u32(code as u32).unwrap_or('?'));
                                         }
                                     }
                                     'U' => {
@@ -300,10 +314,13 @@ impl NtriplesParser {
                                                 dt_iri.push(dt_c);
                                             }
                                             if !dt_iri.is_empty() {
-                                                datatype = Some(IRI::new(&dt_iri)
-                                                    .map_err(|e| crate::error::OwlError::ParseError(
-                                                        format!("Invalid datatype IRI '{}': {}", dt_iri, e)
-                                                    ))?);
+                                                datatype =
+                                                    Some(IRI::new(&dt_iri).map_err(|e| {
+                                                        crate::error::OwlError::ParseError(format!(
+                                                            "Invalid datatype IRI '{}': {}",
+                                                            dt_iri, e
+                                                        ))
+                                                    })?);
                                             }
                                         }
                                     }
@@ -332,24 +349,33 @@ impl NtriplesParser {
                                 }
                             }
                             if bnode_id.is_empty() {
-                                return Err(crate::error::OwlError::ParseError("Empty blank node ID".to_string()));
+                                return Err(crate::error::OwlError::ParseError(
+                                    "Empty blank node ID".to_string(),
+                                ));
                             }
                             Ok(NtriplesTerm::BlankNode(bnode_id))
                         } else {
-                            return Err(crate::error::OwlError::ParseError("Expected ':' after '_' for blank node".to_string()));
+                            return Err(crate::error::OwlError::ParseError(
+                                "Expected ':' after '_' for blank node".to_string(),
+                            ));
                         }
                     } else {
-                        return Err(crate::error::OwlError::ParseError("Incomplete blank node".to_string()));
+                        return Err(crate::error::OwlError::ParseError(
+                            "Incomplete blank node".to_string(),
+                        ));
                     }
                 }
                 _ => {
-                    return Err(crate::error::OwlError::ParseError(
-                        format!("Unexpected character '{}' at start of term", c)
-                    ));
+                    return Err(crate::error::OwlError::ParseError(format!(
+                        "Unexpected character '{}' at start of term",
+                        c
+                    )));
                 }
             }
         } else {
-            return Err(crate::error::OwlError::ParseError("Unexpected end of input while parsing term".to_string()));
+            return Err(crate::error::OwlError::ParseError(
+                "Unexpected end of input while parsing term".to_string(),
+            ));
         }
     }
 
@@ -363,12 +389,20 @@ impl NtriplesParser {
         }
     }
 
-    fn add_triple_to_ontology(&self, ontology: &mut Ontology, triple: &NtriplesTriple) -> OwlResult<()> {
+    fn add_triple_to_ontology(
+        &self,
+        ontology: &mut Ontology,
+        triple: &NtriplesTriple,
+    ) -> OwlResult<()> {
         use crate::parser::common::*;
 
         // Convert N-Triples triple to OWL axioms based on common patterns
         match (&triple.subject, &triple.predicate, &triple.object) {
-            (NtriplesTerm::IRI(subject_iri), NtriplesTerm::IRI(predicate_iri), NtriplesTerm::IRI(object_iri)) => {
+            (
+                NtriplesTerm::IRI(subject_iri),
+                NtriplesTerm::IRI(predicate_iri),
+                NtriplesTerm::IRI(object_iri),
+            ) => {
                 // Handle common RDF/RDFS/OWL patterns
                 if predicate_iri.as_str() == RDF_TYPE {
                     // Class assertion: subject rdf:type object
@@ -398,28 +432,49 @@ impl NtriplesParser {
                     ontology.add_subclass_axiom(subclass_axiom)?;
                 } else {
                     // Generic property assertion
-                    let subject_individual = crate::entities::NamedIndividual::new(subject_iri.clone());
+                    let subject_individual =
+                        crate::entities::NamedIndividual::new(subject_iri.clone());
                     ontology.add_named_individual(subject_individual)?;
 
                     // Create object property if it looks like one
-                    if predicate_iri.as_str().starts_with("http://") && !predicate_iri.as_str().contains("#") {
+                    if predicate_iri.as_str().starts_with("http://")
+                        && !predicate_iri.as_str().contains("#")
+                    {
                         let obj_prop = crate::entities::ObjectProperty::new(predicate_iri.clone());
                         ontology.add_object_property(obj_prop)?;
                     }
                 }
             }
-            (NtriplesTerm::IRI(subject_iri), NtriplesTerm::IRI(predicate_iri), NtriplesTerm::Literal { value, language: _, datatype: _ }) => {
+            (
+                NtriplesTerm::IRI(subject_iri),
+                NtriplesTerm::IRI(predicate_iri),
+                NtriplesTerm::Literal {
+                    value,
+                    language: _,
+                    datatype: _,
+                },
+            ) => {
                 // Literal property assertion
                 let subject_individual = crate::entities::NamedIndividual::new(subject_iri.clone());
                 ontology.add_named_individual(subject_individual)?;
 
                 // Could add data property assertion here in the future
                 // For now, we'll just note that we've seen this pattern
-                log::debug!("Skipping literal property assertion: {} {} {}", subject_iri, predicate_iri, value);
+                log::debug!(
+                    "Skipping literal property assertion: {} {} {}",
+                    subject_iri,
+                    predicate_iri,
+                    value
+                );
             }
             _ => {
                 // Other patterns (blank nodes, etc.) not yet implemented
-                log::debug!("Skipping triple with unsupported pattern: {:?} {:?} {:?}", triple.subject, triple.predicate, triple.object);
+                log::debug!(
+                    "Skipping triple with unsupported pattern: {:?} {:?} {:?}",
+                    triple.subject,
+                    triple.predicate,
+                    triple.object
+                );
             }
         }
 
@@ -464,6 +519,7 @@ impl Default for ParserConfig {
     fn default() -> Self {
         Self {
             max_file_size: 100 * 1024 * 1024, // 100MB
+            // Default to strict validation to satisfy tests and ensure predictable parsing
             strict_validation: true,
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
@@ -485,7 +541,7 @@ mod tests {
         assert!(ParserFactory::for_file_extension("nt").is_some());
         assert!(ParserFactory::for_file_extension("unknown").is_none());
     }
-    
+
     #[test]
     fn test_parser_factory_content_type() {
         assert!(ParserFactory::for_content_type("text/turtle").is_some());
@@ -494,19 +550,19 @@ mod tests {
         assert!(ParserFactory::for_content_type("application/n-triples").is_some());
         assert!(ParserFactory::for_content_type("unknown/type").is_none());
     }
-    
+
     #[test]
     fn test_auto_detect_turtle() {
         let turtle_content = r#"
             @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
         "#;
-        
+
         let parser = ParserFactory::auto_detect(turtle_content);
         assert!(parser.is_some());
         assert_eq!(parser.unwrap().format_name(), "Turtle");
     }
-    
+
     #[test]
     fn test_auto_detect_rdf_xml() {
         let rdf_content = r#"
@@ -514,23 +570,23 @@ mod tests {
                 <rdf:Description rdf:about="http://example.org/test"/>
             </rdf:RDF>
         "#;
-        
+
         let parser = ParserFactory::auto_detect(rdf_content);
         assert!(parser.is_some());
         assert_eq!(parser.unwrap().format_name(), "RDF/XML");
     }
-    
+
     #[test]
     fn test_ntriples_parser() {
         let parser = NtriplesParser::new();
         let ntriples_content = r#"
             <http://example.org/subject> <http://example.org/predicate> <http://example.org/object> .
         "#;
-        
+
         let result = parser.parse_str(ntriples_content);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_parser_config() {
         let config = ParserConfig::default();

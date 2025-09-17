@@ -3,10 +3,10 @@
 //! Provides a simple CLI for consistency checking and classification
 //! that can be used alongside other OWL2 reasoners in benchmarks
 
-use std::path::Path;
-use std::time::Instant;
 use owl2_reasoner::parser::ParserFactory;
 use owl2_reasoner::reasoning::SimpleReasoner;
+use std::path::Path;
+use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -37,7 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Get file extension to determine parser
-    let extension = path.extension()
+    let extension = path
+        .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("ttl");
 
@@ -49,13 +50,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
 
     // Parse ontology
-    let ontology = parser.parse_file(path)
+    let ontology = parser
+        .parse_file(path)
         .map_err(|e| format!("Failed to parse ontology: {}", e))?;
 
     let parse_time = start_time.elapsed();
-    println!("Parsed ontology with {} axioms in {:?}",
-             ontology.axiom_count(),
-             parse_time);
+    println!(
+        "Parsed ontology with {} axioms in {:?}",
+        ontology.axiom_count(),
+        parse_time
+    );
 
     // Create reasoner
     let reasoner = SimpleReasoner::new(ontology);
@@ -73,7 +77,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for class in &classes {
                 for other_class in &classes {
                     if class != other_class {
-                        if let Ok(is_subclass) = reasoner.is_subclass_of(class.iri(), other_class.iri()) {
+                        if let Ok(is_subclass) =
+                            reasoner.is_subclass_of(class.iri(), other_class.iri())
+                        {
                             if is_subclass {
                                 subclass_count += 1;
                             }
@@ -85,16 +91,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let reasoning_time = start_time.elapsed();
 
             println!("Classification completed in {:?}", reasoning_time);
-            println!("Processed {} classes, found {} subclass relationships", classes.len(), subclass_count);
+            println!(
+                "Processed {} classes, found {} subclass relationships",
+                classes.len(),
+                subclass_count
+            );
         }
         "--consistent" => {
             println!("Checking consistency...");
-            let is_consistent = reasoner.is_consistent()
+            let is_consistent = reasoner
+                .is_consistent()
                 .map_err(|e| format!("Consistency checking failed: {}", e))?;
             let reasoning_time = start_time.elapsed();
 
             println!("Consistency check completed in {:?}", reasoning_time);
-            println!("Ontology is {}consistent", if is_consistent { "" } else { "in" });
+            println!(
+                "Ontology is {}consistent",
+                if is_consistent { "" } else { "in" }
+            );
         }
         _ => unreachable!(),
     }

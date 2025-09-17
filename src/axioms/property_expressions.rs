@@ -1,8 +1,8 @@
 //! Property expressions in OWL2
-//! 
+//!
 //! Defines complex property expressions for building property hierarchies.
 
-use crate::entities::{ObjectProperty, DataProperty};
+use crate::entities::{DataProperty, ObjectProperty};
 
 /// Object property expressions
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -18,19 +18,19 @@ impl ObjectPropertyExpression {
     pub fn inverse(&self) -> ObjectPropertyExpression {
         match self {
             ObjectPropertyExpression::ObjectProperty(prop) => {
-                ObjectPropertyExpression::ObjectInverseOf(Box::new(ObjectPropertyExpression::ObjectProperty(prop.clone())))
+                ObjectPropertyExpression::ObjectInverseOf(Box::new(
+                    ObjectPropertyExpression::ObjectProperty(prop.clone()),
+                ))
             }
-            ObjectPropertyExpression::ObjectInverseOf(prop) => {
-                *prop.clone()
-            }
+            ObjectPropertyExpression::ObjectInverseOf(prop) => *prop.clone(),
         }
     }
-    
+
     /// Check if this is a simple named property
     pub fn is_named(&self) -> bool {
         matches!(self, ObjectPropertyExpression::ObjectProperty(_))
     }
-    
+
     /// Get the named property if this is a simple property expression
     pub fn as_named(&self) -> Option<&ObjectProperty> {
         match self {
@@ -58,7 +58,7 @@ impl DataPropertyExpression {
     pub fn is_named(&self) -> bool {
         matches!(self, DataPropertyExpression::DataProperty(_))
     }
-    
+
     /// Get the named property if this is a simple property expression
     pub fn as_named(&self) -> Option<&DataProperty> {
         match self {

@@ -1,5 +1,5 @@
 //! GS1 EPCIS Ontology Implementation
-//! 
+//!
 //! This module provides a comprehensive implementation of the GS1 EPCIS 2.0 standard
 //! for supply chain traceability and event management using OWL2 reasoning.
 
@@ -163,10 +163,10 @@ pub struct EPCISEvent {
     pub disposition: Option<EPCISDisposition>,
     pub read_point: Option<ReadPoint>,
     pub business_location: Option<BusinessLocation>,
-    pub epc_list: Vec<String>, // EPC URNs
+    pub epc_list: Vec<String>,               // EPC URNs
     pub quantity_list: HashMap<String, u32>, // EPC -> quantity
-    pub child_epcs: Option<Vec<String>>, // For aggregation events
-    pub parent_id: Option<String>, // For aggregation events
+    pub child_epcs: Option<Vec<String>>,     // For aggregation events
+    pub parent_id: Option<String>,           // For aggregation events
     pub business_transaction_list: Vec<BusinessTransaction>,
     pub source_list: Vec<SourceDestination>,
     pub destination_list: Vec<SourceDestination>,
@@ -202,9 +202,9 @@ pub struct EPCISDataConfig {
 /// Data Scale Categories
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataScale {
-    Small,    // 100-500 events, 3-5 participants
-    Medium,   // 1K-5K events, 10-15 participants
-    Large,    // 10K-50K events, 50+ participants
+    Small,  // 100-500 events, 3-5 participants
+    Medium, // 1K-5K events, 10-15 participants
+    Large,  // 10K-50K events, 50+ participants
 }
 
 /// Event Pattern for realistic data generation
@@ -322,7 +322,7 @@ impl EPCISEvent {
     pub fn to_owl2(&self) -> OwlResult<(Ontology, Vec<String>)> {
         let mut ontology = Ontology::new();
         ontology.set_iri("http://example.org/epcis/test-ontology");
-        
+
         let mut individual_iris = Vec::new();
 
         // Create EPCIS classes if they don't exist
@@ -396,12 +396,17 @@ impl EPCISEvent {
         Ok(())
     }
 
-    fn add_epcs(&self, ontology: &mut Ontology, individual_iris: &mut Vec<String>) -> OwlResult<()> {
+    fn add_epcs(
+        &self,
+        ontology: &mut Ontology,
+        individual_iris: &mut Vec<String>,
+    ) -> OwlResult<()> {
         let epc_class = Class::new("http://example.org/epcis/EPC");
         ontology.add_class(epc_class.clone())?;
 
         for epc in &self.epc_list {
-            let epc_individual = NamedIndividual::new(format!("http://example.org/epcis/epcs/{}", epc));
+            let epc_individual =
+                NamedIndividual::new(format!("http://example.org/epcis/epcs/{}", epc));
             ontology.add_named_individual(epc_individual.clone())?;
             individual_iris.push(epc_individual.iri().as_str().to_string());
 
@@ -468,7 +473,13 @@ impl BusinessLocation {
 
 impl Address {
     /// Create new address
-    pub fn new(street: String, city: String, state: String, postal_code: String, country: String) -> Self {
+    pub fn new(
+        street: String,
+        city: String,
+        state: String,
+        postal_code: String,
+        country: String,
+    ) -> Self {
         Self {
             street,
             city,
@@ -481,7 +492,12 @@ impl Address {
 
 impl ReadPoint {
     /// Create new read point
-    pub fn new(id: String, name: String, location: BusinessLocation, reader_type: ReaderType) -> Self {
+    pub fn new(
+        id: String,
+        name: String,
+        location: BusinessLocation,
+        reader_type: ReaderType,
+    ) -> Self {
         Self {
             id,
             name,
@@ -497,25 +513,17 @@ impl EPCISDataConfig {
         Self {
             scale: DataScale::Small,
             participant_count: 5,
-            event_patterns: vec![
-                EventPattern {
-                    event_type: EPCISEventType::ObjectEvent,
-                    frequency: 10.0,
-                    participants: vec![
-                        ParticipantRole::Manufacturer,
-                        ParticipantRole::Distributor,
-                    ],
-                    business_steps: vec![
-                        EPCISBusinessStep::Manufacturing,
-                        EPCISBusinessStep::Receiving,
-                    ],
-                    dispositions: vec![
-                        EPCISDisposition::InProgress,
-                        EPCISDisposition::InStock,
-                    ],
-                    weight: 1.0,
-                },
-            ],
+            event_patterns: vec![EventPattern {
+                event_type: EPCISEventType::ObjectEvent,
+                frequency: 10.0,
+                participants: vec![ParticipantRole::Manufacturer, ParticipantRole::Distributor],
+                business_steps: vec![
+                    EPCISBusinessStep::Manufacturing,
+                    EPCISBusinessStep::Receiving,
+                ],
+                dispositions: vec![EPCISDisposition::InProgress, EPCISDisposition::InStock],
+                weight: 1.0,
+            }],
             time_span: std::time::Duration::from_secs(86400), // 1 day
             include_extensions: false,
         }

@@ -3,13 +3,13 @@
 //! This benchmark provides basic measurements of entity size calculations
 //! without making fake breakthrough claims or hardcoded assertions.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use owl2_reasoner::axioms::ClassExpression;
+use owl2_reasoner::axioms::SubClassOfAxiom;
+use owl2_reasoner::entities::{Class, ObjectProperty};
+use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::simple::SimpleReasoner;
-use owl2_reasoner::entities::{Class, ObjectProperty};
-use owl2_reasoner::axioms::SubClassOfAxiom;
-use owl2_reasoner::axioms::ClassExpression;
-use owl2_reasoner::iri::IRI;
 use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
 use std::time::Instant;
 
@@ -47,11 +47,13 @@ fn measure_calculation_performance(c: &mut Criterion) {
                 }
 
                 for prop in ontology.object_properties() {
-                    total_bytes += EntitySizeCalculator::estimate_object_property_size(black_box(prop));
+                    total_bytes +=
+                        EntitySizeCalculator::estimate_object_property_size(black_box(prop));
                 }
 
                 for axiom in ontology.subclass_axioms() {
-                    total_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(black_box(axiom));
+                    total_bytes +=
+                        EntitySizeCalculator::estimate_subclass_axiom_size(black_box(axiom));
                 }
 
                 // Return result (no assertions - just measurement)
@@ -137,9 +139,9 @@ fn measure_scaling_performance(c: &mut Criterion) {
                 }
 
                 let elapsed_time = start_time.elapsed();
-                let entities_count = ontology.classes().len() +
-                                   ontology.object_properties().len() +
-                                   ontology.subclass_axioms().len();
+                let entities_count = ontology.classes().len()
+                    + ontology.object_properties().len()
+                    + ontology.subclass_axioms().len();
 
                 // Return scaling metrics (no assertions)
                 black_box((total_bytes, entities_count, elapsed_time));
@@ -183,8 +185,5 @@ fn create_test_ontology(entity_count: usize) -> Ontology {
     ontology
 }
 
-criterion_group!(
-    benches,
-    entity_size_benchmark_suite
-);
+criterion_group!(benches, entity_size_benchmark_suite);
 criterion_main!(benches);

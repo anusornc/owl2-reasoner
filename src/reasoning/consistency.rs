@@ -1,14 +1,14 @@
 //! Consistency checking for OWL2 ontologies
-//! 
+//!
 //! Provides algorithms for checking ontology consistency and detecting contradictions.
 
-use crate::ontology::Ontology;
-use crate::iri::IRI;
-use crate::entities::*;
-use crate::axioms::*;
 use crate::Axiom;
-use crate::reasoning::tableaux::TableauxReasoner;
+use crate::axioms::*;
+use crate::entities::*;
 use crate::error::OwlResult;
+use crate::iri::IRI;
+use crate::ontology::Ontology;
+use crate::reasoning::tableaux::TableauxReasoner;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -92,34 +92,34 @@ impl ConsistencyChecker {
     pub fn new(ontology: Ontology) -> Self {
         Self::with_config(ontology, ConsistencyConfig::default())
     }
-    
+
     /// Create a new consistency checker with custom configuration
     pub fn with_config(ontology: Ontology, config: ConsistencyConfig) -> Self {
         let tableaux_reasoner = TableauxReasoner::new(ontology);
-        
+
         ConsistencyChecker {
             tableaux_reasoner,
             config,
         }
     }
-    
+
     /// Check if the ontology is consistent
     pub fn is_consistent(&mut self) -> OwlResult<bool> {
         let result = self.check_consistency()?;
         Ok(result.is_consistent)
     }
-    
+
     /// Perform comprehensive consistency checking
     pub fn check_consistency(&mut self) -> OwlResult<ConsistencyResult> {
         let start_time = std::time::Instant::now();
         let mut explanations = Vec::new();
         let mut contradictions_found = 0;
         let mut axioms_analyzed = 0;
-        
+
         // Check basic consistency using tableaux reasoning
         let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
         let tableaux_result = self.tableaux_reasoner.is_class_satisfiable(&thing_iri)?;
-        
+
         if !tableaux_result {
             explanations.push(InconsistencyExplanation {
                 description: "Ontology is inconsistent: owl:Thing is unsatisfiable".to_string(),
@@ -128,25 +128,25 @@ impl ConsistencyChecker {
             });
             contradictions_found += 1;
         }
-        
+
         // Check for direct contradictions
         let direct_contradictions = self.find_direct_contradictions()?;
         contradictions_found += direct_contradictions.len();
         explanations.extend(direct_contradictions);
         axioms_analyzed += self.tableaux_reasoner.ontology.axioms().len();
-        
+
         // Check for unsatisfiable classes
         let unsatisfiable_classes = self.find_unsatisfiable_classes()?;
         contradictions_found += unsatisfiable_classes.len();
         explanations.extend(unsatisfiable_classes);
-        
+
         // Limit number of explanations
         if explanations.len() > self.config.max_explanations {
             explanations.truncate(self.config.max_explanations);
         }
-        
+
         let time_ms = start_time.elapsed().as_millis() as u64;
-        
+
         Ok(ConsistencyResult {
             is_consistent: contradictions_found == 0,
             explanations,
@@ -158,153 +158,180 @@ impl ConsistencyChecker {
             },
         })
     }
-    
+
     /// Find direct contradictions in the ontology
     fn find_direct_contradictions(&self) -> OwlResult<Vec<InconsistencyExplanation>> {
         let mut contradictions = Vec::new();
-        
+
         // Check for disjoint class contradictions
         for disjoint_axiom in self.tableaux_reasoner.ontology.disjoint_classes_axioms() {
             if let Some(contradiction) = self.check_disjoint_classes_contradiction(disjoint_axiom) {
                 contradictions.push(contradiction);
             }
         }
-        
+
         // Check for equivalent class contradictions
         for equiv_axiom in self.tableaux_reasoner.ontology.equivalent_classes_axioms() {
             if let Some(contradiction) = self.check_equivalent_classes_contradiction(equiv_axiom) {
                 contradictions.push(contradiction);
             }
         }
-        
+
         // Check for property characteristic contradictions
         contradictions.extend(self.check_property_contradictions()?);
-        
+
         Ok(contradictions)
     }
-    
+
     /// Check for contradictions in disjoint classes axioms
-    fn check_disjoint_classes_contradiction(&self, axiom: &crate::axioms::DisjointClassesAxiom) -> Option<InconsistencyExplanation> {
+    fn check_disjoint_classes_contradiction(
+        &self,
+        axiom: &crate::axioms::DisjointClassesAxiom,
+    ) -> Option<InconsistencyExplanation> {
         let classes = axiom.classes();
-        
+
         // Check if any two disjoint classes are declared equivalent
         for i in 0..classes.len() {
             for j in i + 1..classes.len() {
                 let class1 = &classes[i];
                 let class2 = &classes[j];
-                
+
                 // Check if class1 and class2 are declared equivalent
                 for equiv_axiom in self.tableaux_reasoner.ontology.equivalent_classes_axioms() {
                     let equiv_classes = equiv_axiom.classes();
                     if equiv_classes.contains(class1) && equiv_classes.contains(class2) {
                         return Some(InconsistencyExplanation {
-                            description: format!("Classes {} and {} are both disjoint and equivalent", class1, class2),
+                            description: format!(
+                                "Classes {} and {} are both disjoint and equivalent",
+                                class1, class2
+                            ),
                             involved_axioms: vec![
                                 Axiom::DisjointClasses(axiom.clone()),
                                 Axiom::EquivalentClasses(equiv_axiom.clone()),
                             ],
-                            contradiction_type: ContradictionType::DisjointClassesContradiction(vec![
-                                class1.clone(), class2.clone()
-                            ]),
+                            contradiction_type: ContradictionType::DisjointClassesContradiction(
+                                vec![class1.clone(), class2.clone()],
+                            ),
                         });
                     }
                 }
             }
         }
-        
+
         None
     }
-    
+
     /// Check for contradictions in equivalent classes axioms
-    fn check_equivalent_classes_contradiction(&self, axiom: &crate::axioms::EquivalentClassesAxiom) -> Option<InconsistencyExplanation> {
+    fn check_equivalent_classes_contradiction(
+        &self,
+        axiom: &crate::axioms::EquivalentClassesAxiom,
+    ) -> Option<InconsistencyExplanation> {
         let classes = axiom.classes();
-        
+
         // Check if any two equivalent classes are declared disjoint
         for i in 0..classes.len() {
             for j in i + 1..classes.len() {
                 let class1 = &classes[i];
                 let class2 = &classes[j];
-                
+
                 // Check if class1 and class2 are declared disjoint
                 for disjoint_axiom in self.tableaux_reasoner.ontology.disjoint_classes_axioms() {
                     let disjoint_classes = disjoint_axiom.classes();
                     if disjoint_classes.contains(class1) && disjoint_classes.contains(class2) {
                         return Some(InconsistencyExplanation {
-                            description: format!("Classes {} and {} are both equivalent and disjoint", class1, class2),
+                            description: format!(
+                                "Classes {} and {} are both equivalent and disjoint",
+                                class1, class2
+                            ),
                             involved_axioms: vec![
                                 Axiom::EquivalentClasses(axiom.clone()),
                                 Axiom::DisjointClasses(disjoint_axiom.clone()),
                             ],
-                            contradiction_type: ContradictionType::DisjointClassesContradiction(vec![
-                                class1.clone(), class2.clone()
-                            ]),
+                            contradiction_type: ContradictionType::DisjointClassesContradiction(
+                                vec![class1.clone(), class2.clone()],
+                            ),
                         });
                     }
                 }
             }
         }
-        
+
         None
     }
-    
+
     /// Check for property characteristic contradictions
     fn check_property_contradictions(&self) -> OwlResult<Vec<InconsistencyExplanation>> {
         let mut contradictions = Vec::new();
-        
+
         for prop in self.tableaux_reasoner.ontology.object_properties() {
-            let contradictions_for_prop = self.check_property_characteristic_contradictions(prop)?;
+            let contradictions_for_prop =
+                self.check_property_characteristic_contradictions(prop)?;
             contradictions.extend(contradictions_for_prop);
         }
-        
+
         Ok(contradictions)
     }
-    
+
     /// Check for contradictions in property characteristics
-    fn check_property_characteristic_contradictions(&self, prop: &ObjectProperty) -> OwlResult<Vec<InconsistencyExplanation>> {
+    fn check_property_characteristic_contradictions(
+        &self,
+        prop: &ObjectProperty,
+    ) -> OwlResult<Vec<InconsistencyExplanation>> {
         let mut contradictions = Vec::new();
         let characteristics = prop.characteristics();
-        
+
         // Check for incompatible characteristics
-        if characteristics.contains(&ObjectPropertyCharacteristic::Functional) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::InverseFunctional) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Functional)
+            && characteristics.contains(&ObjectPropertyCharacteristic::InverseFunctional)
+        {
             // Check if the property has both functional and inverse-functional characteristics
             // This might lead to contradictions in certain scenarios
         }
 
-        if characteristics.contains(&ObjectPropertyCharacteristic::Asymmetric) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::Reflexive) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Asymmetric)
+            && characteristics.contains(&ObjectPropertyCharacteristic::Reflexive)
+        {
             // Asymmetric and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both asymmetric and reflexive", prop.iri()),
                 involved_axioms: vec![
                     // These would be the actual axioms that define the characteristics
                 ],
-                contradiction_type: ContradictionType::Other(
-                    format!("Asymmetric and reflexive property: {}", prop.iri())
-                ),
+                contradiction_type: ContradictionType::Other(format!(
+                    "Asymmetric and reflexive property: {}",
+                    prop.iri()
+                )),
             });
         }
 
-        if characteristics.contains(&ObjectPropertyCharacteristic::Irreflexive) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::Reflexive) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Irreflexive)
+            && characteristics.contains(&ObjectPropertyCharacteristic::Reflexive)
+        {
             // Irreflexive and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both irreflexive and reflexive", prop.iri()),
                 involved_axioms: vec![],
-                contradiction_type: ContradictionType::Other(
-                    format!("Irreflexive and reflexive property: {}", prop.iri())
-                ),
+                contradiction_type: ContradictionType::Other(format!(
+                    "Irreflexive and reflexive property: {}",
+                    prop.iri()
+                )),
             });
         }
-        
+
         Ok(contradictions)
     }
-    
+
     /// Find unsatisfiable classes in the ontology
     fn find_unsatisfiable_classes(&mut self) -> OwlResult<Vec<InconsistencyExplanation>> {
         let mut unsatisfiable = Vec::new();
-        
-        let classes: Vec<_> = self.tableaux_reasoner.ontology.classes().iter().cloned().collect();
+
+        let classes: Vec<_> = self
+            .tableaux_reasoner
+            .ontology
+            .classes()
+            .iter()
+            .cloned()
+            .collect();
         for class in classes {
             let class_iri = class.iri();
 
@@ -319,78 +346,84 @@ impl ConsistencyChecker {
                 });
             }
         }
-        
+
         Ok(unsatisfiable)
     }
-    
+
     /// Find all axioms that involve a specific class
     fn find_axioms_involving_class(&self, class_iri: &IRI) -> OwlResult<Vec<Axiom>> {
         let mut axioms = Vec::new();
-        
+
         // Check subclass axioms
         for axiom in self.tableaux_reasoner.ontology.subclass_axioms() {
             if axiom.involves_class(class_iri) {
                 axioms.push(Axiom::SubClassOf(axiom.clone()));
             }
         }
-        
+
         // Check equivalent classes axioms
         for axiom in self.tableaux_reasoner.ontology.equivalent_classes_axioms() {
             if axiom.classes().contains(class_iri) {
                 axioms.push(Axiom::EquivalentClasses(axiom.clone()));
             }
         }
-        
+
         // Check disjoint classes axioms
         for axiom in self.tableaux_reasoner.ontology.disjoint_classes_axioms() {
             if axiom.classes().contains(class_iri) {
                 axioms.push(Axiom::DisjointClasses(axiom.clone()));
             }
         }
-        
+
         // Check class assertions
         for axiom in self.tableaux_reasoner.ontology.class_assertions() {
             if axiom.class_expr().contains_class(class_iri) {
                 axioms.push(Axiom::ClassAssertion(axiom.clone()));
             }
         }
-        
+
         Ok(axioms)
     }
-    
+
     /// Check if adding an axiom would make the ontology inconsistent
     pub fn would_be_consistent_with(&mut self, axiom: &Axiom) -> OwlResult<bool> {
         // Create a temporary ontology with the new axiom
         let mut temp_ontology = self.tableaux_reasoner.ontology.as_ref().clone();
-        
+
         // Add the axiom to the temporary ontology
         match axiom {
             Axiom::SubClassOf(axiom) => temp_ontology.add_subclass_axiom(axiom.clone())?,
-            Axiom::EquivalentClasses(axiom) => temp_ontology.add_equivalent_classes_axiom(axiom.clone())?,
-            Axiom::DisjointClasses(axiom) => temp_ontology.add_disjoint_classes_axiom(axiom.clone())?,
+            Axiom::EquivalentClasses(axiom) => {
+                temp_ontology.add_equivalent_classes_axiom(axiom.clone())?
+            }
+            Axiom::DisjointClasses(axiom) => {
+                temp_ontology.add_disjoint_classes_axiom(axiom.clone())?
+            }
             Axiom::ClassAssertion(axiom) => temp_ontology.add_class_assertion(axiom.clone())?,
-            Axiom::PropertyAssertion(axiom) => temp_ontology.add_property_assertion(axiom.clone())?,
+            Axiom::PropertyAssertion(axiom) => {
+                temp_ontology.add_property_assertion(axiom.clone())?
+            }
             _ => return Ok(true), // Other axiom types not yet supported
         }
-        
+
         // Check consistency of the temporary ontology
         let mut temp_checker = ConsistencyChecker::new(temp_ontology);
         temp_checker.is_consistent()
     }
-    
+
     /// Get minimal explanations for inconsistency
     pub fn get_minimal_explanations(&mut self) -> OwlResult<Vec<InconsistencyExplanation>> {
         let result = self.check_consistency()?;
-        
+
         // Filter for minimal explanations (those with fewest involved axioms)
         let mut explanations = result.explanations;
         explanations.sort_by_key(|exp| exp.involved_axioms.len());
-        
+
         // Take explanations with minimal size
         if let Some(min_size) = explanations.first().map(|exp| exp.involved_axioms.len()) {
             explanations.retain(|exp| exp.involved_axioms.len() == min_size);
         }
-        
+
         Ok(explanations)
     }
 }
@@ -399,7 +432,7 @@ impl ConsistencyChecker {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
-    
+
     #[test]
     fn test_consistency_checker_creation() {
         let ontology = Ontology::new();
@@ -408,51 +441,51 @@ mod tests {
         // Empty ontology should be consistent
         assert!(checker.is_consistent().unwrap());
     }
-    
+
     #[test]
     fn test_consistency_check_result() {
         let ontology = Ontology::new();
         let mut checker = ConsistencyChecker::new(ontology);
-        
+
         let result = checker.check_consistency().unwrap();
-        
+
         assert!(result.is_consistent);
         assert!(result.explanations.is_empty());
         assert_eq!(result.stats.contradictions_found, 0);
         assert_eq!(result.stats.checks_performed, 1);
     }
-    
+
     #[test]
     fn test_inconsistent_ontology() {
         let mut ontology = Ontology::new();
-        
+
         // Create a simple inconsistency: class is disjoint with itself
         let person_iri = IRI::new("http://example.org/Person").unwrap();
         let person_class = Class::new(person_iri.clone());
         ontology.add_class(person_class).unwrap();
-        
+
         // Add disjoint classes axiom with the same class twice
         let disjoint_axiom = DisjointClassesAxiom::new(vec![
             person_iri.clone(),
             person_iri.clone(), // Same class - this should be detected as problematic
         ]);
         ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
-        
+
         let mut checker = ConsistencyChecker::new(ontology);
         let result = checker.check_consistency().unwrap();
-        
+
         // The ontology should be detected as inconsistent
         // (though the exact detection depends on the implementation)
         println!("Consistency result: {:?}", result);
     }
-    
+
     #[test]
     fn test_minimal_explanations() {
         let ontology = Ontology::new();
         let mut checker = ConsistencyChecker::new(ontology);
-        
+
         let explanations = checker.get_minimal_explanations().unwrap();
-        
+
         // Empty ontology should have no explanations
         assert!(explanations.is_empty());
     }

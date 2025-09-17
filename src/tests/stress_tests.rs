@@ -1,5 +1,5 @@
 //! Stress testing for large ontologies
-//! 
+//!
 //! This module tests the parser's performance and stability with large datasets.
 
 use crate::parser::*;
@@ -25,7 +25,11 @@ mod tests {
 
         // Generate 500 subclass relationships
         for i in 0..500 {
-            turtle_content.push_str(&format!("ex:Class{} rdfs:subClassOf ex:Class{} .\n", i + 500, i));
+            turtle_content.push_str(&format!(
+                "ex:Class{} rdfs:subClassOf ex:Class{} .\n",
+                i + 500,
+                i
+            ));
         }
 
         // Generate 100 object properties
@@ -40,13 +44,19 @@ mod tests {
 
         assert!(result.is_ok(), "Large ontology parsing should succeed");
         let ontology = result.unwrap();
-        
+
         // Verify we parsed the expected number of entities
-        assert!(ontology.classes().len() >= 1000, "Should have at least 1000 classes");
-        
+        assert!(
+            ontology.classes().len() >= 1000,
+            "Should have at least 1000 classes"
+        );
+
         println!("Large ontology parsing took: {:?}", duration);
-        println!("Parsed {} classes, {} object properties", 
-                 ontology.classes().len(), ontology.object_properties().len());
+        println!(
+            "Parsed {} classes, {} object properties",
+            ontology.classes().len(),
+            ontology.object_properties().len()
+        );
     }
 
     #[test]
@@ -62,19 +72,27 @@ mod tests {
         for i in 0..100 {
             turtle_content.push_str(&format!("ex:Class{} a owl:Class .\n", i));
             if i > 0 {
-                turtle_content.push_str(&format!("ex:Class{} rdfs:subClassOf ex:Class{} .\n", i, i - 1));
+                turtle_content.push_str(&format!(
+                    "ex:Class{} rdfs:subClassOf ex:Class{} .\n",
+                    i,
+                    i - 1
+                ));
             }
         }
 
         let parser = TurtleParser::new();
         let result = parser.parse_str(&turtle_content);
-        
+
         assert!(result.is_ok(), "Memory usage test should succeed");
         let ontology = result.unwrap();
-        
+
         // Verify the hierarchy was parsed correctly
-        assert_eq!(ontology.classes().len(), 100, "Should have exactly 100 classes");
-        
+        assert_eq!(
+            ontology.classes().len(),
+            100,
+            "Should have exactly 100 classes"
+        );
+
         // The parser should handle this without excessive memory usage
         // (this is more of a smoke test than a precise memory measurement)
     }
@@ -92,19 +110,29 @@ mod tests {
         }
 
         let parser = ParserFactory::auto_detect(&content);
-        assert!(parser.is_some(), "Should auto-detect parser for large content");
-        
+        assert!(
+            parser.is_some(),
+            "Should auto-detect parser for large content"
+        );
+
         let parser = parser.unwrap();
-        assert_eq!(parser.format_name(), "Turtle", "Should detect as Turtle format");
-        
+        assert_eq!(
+            parser.format_name(),
+            "Turtle",
+            "Should detect as Turtle format"
+        );
+
         let result = parser.parse_str(&content);
-        
+
         // For debugging, let's see what error we get
         if let Err(ref e) = result {
             println!("Parsing error: {:?}", e);
         }
-        
-        assert!(result.is_ok(), "Auto-detected parser should handle large content");
+
+        assert!(
+            result.is_ok(),
+            "Auto-detected parser should handle large content"
+        );
     }
 
     #[test]
@@ -119,16 +147,24 @@ mod tests {
         turtle_content.push_str("ex:Class0 a owl:Class .\n");
         for i in 1..100 {
             turtle_content.push_str(&format!("ex:Class{} a owl:Class .\n", i));
-            turtle_content.push_str(&format!("ex:Class{} rdfs:subClassOf ex:Class{} .\n", i, i - 1));
+            turtle_content.push_str(&format!(
+                "ex:Class{} rdfs:subClassOf ex:Class{} .\n",
+                i,
+                i - 1
+            ));
         }
 
         let parser = TurtleParser::new();
         let result = parser.parse_str(&turtle_content);
-        
+
         assert!(result.is_ok(), "Deep hierarchy parsing should succeed");
         let ontology = result.unwrap();
-        
-        assert_eq!(ontology.classes().len(), 100, "Should have 100 classes in deep hierarchy");
+
+        assert_eq!(
+            ontology.classes().len(),
+            100,
+            "Should have 100 classes in deep hierarchy"
+        );
     }
 
     #[test]
@@ -150,12 +186,15 @@ ex:MainClass a owl:Class .
 
         let parser = TurtleParser::new();
         let result = parser.parse_str(turtle_content);
-        
+
         assert!(result.is_ok(), "Multiple imports should be handled");
         let ontology = result.unwrap();
-        
+
         assert_eq!(ontology.imports().len(), 5, "Should have 5 imports");
-        assert!(ontology.classes().len() >= 1, "Should have at least the main class");
+        assert!(
+            ontology.classes().len() >= 1,
+            "Should have at least the main class"
+        );
     }
 
     #[test]
@@ -177,12 +216,18 @@ ex:MainClass a owl:Class .
 
         let parser = TurtleParser::new();
         let result = parser.parse_str(&turtle_content);
-        
+
         assert!(result.is_ok(), "Many properties should be handled");
         let ontology = result.unwrap();
-        
-        assert!(ontology.object_properties().len() >= 200, "Should have many object properties");
-        assert!(ontology.data_properties().len() >= 200, "Should have many data properties");
+
+        assert!(
+            ontology.object_properties().len() >= 200,
+            "Should have many object properties"
+        );
+        assert!(
+            ontology.data_properties().len() >= 200,
+            "Should have many data properties"
+        );
     }
 
     #[test]
@@ -201,10 +246,14 @@ ex:MainClass a owl:Class .
             turtle_content.push_str(&format!("ex:Prop{} a owl:ObjectProperty .\n", i));
             turtle_content.push_str(&format!("ex:DataProp{} a owl:DataProperty .\n", i));
             turtle_content.push_str(&format!("ex:Individual{} a owl:NamedIndividual .\n", i));
-            
+
             // Add some subclass relationships
             if i > 0 && i % 10 == 0 {
-                turtle_content.push_str(&format!("ex:Class{} rdfs:subClassOf ex:Class{} .\n", i, i / 10));
+                turtle_content.push_str(&format!(
+                    "ex:Class{} rdfs:subClassOf ex:Class{} .\n",
+                    i,
+                    i / 10
+                ));
             }
         }
 
@@ -215,20 +264,22 @@ ex:MainClass a owl:Class .
 
         assert!(result.is_ok(), "Mixed content parsing should succeed");
         let ontology = result.unwrap();
-        
+
         println!("Mixed content stress test took: {:?}", duration);
-        println!("Parsed: {} classes, {} object properties, {} data properties, {} individuals",
-                 ontology.classes().len(),
-                 ontology.object_properties().len(), 
-                 ontology.data_properties().len(),
-                 ontology.named_individuals().len());
+        println!(
+            "Parsed: {} classes, {} object properties, {} data properties, {} individuals",
+            ontology.classes().len(),
+            ontology.object_properties().len(),
+            ontology.data_properties().len(),
+            ontology.named_individuals().len()
+        );
     }
 
     #[test]
     fn test_parser_performance_scaling() {
         // Test how parser performance scales with input size
         let sizes = vec![100, 500, 1000, 2000];
-        
+
         for size in sizes {
             let mut content = String::new();
             content.push_str("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
@@ -239,7 +290,11 @@ ex:MainClass a owl:Class .
             for i in 0..size {
                 content.push_str(&format!("ex:Entity{} a owl:Class .\n", i));
                 if i > 0 {
-                    content.push_str(&format!("ex:Entity{} rdfs:subClassOf ex:Entity{} .\n", i, (i-1)/10));
+                    content.push_str(&format!(
+                        "ex:Entity{} rdfs:subClassOf ex:Entity{} .\n",
+                        i,
+                        (i - 1) / 10
+                    ));
                 }
             }
 
@@ -250,11 +305,20 @@ ex:MainClass a owl:Class .
 
             assert!(result.is_ok(), "Parser should handle size {}", size);
             let ontology = result.unwrap();
-            
-            println!("Size {}: {:?} ({} classes parsed)", size, duration, ontology.classes().len());
-            
+
+            println!(
+                "Size {}: {:?} ({} classes parsed)",
+                size,
+                duration,
+                ontology.classes().len()
+            );
+
             // Performance should be reasonable (not a precise benchmark, just a sanity check)
-            assert!(duration.as_secs() < 10, "Parsing {} entities should not take more than 10 seconds", size);
+            assert!(
+                duration.as_secs() < 10,
+                "Parsing {} entities should not take more than 10 seconds",
+                size
+            );
         }
     }
 }

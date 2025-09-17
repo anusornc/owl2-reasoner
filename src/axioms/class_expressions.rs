@@ -1,10 +1,10 @@
 //! Class expressions in OWL2
-//! 
+//!
 //! Defines complex class expressions for building class hierarchies.
 
+use super::property_expressions::{DataPropertyExpression, ObjectPropertyExpression};
 use crate::entities::Class;
 use crate::iri::IRI;
-use super::property_expressions::{ObjectPropertyExpression, DataPropertyExpression};
 
 /// A class expression in OWL2
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -52,7 +52,8 @@ impl ClassExpression {
     pub fn simplify(&self) -> ClassExpression {
         match self {
             ClassExpression::ObjectIntersectionOf(operands) => {
-                let simplified: Vec<ClassExpression> = operands.iter().map(|op| op.simplify()).collect();
+                let simplified: Vec<ClassExpression> =
+                    operands.iter().map(|op| op.simplify()).collect();
                 if simplified.len() == 1 {
                     simplified[0].clone()
                 } else {
@@ -60,7 +61,8 @@ impl ClassExpression {
                 }
             }
             ClassExpression::ObjectUnionOf(operands) => {
-                let simplified: Vec<ClassExpression> = operands.iter().map(|op| op.simplify()).collect();
+                let simplified: Vec<ClassExpression> =
+                    operands.iter().map(|op| op.simplify()).collect();
                 if simplified.len() == 1 {
                     simplified[0].clone()
                 } else {
@@ -70,12 +72,12 @@ impl ClassExpression {
             _ => self.clone(),
         }
     }
-    
+
     /// Check if this is a simple named class
     pub fn is_named(&self) -> bool {
         matches!(self, ClassExpression::Class(_))
     }
-    
+
     /// Get the named class if this is a simple class expression
     pub fn as_named(&self) -> Option<&Class> {
         match self {
@@ -155,12 +157,12 @@ impl FacetRestriction {
             value: value.into(),
         }
     }
-    
+
     /// Get the facet IRI
     pub fn facet(&self) -> &IRI {
         &self.facet
     }
-    
+
     /// Get the restriction value
     pub fn value(&self) -> &crate::entities::Literal {
         &self.value

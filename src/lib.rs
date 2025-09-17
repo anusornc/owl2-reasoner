@@ -1,51 +1,51 @@
 //! # OWL2 Reasoner
-//! 
+//!
 //! A high-performance, feature-complete OWL2 reasoning engine implemented in Rust.
-//! 
+//!
 //! ## Features
-//! 
+//!
 //! - **Complete OWL2 DL support** with SROIQ(D) description logic
 //! - **High-performance reasoning** with optimized data structures and algorithms
 //! - **Multi-format parsing** for Turtle, RDF/XML, OWL/XML, and N-Triples
 //! - **SPARQL-like query engine** with pattern matching and optimization
 //! - **Memory-efficient storage** with indexed axiom access and caching
 //! - **Type-safe API** leveraging Rust's type system for correctness
-//! 
+//!
 //! ## Quick Start
-//! 
+//!
 //! ```rust
 //! use owl2_reasoner::{Ontology, Class, SimpleReasoner, SubClassOfAxiom, ClassExpression};
-//! 
+//!
 //! // Create a new ontology
 //! let mut ontology = Ontology::new();
-//! 
+//!
 //! // Add classes
 //! let person = Class::new("http://example.org/Person");
 //! let parent = Class::new("http://example.org/Parent");
 //! ontology.add_class(person.clone())?;
 //! ontology.add_class(parent.clone())?;
-//! 
+//!
 //! // Add subclass relationship
 //! let subclass_axiom = SubClassOfAxiom::new(
 //!     ClassExpression::Class(parent.clone()),
 //!     ClassExpression::Class(person.clone()),
 //! );
 //! ontology.add_subclass_axiom(subclass_axiom)?;
-//! 
+//!
 //! // Create reasoner and perform inference
 //! let reasoner = SimpleReasoner::new(ontology);
 //! let is_consistent = reasoner.is_consistent()?;
 //! let is_subclass = reasoner.is_subclass_of(&parent.iri(), &person.iri())?;
-//! 
+//!
 //! println!("Ontology consistent: {}", is_consistent);
 //! println!("Parent ⊑ Person: {}", is_subclass);
 //! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
-//! 
+//!
 //! ## Architecture
-//! 
+//!
 //! The library is organized into several key modules:
-//! 
+//!
 //! - [`ontology`] - Ontology management and indexed storage
 //! - [`entities`] - OWL2 entities (classes, properties, individuals)
 //! - [`axioms`] - Logical statements and relationships
@@ -53,23 +53,23 @@
 //! - [`parser`] - Multi-format parsing and serialization
 //! - [`iri`] - IRI management with caching
 //! - [`error`] - Comprehensive error handling
-//! 
+//!
 //! ## Performance
-//! 
+//!
 //! - **Memory Efficiency**: String interning and Arc-based sharing
 //! - **Fast Access**: Indexed axiom storage with O(1) access patterns
 //! - **Intelligent Caching**: Multi-layered caching with TTL expiration
 //! - **Query Optimization**: Hash join algorithms and pattern reordering
-//! 
+//!
 //! ## Examples
-//! 
+//!
 //! See the [examples] directory for comprehensive usage patterns including:
-//! 
+//!
 //! - Family relationship ontologies
 //! - Biomedical knowledge graphs
 //! - Performance benchmarking
 //! - Complex class expressions
-//! 
+//!
 //! [examples]: https://github.com/your-org/owl2-reasoner/tree/main/examples
 
 /// OWL2 Reasoner error types and result handling
@@ -111,23 +111,29 @@ pub mod epcis_parser;
 /// EPCIS test data generator for different scales
 pub mod epcis_test_generator;
 
+pub mod test_suite_advanced;
+/// OWL2 Test Suite integration for W3C compliance validation
+pub mod test_suite_simple;
+
 /// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
 pub mod tests;
 
 // Re-export common types for convenience
-pub use error::{OwlError, OwlResult};
-pub use iri::{IRI, IRIRef};
-pub use entities::*;
 pub use axioms::*;
-pub use ontology::*;
-pub use storage::*;
-pub use parser::*;
-pub use reasoning::*;
-pub use profiles::*;
+pub use entities::*;
 pub use epcis::*;
 pub use epcis_parser::{EPCISDocumentParser, EPCISDocumentWriter, EPCISParserConfig};
 pub use epcis_test_generator::*;
+pub use error::{OwlError, OwlResult};
+pub use iri::{IRI, IRIRef};
+pub use ontology::*;
+pub use parser::*;
+pub use profiles::*;
+pub use reasoning::*;
+pub use storage::*;
+pub use test_suite_advanced::*;
+pub use test_suite_simple::*;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

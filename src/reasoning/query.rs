@@ -1,12 +1,12 @@
 //! Query answering for OWL2 ontologies
-//! 
+//!
 //! Provides SPARQL-like query capabilities for OWL2 ontologies with reasoning support.
 
-use crate::ontology::Ontology;
-use crate::iri::IRI;
 use crate::axioms::*;
-use crate::reasoning::Reasoner;
 use crate::error::OwlResult;
+use crate::iri::IRI;
+use crate::ontology::Ontology;
+use crate::reasoning::Reasoner;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -143,10 +143,7 @@ pub enum FilterExpression {
         right: PatternTerm,
     },
     /// Type check
-    Type {
-        term: PatternTerm,
-        type_iri: IRI,
-    },
+    Type { term: PatternTerm, type_iri: IRI },
     /// Logical AND
     And(Vec<FilterExpression>),
     /// Logical OR
@@ -160,7 +157,7 @@ impl QueryEngine {
     pub fn new(ontology: Ontology) -> Self {
         Self::with_config(ontology, QueryConfig::default())
     }
-    
+
     /// Create a new query engine with custom configuration
     pub fn with_config(ontology: Ontology, config: QueryConfig) -> Self {
         let ontology = Arc::new(ontology);
@@ -170,19 +167,19 @@ impl QueryEngine {
         } else {
             None
         };
-        
+
         QueryEngine {
             ontology,
             reasoner,
             config,
         }
     }
-    
+
     /// Execute a query
     pub fn execute_query(&mut self, pattern: &QueryPattern) -> OwlResult<QueryResult> {
         let start_time = std::time::Instant::now();
         let mut bindings;
-        
+
         match pattern {
             QueryPattern::BasicGraphPattern(triples) => {
                 bindings = self.evaluate_basic_graph_pattern(triples)?;
@@ -193,29 +190,33 @@ impl QueryEngine {
             QueryPattern::UnionPattern(patterns) => {
                 bindings = self.evaluate_union_pattern(patterns)?;
             }
-            QueryPattern::FilterPattern { pattern, expression } => {
+            QueryPattern::FilterPattern {
+                pattern,
+                expression,
+            } => {
                 let result_bindings = self.evaluate_basic_graph_pattern(
                     if let QueryPattern::BasicGraphPattern(triples) = pattern.as_ref() {
                         triples
                     } else {
                         return Err(crate::error::OwlError::QueryError(
-                            "Filter pattern can only be applied to basic graph patterns".to_string()
+                            "Filter pattern can only be applied to basic graph patterns"
+                                .to_string(),
                         ));
-                    }
+                    },
                 )?;
-                
+
                 bindings = self.apply_filter(&result_bindings, expression)?;
             }
         }
-        
+
         // Apply result limit
         if let Some(max_results) = self.config.max_results {
             bindings.truncate(max_results);
         }
-        
+
         let variables = self.extract_variables(pattern);
         let time_ms = start_time.elapsed().as_millis() as u64;
-        
+
         let results_count = bindings.len();
         Ok(QueryResult {
             bindings,
@@ -227,38 +228,44 @@ impl QueryEngine {
             },
         })
     }
-    
+
     /// Evaluate a basic graph pattern using hash joins for optimization
-    fn evaluate_basic_graph_pattern(&self, triples: &[TriplePattern]) -> OwlResult<Vec<QueryBinding>> {
+    fn evaluate_basic_graph_pattern(
+        &self,
+        triples: &[TriplePattern],
+    ) -> OwlResult<Vec<QueryBinding>> {
         let mut bindings = Vec::new();
-        
+
         if triples.is_empty() {
             return Ok(bindings);
         }
-        
+
         // Start with the first triple pattern
         let first_bindings = self.match_triple_pattern_optimized(&triples[0])?;
         bindings = first_bindings;
-        
+
         // Join with remaining triple patterns using hash joins
         for triple in triples.iter().skip(1) {
             let triple_bindings = self.match_triple_pattern_optimized(triple)?;
             bindings = self.hash_join_bindings(&bindings, &triple_bindings)?;
-            
+
             if bindings.is_empty() {
                 break; // No more matches possible
             }
         }
-        
+
         Ok(bindings)
     }
-    
+
     /// Match a single triple pattern against the ontology using indexed storage
-    fn match_triple_pattern_optimized(&self, triple: &TriplePattern) -> OwlResult<Vec<QueryBinding>> {
+    fn match_triple_pattern_optimized(
+        &self,
+        triple: &TriplePattern,
+    ) -> OwlResult<Vec<QueryBinding>> {
         let mut bindings = Vec::new();
-        
+
         // Use indexed storage for O(1) access instead of iterating through all axioms
-        
+
         // Check if this is a type query (rdf:type)
         if let PatternTerm::IRI(pred_iri) = &triple.predicate {
             if pred_iri.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
@@ -283,76 +290,114 @@ impl QueryEngine {
                     bindings.push(binding);
                 }
             }
-            
+
             for axiom in self.ontology.property_assertions() {
                 if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
                     bindings.push(binding);
                 }
             }
         }
-        
+
         Ok(bindings)
     }
-    
+
     /// Match triple pattern against class assertion (optimized)
-    fn match_class_assertion_optimized(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertionAxiom) -> Option<QueryBinding> {
+    fn match_class_assertion_optimized(
+        &self,
+        triple: &TriplePattern,
+        axiom: &crate::axioms::ClassAssertionAxiom,
+    ) -> Option<QueryBinding> {
         let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
-        
-        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+
+        let subject_match = self.match_term(
+            &triple.subject,
+            &PatternTerm::IRI(axiom.individual().clone()),
+        );
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
         let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
-        
+
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
-            
-            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+
+            self.add_binding(
+                &mut binding,
+                &triple.subject,
+                &PatternTerm::IRI(axiom.individual().clone()),
+            );
             self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
-            
+
             Some(binding)
         } else {
             None
         }
     }
-    
+
     /// Match triple pattern against property assertion (optimized)
-    fn match_property_assertion_optimized(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertionAxiom) -> Option<QueryBinding> {
-        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
-        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
-        let object_match = self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
-        
+    fn match_property_assertion_optimized(
+        &self,
+        triple: &TriplePattern,
+        axiom: &crate::axioms::PropertyAssertionAxiom,
+    ) -> Option<QueryBinding> {
+        let subject_match =
+            self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
+        let predicate_match = self.match_term(
+            &triple.predicate,
+            &PatternTerm::IRI(axiom.property().clone()),
+        );
+        let object_match =
+            self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
+
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
-            
-            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
-            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
-            self.add_binding(&mut binding, &triple.object, &PatternTerm::IRI(axiom.object().clone()));
-            
+
+            self.add_binding(
+                &mut binding,
+                &triple.subject,
+                &PatternTerm::IRI(axiom.subject().clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.predicate,
+                &PatternTerm::IRI(axiom.property().clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.object,
+                &PatternTerm::IRI(axiom.object().clone()),
+            );
+
             Some(binding)
         } else {
             None
         }
     }
-    
+
     /// Perform hash join between two sets of bindings
-    fn hash_join_bindings(&self, left_bindings: &[QueryBinding], right_bindings: &[QueryBinding]) -> OwlResult<Vec<QueryBinding>> {
+    fn hash_join_bindings(
+        &self,
+        left_bindings: &[QueryBinding],
+        right_bindings: &[QueryBinding],
+    ) -> OwlResult<Vec<QueryBinding>> {
         if left_bindings.is_empty() || right_bindings.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         // Find common variables between left and right bindings
-        let left_vars: HashSet<String> = left_bindings.first()
+        let left_vars: HashSet<String> = left_bindings
+            .first()
             .map(|b| b.variables.keys().cloned().collect())
             .unwrap_or_default();
-        let right_vars: HashSet<String> = right_bindings.first()
+        let right_vars: HashSet<String> = right_bindings
+            .first()
             .map(|b| b.variables.keys().cloned().collect())
             .unwrap_or_default();
-        
+
         let common_vars: Vec<String> = left_vars.intersection(&right_vars).cloned().collect();
-        
+
         if common_vars.is_empty() {
             // No common variables - return cartesian product
             let mut result = Vec::new();
@@ -365,26 +410,31 @@ impl QueryEngine {
             }
             return Ok(result);
         }
-        
+
         // Use hash join for common variables
         let mut hash_table: HashMap<Vec<QueryValue>, Vec<&QueryBinding>> = HashMap::new();
-        
+
         // Build hash table from right bindings
         for right_binding in right_bindings {
-            let key: Vec<QueryValue> = common_vars.iter()
+            let key: Vec<QueryValue> = common_vars
+                .iter()
                 .map(|var| right_binding.variables.get(var).cloned().unwrap())
                 .collect();
-            
-            hash_table.entry(key).or_insert_with(Vec::new).push(right_binding);
+
+            hash_table
+                .entry(key)
+                .or_insert_with(Vec::new)
+                .push(right_binding);
         }
-        
+
         // Probe with left bindings
         let mut result = Vec::new();
         for left_binding in left_bindings {
-            let key: Vec<QueryValue> = common_vars.iter()
+            let key: Vec<QueryValue> = common_vars
+                .iter()
                 .map(|var| left_binding.variables.get(var).cloned().unwrap())
                 .collect();
-            
+
             if let Some(matching_rights) = hash_table.get(&key) {
                 for right_binding in matching_rights {
                     let mut combined = left_binding.clone();
@@ -393,102 +443,157 @@ impl QueryEngine {
                 }
             }
         }
-        
+
         Ok(result)
     }
-    
+
     /// Match triple pattern against class assertion
     #[allow(dead_code)]
-    fn match_class_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::ClassAssertionAxiom) -> Option<QueryBinding> {
+    fn match_class_assertion(
+        &self,
+        triple: &TriplePattern,
+        axiom: &crate::axioms::ClassAssertionAxiom,
+    ) -> Option<QueryBinding> {
         // Try to match: individual rdf:type class
         let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
-        
-        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+
+        let subject_match = self.match_term(
+            &triple.subject,
+            &PatternTerm::IRI(axiom.individual().clone()),
+        );
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
         let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
-        
+
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
-            
-            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.individual().clone()));
+
+            self.add_binding(
+                &mut binding,
+                &triple.subject,
+                &PatternTerm::IRI(axiom.individual().clone()),
+            );
             self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
-            
+
             Some(binding)
         } else {
             None
         }
     }
-    
+
     /// Match triple pattern against property assertion
     #[allow(dead_code)]
-    fn match_property_assertion(&self, triple: &TriplePattern, axiom: &crate::axioms::PropertyAssertionAxiom) -> Option<QueryBinding> {
-        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
-        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
-        let object_match = self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
-        
+    fn match_property_assertion(
+        &self,
+        triple: &TriplePattern,
+        axiom: &crate::axioms::PropertyAssertionAxiom,
+    ) -> Option<QueryBinding> {
+        let subject_match =
+            self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
+        let predicate_match = self.match_term(
+            &triple.predicate,
+            &PatternTerm::IRI(axiom.property().clone()),
+        );
+        let object_match =
+            self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
+
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
-            
-            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
-            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(axiom.property().clone()));
-            self.add_binding(&mut binding, &triple.object, &PatternTerm::IRI(axiom.object().clone()));
-            
+
+            self.add_binding(
+                &mut binding,
+                &triple.subject,
+                &PatternTerm::IRI(axiom.subject().clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.predicate,
+                &PatternTerm::IRI(axiom.property().clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.object,
+                &PatternTerm::IRI(axiom.object().clone()),
+            );
+
             Some(binding)
         } else {
             None
         }
     }
-    
+
     /// Match triple pattern against subclass axiom
     #[allow(dead_code)]
-    fn match_subclass_axiom(&self, triple: &TriplePattern, axiom: &crate::axioms::SubClassOfAxiom) -> Option<QueryBinding> {
+    fn match_subclass_axiom(
+        &self,
+        triple: &TriplePattern,
+        axiom: &crate::axioms::SubClassOfAxiom,
+    ) -> Option<QueryBinding> {
         let sub_iri = if let ClassExpression::Class(class) = axiom.sub_class() {
             class.iri()
         } else {
             return None;
         };
-        
+
         let super_iri = if let ClassExpression::Class(class) = axiom.super_class() {
             class.iri()
         } else {
             return None;
         };
-        
+
         let rdfs_subclassof = IRI::new("http://www.w3.org/2000/01/rdf-schema#subClassOf").unwrap();
-        
+
         let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(sub_iri.clone()));
-        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(rdfs_subclassof.clone()));
+        let predicate_match = self.match_term(
+            &triple.predicate,
+            &PatternTerm::IRI(rdfs_subclassof.clone()),
+        );
         let object_match = self.match_term(&triple.object, &PatternTerm::IRI(super_iri.clone()));
-        
+
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
-            
-            self.add_binding(&mut binding, &triple.subject, &PatternTerm::IRI(sub_iri.clone()));
-            self.add_binding(&mut binding, &triple.predicate, &PatternTerm::IRI(rdfs_subclassof.clone()));
-            self.add_binding(&mut binding, &triple.object, &PatternTerm::IRI(super_iri.clone()));
-            
+
+            self.add_binding(
+                &mut binding,
+                &triple.subject,
+                &PatternTerm::IRI(sub_iri.clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.predicate,
+                &PatternTerm::IRI(rdfs_subclassof.clone()),
+            );
+            self.add_binding(
+                &mut binding,
+                &triple.object,
+                &PatternTerm::IRI(super_iri.clone()),
+            );
+
             Some(binding)
         } else {
             None
         }
     }
-    
+
     /// Match two pattern terms
     fn match_term(&self, pattern: &PatternTerm, value: &PatternTerm) -> bool {
         match (pattern, value) {
             (PatternTerm::Variable(_), _) => true,
-            (PatternTerm::IRI(pattern_iri), PatternTerm::IRI(value_iri)) => pattern_iri == value_iri,
-            (PatternTerm::Literal(pattern_lit), PatternTerm::Literal(value_lit)) => pattern_lit == value_lit,
+            (PatternTerm::IRI(pattern_iri), PatternTerm::IRI(value_iri)) => {
+                pattern_iri == value_iri
+            }
+            (PatternTerm::Literal(pattern_lit), PatternTerm::Literal(value_lit)) => {
+                pattern_lit == value_lit
+            }
             _ => false,
         }
     }
-    
+
     /// Match pattern term against class expression
     fn match_class_expr_term(&self, pattern: &PatternTerm, class_expr: &ClassExpression) -> bool {
         match pattern {
@@ -497,7 +602,7 @@ impl QueryEngine {
             _ => false,
         }
     }
-    
+
     /// Add binding from pattern term to value
     fn add_binding(&self, binding: &mut QueryBinding, pattern: &PatternTerm, value: &PatternTerm) {
         if let PatternTerm::Variable(var_name) = pattern {
@@ -506,25 +611,36 @@ impl QueryEngine {
                 PatternTerm::Literal(lit) => QueryValue::Literal(lit.clone()),
                 PatternTerm::Variable(_) => return, // Can't bind variable to variable
             };
-            
+
             binding.variables.insert(var_name.clone(), query_value);
         }
     }
-    
+
     /// Add binding from pattern term to class expression
-    fn add_class_expr_binding(&self, binding: &mut QueryBinding, pattern: &PatternTerm, class_expr: &ClassExpression) {
+    fn add_class_expr_binding(
+        &self,
+        binding: &mut QueryBinding,
+        pattern: &PatternTerm,
+        class_expr: &ClassExpression,
+    ) {
         if let PatternTerm::Variable(var_name) = pattern {
             if let ClassExpression::Class(class) = class_expr {
-                binding.variables.insert(var_name.clone(), QueryValue::IRI(class.iri().clone()));
+                binding
+                    .variables
+                    .insert(var_name.clone(), QueryValue::IRI(class.iri().clone()));
             }
         }
     }
-    
+
     /// Join two bindings
     #[allow(dead_code)]
-    fn join_bindings(&self, binding1: &QueryBinding, binding2: &QueryBinding) -> Option<QueryBinding> {
+    fn join_bindings(
+        &self,
+        binding1: &QueryBinding,
+        binding2: &QueryBinding,
+    ) -> Option<QueryBinding> {
         let mut joined = binding1.clone();
-        
+
         for (var, value) in &binding2.variables {
             if let Some(existing_value) = joined.variables.get(var) {
                 if existing_value != value {
@@ -534,44 +650,58 @@ impl QueryEngine {
                 joined.variables.insert(var.clone(), value.clone());
             }
         }
-        
+
         Some(joined)
     }
-    
+
     /// Evaluate optional pattern
-    fn evaluate_optional_pattern(&mut self, pattern: &QueryPattern) -> OwlResult<Vec<QueryBinding>> {
+    fn evaluate_optional_pattern(
+        &mut self,
+        pattern: &QueryPattern,
+    ) -> OwlResult<Vec<QueryBinding>> {
         // For optional patterns, we need to handle cases where the pattern may not match
         // This is a simplified implementation
         self.execute_query(pattern).map(|result| result.bindings)
     }
-    
+
     /// Evaluate union pattern
-    fn evaluate_union_pattern(&mut self, patterns: &[QueryPattern]) -> OwlResult<Vec<QueryBinding>> {
+    fn evaluate_union_pattern(
+        &mut self,
+        patterns: &[QueryPattern],
+    ) -> OwlResult<Vec<QueryBinding>> {
         let mut all_bindings = Vec::new();
-        
+
         for pattern in patterns {
             let pattern_bindings = self.execute_query(pattern)?;
             all_bindings.extend(pattern_bindings.bindings);
         }
-        
+
         Ok(all_bindings)
     }
-    
+
     /// Apply filter expression to bindings
-    fn apply_filter(&self, bindings: &[QueryBinding], expression: &FilterExpression) -> OwlResult<Vec<QueryBinding>> {
+    fn apply_filter(
+        &self,
+        bindings: &[QueryBinding],
+        expression: &FilterExpression,
+    ) -> OwlResult<Vec<QueryBinding>> {
         let mut filtered_bindings = Vec::new();
-        
+
         for binding in bindings {
             if self.evaluate_filter_expression(binding, expression) {
                 filtered_bindings.push(binding.clone());
             }
         }
-        
+
         Ok(filtered_bindings)
     }
-    
+
     /// Evaluate filter expression for a binding
-    fn evaluate_filter_expression(&self, binding: &QueryBinding, expression: &FilterExpression) -> bool {
+    fn evaluate_filter_expression(
+        &self,
+        binding: &QueryBinding,
+        expression: &FilterExpression,
+    ) -> bool {
         match expression {
             FilterExpression::Equals { left, right } => {
                 let left_value = self.evaluate_term(binding, left);
@@ -592,23 +722,22 @@ impl QueryEngine {
                     false
                 }
             }
-            FilterExpression::And(expressions) => {
-                expressions.iter().all(|expr| self.evaluate_filter_expression(binding, expr))
-            }
-            FilterExpression::Or(expressions) => {
-                expressions.iter().any(|expr| self.evaluate_filter_expression(binding, expr))
-            }
-            FilterExpression::Not(expr) => {
-                !self.evaluate_filter_expression(binding, expr)
-            }
+            FilterExpression::And(expressions) => expressions
+                .iter()
+                .all(|expr| self.evaluate_filter_expression(binding, expr)),
+            FilterExpression::Or(expressions) => expressions
+                .iter()
+                .any(|expr| self.evaluate_filter_expression(binding, expr)),
+            FilterExpression::Not(expr) => !self.evaluate_filter_expression(binding, expr),
         }
     }
-    
+
     /// Evaluate pattern term to query value
     fn evaluate_term(&self, binding: &QueryBinding, term: &PatternTerm) -> QueryValue {
-        self.evaluate_term_opt(binding, term).unwrap_or(QueryValue::Literal("".to_string()))
+        self.evaluate_term_opt(binding, term)
+            .unwrap_or(QueryValue::Literal("".to_string()))
     }
-    
+
     /// Evaluate pattern term to query value (optional)
     fn evaluate_term_opt(&self, binding: &QueryBinding, term: &PatternTerm) -> Option<QueryValue> {
         match term {
@@ -617,11 +746,11 @@ impl QueryEngine {
             PatternTerm::Literal(lit) => Some(QueryValue::Literal(lit.clone())),
         }
     }
-    
+
     /// Extract variables from query pattern
     fn extract_variables(&self, pattern: &QueryPattern) -> Vec<String> {
         let mut variables = HashSet::new();
-        
+
         match pattern {
             QueryPattern::BasicGraphPattern(triples) => {
                 for triple in triples {
@@ -638,26 +767,33 @@ impl QueryEngine {
                     variables.extend(self.extract_variables(pattern));
                 }
             }
-            QueryPattern::FilterPattern { pattern, expression } => {
+            QueryPattern::FilterPattern {
+                pattern,
+                expression,
+            } => {
                 variables.extend(self.extract_variables(pattern.as_ref()));
                 self.extract_variables_from_expression(expression, &mut variables);
             }
         }
-        
+
         let mut sorted_vars: Vec<_> = variables.into_iter().collect();
         sorted_vars.sort();
         sorted_vars
     }
-    
+
     /// Extract variables from pattern term
     fn extract_variables_from_term(&self, term: &PatternTerm, variables: &mut HashSet<String>) {
         if let PatternTerm::Variable(var_name) = term {
             variables.insert(var_name.clone());
         }
     }
-    
+
     /// Extract variables from filter expression
-    fn extract_variables_from_expression(&self, expression: &FilterExpression, variables: &mut HashSet<String>) {
+    fn extract_variables_from_expression(
+        &self,
+        expression: &FilterExpression,
+        variables: &mut HashSet<String>,
+    ) {
         match expression {
             FilterExpression::Equals { left, right } => {
                 self.extract_variables_from_term(left, variables);
@@ -676,73 +812,79 @@ impl QueryEngine {
             }
         }
     }
-    
+
     /// Get all classes in the ontology
     pub fn get_all_classes(&self) -> Vec<IRI> {
-        self.ontology.classes().iter().map(|c| c.iri().clone()).collect()
+        self.ontology
+            .classes()
+            .iter()
+            .map(|c| c.iri().clone())
+            .collect()
     }
-    
+
     /// Get all properties in the ontology
     pub fn get_all_properties(&self) -> Vec<IRI> {
         let mut properties = Vec::new();
-        
+
         for prop in self.ontology.object_properties() {
             properties.push(prop.iri().clone());
         }
-        
+
         for prop in self.ontology.data_properties() {
             properties.push(prop.iri().clone());
         }
-        
+
         properties
     }
-    
+
     /// Get all individuals in the ontology
     pub fn get_all_individuals(&self) -> Vec<IRI> {
-        self.ontology.named_individuals().iter().map(|i| i.iri().clone()).collect()
+        self.ontology
+            .named_individuals()
+            .iter()
+            .map(|i| i.iri().clone())
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ontology::Ontology;
     use crate::Class;
     use crate::NamedIndividual;
-    
+    use crate::ontology::Ontology;
+
     #[test]
     fn test_query_engine_creation() {
         let ontology = Ontology::new();
         let engine = QueryEngine::new(ontology);
-        
+
         assert!(engine.get_all_classes().is_empty());
         assert!(engine.get_all_properties().is_empty());
         assert!(engine.get_all_individuals().is_empty());
     }
-    
+
     #[test]
     fn test_simple_query() {
         let mut ontology = Ontology::new();
-        
+
         // Add test data
         let person_iri = IRI::new("http://example.org/Person").unwrap();
         let john_iri = IRI::new("http://example.org/john").unwrap();
-        
+
         let person_class = Class::new(person_iri.clone());
         let john_individual = NamedIndividual::new(john_iri.clone());
-        
+
         ontology.add_class(person_class.clone()).unwrap();
         ontology.add_named_individual(john_individual).unwrap();
-        
+
         // Add class assertion
-        let class_assertion = ClassAssertionAxiom::new(
-            john_iri.clone(),
-            ClassExpression::Class(person_class),
-        );
+        let class_assertion =
+            ClassAssertionAxiom::new(john_iri.clone(), ClassExpression::Class(person_class));
         ontology.add_class_assertion(class_assertion).unwrap();
-        
+
         let mut engine = QueryEngine::new(ontology);
-        
+
         // Create query: ?x rdf:type Person
         let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
         let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
@@ -750,36 +892,40 @@ mod tests {
             predicate: PatternTerm::IRI(type_iri),
             object: PatternTerm::IRI(person_iri),
         }]);
-        
+
         let result = engine.execute_query(&pattern).unwrap();
-        
+
         assert_eq!(result.bindings.len(), 1);
         assert_eq!(result.variables, vec!["?x"]);
-        
+
         let binding = &result.bindings[0];
-        assert_eq!(binding.variables.get("?x"), Some(&QueryValue::IRI(john_iri)));
+        assert_eq!(
+            binding.variables.get("?x"),
+            Some(&QueryValue::IRI(john_iri))
+        );
     }
-    
+
     #[test]
     fn test_filter_expression() {
         let ontology = Ontology::new();
         let engine = QueryEngine::new(ontology);
-        
+
         let binding = QueryBinding {
             variables: {
                 let mut vars = HashMap::new();
-                vars.insert("?x".to_string(), QueryValue::IRI(
-                    IRI::new("http://example.org/test").unwrap()
-                ));
+                vars.insert(
+                    "?x".to_string(),
+                    QueryValue::IRI(IRI::new("http://example.org/test").unwrap()),
+                );
                 vars
             },
         };
-        
+
         let expression = FilterExpression::Equals {
             left: PatternTerm::Variable("?x".to_string()),
             right: PatternTerm::IRI(IRI::new("http://example.org/test").unwrap()),
         };
-        
+
         assert!(engine.evaluate_filter_expression(&binding, &expression));
     }
 }

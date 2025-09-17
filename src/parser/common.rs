@@ -22,21 +22,21 @@ pub static OWL_SAME_AS: &str = "http://www.w3.org/2002/07/owl#sameAs";
 pub static OWL_DIFFERENT_FROM: &str = "http://www.w3.org/2002/07/owl#differentFrom";
 
 /// Parse a literal value with optional datatype or language tag
-pub fn parse_literal(value: &str, datatype: Option<&str>, language: Option<&str>) -> OwlResult<crate::entities::Literal> {
+pub fn parse_literal(
+    value: &str,
+    datatype: Option<&str>,
+    language: Option<&str>,
+) -> OwlResult<crate::entities::Literal> {
     match (datatype, language) {
         (Some(dt), None) => {
             let iri = IRI::new(dt)?;
             Ok(crate::entities::Literal::typed(value, iri))
         }
-        (None, Some(lang)) => {
-            Ok(crate::entities::Literal::lang_tagged(value, lang))
-        }
-        (None, None) => {
-            Ok(crate::entities::Literal::simple(value))
-        }
-        (Some(_), Some(_)) => {
-            Err(OwlError::ParseError("Literal cannot have both datatype and language tag".to_string()))
-        }
+        (None, Some(lang)) => Ok(crate::entities::Literal::lang_tagged(value, lang)),
+        (None, None) => Ok(crate::entities::Literal::simple(value)),
+        (Some(_), Some(_)) => Err(OwlError::ParseError(
+            "Literal cannot have both datatype and language tag".to_string(),
+        )),
     }
 }
 
@@ -45,13 +45,13 @@ pub fn parse_curie(curie: &str, prefixes: &HashMap<String, String>) -> OwlResult
     if let Some(colon_pos) = curie.find(':') {
         let prefix = &curie[..colon_pos];
         let local = &curie[colon_pos + 1..];
-        
+
         if let Some(namespace) = prefixes.get(prefix) {
             let iri_str = format!("{namespace}{local}");
             return IRI::new(iri_str);
         }
     }
-    
+
     // If no colon or prefix not found, treat as full IRI
     IRI::new(curie)
 }
@@ -72,12 +72,14 @@ pub fn parse_bool(s: &str) -> OwlResult<bool> {
 
 /// Parse an integer string
 pub fn parse_int(s: &str) -> OwlResult<i64> {
-    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid integer value: {s}")))
+    s.parse()
+        .map_err(|_| OwlError::ParseError(format!("Invalid integer value: {s}")))
 }
 
 /// Parse a float string
 pub fn parse_float(s: &str) -> OwlResult<f64> {
-    s.parse().map_err(|_| OwlError::ParseError(format!("Invalid float value: {s}")))
+    s.parse()
+        .map_err(|_| OwlError::ParseError(format!("Invalid float value: {s}")))
 }
 
 /// Validate IRI syntax
@@ -85,52 +87,57 @@ pub fn validate_iri(iri: &str) -> OwlResult<()> {
     if iri.is_empty() {
         return Err(OwlError::InvalidIRI("Empty IRI".to_string()));
     }
-    
+
     // Basic validation - check for invalid characters
     if iri.contains(' ') || iri.contains('<') || iri.contains('>') {
-        return Err(OwlError::InvalidIRI(format!("Invalid characters in IRI: {iri}")));
+        return Err(OwlError::InvalidIRI(format!(
+            "Invalid characters in IRI: {iri}"
+        )));
     }
-    
+
     // Check for valid scheme
     if !iri.contains(':') {
-        return Err(OwlError::InvalidIRI(format!("Missing scheme in IRI: {iri}")));
+        return Err(OwlError::InvalidIRI(format!(
+            "Missing scheme in IRI: {iri}"
+        )));
     }
-    
+
     // TODO: Add more thorough IRI validation according to RFC 3987
-    
+
     Ok(())
 }
 
 /// Escape XML special characters
 pub fn escape_xml(s: &str) -> String {
     s.replace("&", "&amp;")
-     .replace("<", "&lt;")
-     .replace(">", "&gt;")
-     .replace("\"", "&quot;")
-     .replace("'", "&apos;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
 }
 
 /// Unescape XML special characters
 pub fn unescape_xml(s: &str) -> String {
     s.replace("&lt;", "<")
-     .replace("&gt;", ">")
-     .replace("&quot;", "\"")
-     .replace("&apos;", "'")
-     .replace("&amp;", "&")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
 }
 
 /// Parse a list of IRIs from a string (space or comma separated)
 pub fn parse_iri_list(s: &str, prefixes: &HashMap<String, String>) -> OwlResult<Vec<IRI>> {
-    let items: Vec<&str> = s.split([',', ' '])
+    let items: Vec<&str> = s
+        .split([',', ' '])
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect();
-    
+
     let mut iris = Vec::new();
     for item in items {
         iris.push(parse_curie(item, prefixes)?);
     }
-    
+
     Ok(iris)
 }
 
@@ -164,10 +171,11 @@ mod tests {
     fn test_parse_literal() {
         let simple = parse_literal("hello", None, None).unwrap();
         assert!(simple.is_plain());
-        
-        let typed = parse_literal("42", Some("http://www.w3.org/2001/XMLSchema#integer"), None).unwrap();
+
+        let typed =
+            parse_literal("42", Some("http://www.w3.org/2001/XMLSchema#integer"), None).unwrap();
         assert!(typed.is_typed());
-        
+
         let lang = parse_literal("bonjour", None, Some("fr")).unwrap();
         assert!(lang.is_lang_tagged());
     }
@@ -175,8 +183,11 @@ mod tests {
     #[test]
     fn test_parse_curie() {
         let mut prefixes = HashMap::new();
-        prefixes.insert("owl".to_string(), "http://www.w3.org/2002/07/owl#".to_string());
-        
+        prefixes.insert(
+            "owl".to_string(),
+            "http://www.w3.org/2002/07/owl#".to_string(),
+        );
+
         let iri = parse_curie("owl:Class", &prefixes).unwrap();
         assert_eq!(iri.as_str(), "http://www.w3.org/2002/07/owl#Class");
     }
@@ -198,7 +209,10 @@ mod tests {
     #[test]
     fn test_escape_xml() {
         let result = escape_xml("<script>alert('test');</script>");
-        assert_eq!(result, "&lt;script&gt;alert(&apos;test&apos;);&lt;/script&gt;");
+        assert_eq!(
+            result,
+            "&lt;script&gt;alert(&apos;test&apos;);&lt;/script&gt;"
+        );
     }
 
     #[test]

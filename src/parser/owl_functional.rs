@@ -2,12 +2,12 @@
 //!
 //! Implements parsing of the OWL2 Functional Syntax serialization format.
 
-use crate::parser::{ParserConfig, OntologyParser};
-use crate::ontology::Ontology;
+use crate::axioms::*;
+use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
-use crate::entities::*;
-use crate::axioms::*;
+use crate::ontology::Ontology;
+use crate::parser::{OntologyParser, ParserConfig};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -31,16 +31,33 @@ impl OwlFunctionalSyntaxParser {
         }
 
         // Add default OWL2 prefixes
-        prefixes.insert("owl".to_string(), "http://www.w3.org/2002/07/owl#".to_string());
-        prefixes.insert("rdf".to_string(), "http://www.w3.org/1999/02/22-rdf-syntax-ns#".to_string());
-        prefixes.insert("rdfs".to_string(), "http://www.w3.org/2000/01/rdf-schema#".to_string());
-        prefixes.insert("xsd".to_string(), "http://www.w3.org/2001/XMLSchema#".to_string());
+        prefixes.insert(
+            "owl".to_string(),
+            "http://www.w3.org/2002/07/owl#".to_string(),
+        );
+        prefixes.insert(
+            "rdf".to_string(),
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#".to_string(),
+        );
+        prefixes.insert(
+            "rdfs".to_string(),
+            "http://www.w3.org/2000/01/rdf-schema#".to_string(),
+        );
+        prefixes.insert(
+            "xsd".to_string(),
+            "http://www.w3.org/2001/XMLSchema#".to_string(),
+        );
 
         OwlFunctionalSyntaxParser { config, prefixes }
     }
 
     /// Parse OWL Functional Syntax content and build an ontology
     fn parse_content(&mut self, content: &str) -> OwlResult<Ontology> {
+        if self.config.strict_validation && content.trim().is_empty() {
+            return Err(crate::error::OwlError::ValidationError(
+                "Ontology contains no entities or imports".to_string(),
+            ));
+        }
         let mut ontology = Ontology::new();
 
         // Parse prefixes first
@@ -70,7 +87,7 @@ impl OwlFunctionalSyntaxParser {
             let line = line.trim();
             if line.starts_with("Prefix(") && line.ends_with(")") {
                 // Extract prefix and namespace
-                let prefix_content = &line[7..line.len()-1];
+                let prefix_content = &line[7..line.len() - 1];
                 if let Some((prefix_part, namespace_part)) = prefix_content.split_once('=') {
                     let mut prefix = prefix_part.trim().trim_matches('<').trim_matches('>');
                     let namespace = namespace_part.trim().trim_matches('<').trim_matches('>');
@@ -83,7 +100,8 @@ impl OwlFunctionalSyntaxParser {
                         prefix = prefix.trim_end_matches(':');
                     }
 
-                    self.prefixes.insert(prefix.to_string(), namespace.to_string());
+                    self.prefixes
+                        .insert(prefix.to_string(), namespace.to_string());
                 }
             }
         }
@@ -94,10 +112,21 @@ impl OwlFunctionalSyntaxParser {
     fn parse_ontology_declaration(&self, content: &str) -> Option<String> {
         for line in content.lines() {
             let line = line.trim();
-            if line.starts_with("Ontology(") && line.ends_with(")") {
-                let ontology_content = &line[9..line.len()-1];
-                let iri = ontology_content.trim().trim_matches('<').trim_matches('>');
-                return Some(iri.to_string());
+            if line.starts_with("Ontology(") {
+                // Handle both single-line and multi-line ontology declarations
+                if line.ends_with(")") {
+                    // Single-line declaration
+                    let ontology_content = &line[9..line.len() - 1];
+                    let iri = ontology_content.trim().trim_matches('<').trim_matches('>');
+                    return Some(iri.to_string());
+                } else {
+                    // Multi-line declaration - extract IRI from first line
+                    let ontology_content = &line[9..];
+                    let iri = ontology_content.trim().trim_matches('<').trim_matches('>');
+                    if !iri.is_empty() {
+                        return Some(iri.to_string());
+                    }
+                }
             }
         }
         None
@@ -108,7 +137,7 @@ impl OwlFunctionalSyntaxParser {
         for line in content.lines() {
             let line = line.trim();
             if line.starts_with("Declaration(") && line.ends_with(")") {
-                let declaration_content = &line[12..line.len()-1];
+                let declaration_content = &line[12..line.len() - 1];
                 self.parse_declaration(declaration_content, ontology)?;
             }
         }
@@ -120,22 +149,22 @@ impl OwlFunctionalSyntaxParser {
         let content = content.trim();
 
         if content.starts_with("Class(") {
-            let iri_str = &content[6..content.len()-1];
+            let iri_str = &content[6..content.len() - 1];
             let iri = self.resolve_iri(iri_str)?;
             let class = Class::new(iri);
             ontology.add_class(class)?;
         } else if content.starts_with("ObjectProperty(") {
-            let iri_str = &content[15..content.len()-1];
+            let iri_str = &content[15..content.len() - 1];
             let iri = self.resolve_iri(iri_str)?;
             let prop = ObjectProperty::new(iri);
             ontology.add_object_property(prop)?;
         } else if content.starts_with("DataProperty(") {
-            let iri_str = &content[13..content.len()-1];
+            let iri_str = &content[13..content.len() - 1];
             let iri = self.resolve_iri(iri_str)?;
             let prop = DataProperty::new(iri);
             ontology.add_data_property(prop)?;
         } else if content.starts_with("NamedIndividual(") {
-            let iri_str = &content[16..content.len()-1];
+            let iri_str = &content[16..content.len() - 1];
             let iri = self.resolve_iri(iri_str)?;
             let individual = NamedIndividual::new(iri);
             ontology.add_named_individual(individual)?;
@@ -149,16 +178,153 @@ impl OwlFunctionalSyntaxParser {
         for line in content.lines() {
             let line = line.trim();
 
+            // Class axioms
             if line.starts_with("SubClassOf(") && line.ends_with(")") {
-                let axiom_content = &line[11..line.len()-1];
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
                 self.parse_subclass_of(axiom_content, ontology)?;
             } else if line.starts_with("EquivalentClasses(") && line.ends_with(")") {
-                // TODO: Implement EquivalentClasses
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_equivalent_classes(axiom_content, ontology)?;
             } else if line.starts_with("DisjointClasses(") && line.ends_with(")") {
-                // TODO: Implement DisjointClasses
-            } else if line.starts_with("ClassAssertion(") && line.ends_with(")") {
-                let axiom_content = &line[16..line.len()-1];
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_disjoint_classes(axiom_content, ontology)?;
+            } else if line.starts_with("DisjointUnion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_disjoint_union(axiom_content, ontology)?;
+            }
+            // Property axioms
+            else if line.starts_with("SubObjectPropertyOf(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_sub_object_property_of(axiom_content, ontology)?;
+            } else if line.starts_with("EquivalentObjectProperties(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_equivalent_object_properties(axiom_content, ontology)?;
+            } else if line.starts_with("DisjointObjectProperties(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_disjoint_object_properties(axiom_content, ontology)?;
+            } else if line.starts_with("ObjectPropertyDomain(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_object_property_domain(axiom_content, ontology)?;
+            } else if line.starts_with("ObjectPropertyRange(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_object_property_range(axiom_content, ontology)?;
+            } else if line.starts_with("InverseObjectProperties(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_inverse_object_properties(axiom_content, ontology)?;
+            } else if line.starts_with("FunctionalObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_functional_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("InverseFunctionalObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_inverse_functional_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("ReflexiveObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_reflexive_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("IrreflexiveObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_irreflexive_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("SymmetricObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_symmetric_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("AsymmetricObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_asymmetric_object_property(axiom_content, ontology)?;
+            } else if line.starts_with("TransitiveObjectProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_transitive_object_property(axiom_content, ontology)?;
+            }
+            // Data property axioms
+            else if line.starts_with("SubDataPropertyOf(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_sub_data_property_of(axiom_content, ontology)?;
+            } else if line.starts_with("EquivalentDataProperties(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_equivalent_data_properties(axiom_content, ontology)?;
+            } else if line.starts_with("DisjointDataProperties(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_disjoint_data_properties(axiom_content, ontology)?;
+            } else if line.starts_with("DataPropertyDomain(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_data_property_domain(axiom_content, ontology)?;
+            } else if line.starts_with("DataPropertyRange(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_data_property_range(axiom_content, ontology)?;
+            } else if line.starts_with("FunctionalDataProperty(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_functional_data_property(axiom_content, ontology)?;
+            }
+            // Assertion axioms
+            else if line.starts_with("ClassAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
                 self.parse_class_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("ObjectPropertyAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_object_property_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("DataPropertyAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_data_property_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("NegativeObjectPropertyAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_negative_object_property_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("NegativeDataPropertyAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_negative_data_property_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("SameIndividual(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_same_individual(axiom_content, ontology)?;
+            } else if line.starts_with("DifferentIndividuals(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_different_individuals(axiom_content, ontology)?;
+            }
+            // Other axioms
+            else if line.starts_with("HasKey(") && line.ends_with(")") {
+                let axiom_content = &line[8..line.len() - 1];
+                self.parse_has_key(axiom_content, ontology)?;
+            } else if line.starts_with("Declaration(") && line.ends_with(")") {
+                // Already handled in parse_declarations
+            } else if line.starts_with("Ontology(") {
+                // Skip ontology declaration lines (handled in parse_ontology_declaration)
+                continue;
+            } else if line.trim() == ")" {
+                // Skip closing parenthesis of multi-line ontology declaration
+                continue;
+            } else if !line.is_empty() && !line.starts_with("Prefix(") {
+                // Unknown axiom type
+                if self.config.strict_validation {
+                    return Err(crate::error::OwlError::ParseError(format!(
+                        "Unknown axiom type: {line}"
+                    )));
+                }
             }
         }
         Ok(())
@@ -209,7 +375,7 @@ impl OwlFunctionalSyntaxParser {
 
         if iri_str.starts_with('<') && iri_str.ends_with('>') {
             // Full IRI
-            let iri_content = &iri_str[1..iri_str.len()-1];
+            let iri_content = &iri_str[1..iri_str.len() - 1];
             IRI::new(iri_content)
         } else if iri_str.contains(':') {
             // Prefixed name
@@ -219,7 +385,7 @@ impl OwlFunctionalSyntaxParser {
 
             // Handle the case where the prefix is empty (e.g., ":Person")
             let prefix = if first_part.is_empty() {
-                ":"  // Use ":" as the prefix for names like ":Person"
+                ":" // Use ":" as the prefix for names like ":Person"
             } else {
                 first_part
             };
@@ -228,7 +394,9 @@ impl OwlFunctionalSyntaxParser {
                 let full_iri = format!("{namespace}{local_name}");
                 IRI::new(&full_iri)
             } else {
-                Err(crate::error::OwlError::ParseError(format!("Unknown prefix: {prefix}")))
+                Err(crate::error::OwlError::ParseError(format!(
+                    "Unknown prefix: {prefix}"
+                )))
             }
         } else {
             // Assume it's a full IRI without angle brackets
@@ -236,12 +404,390 @@ impl OwlFunctionalSyntaxParser {
         }
     }
 
+    /// Parse EquivalentClasses axiom
+    fn parse_equivalent_classes(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let class_iris = self.parse_iri_list(content)?;
+        if class_iris.len() >= 2 {
+            let classes: Vec<IRI> = class_iris;
+            let equiv_axiom = EquivalentClassesAxiom::new(classes);
+            ontology.add_axiom(Axiom::EquivalentClasses(equiv_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DisjointClasses axiom
+    fn parse_disjoint_classes(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let class_iris = self.parse_iri_list(content)?;
+        if class_iris.len() >= 2 {
+            let classes: Vec<IRI> = class_iris;
+            let disjoint_axiom = DisjointClassesAxiom::new(classes);
+            ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DisjointUnion axiom
+    fn parse_disjoint_union(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let main_class_iri = self.resolve_iri(parts[0])?;
+            let mut class_iris = vec![main_class_iri.clone()];
+
+            for part in &parts[1..] {
+                class_iris.push(self.resolve_iri(part)?);
+            }
+
+            let disjoint_axiom = DisjointClassesAxiom::new(class_iris[1..].to_vec());
+            ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse SubObjectPropertyOf axiom
+    fn parse_sub_object_property_of(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let sub_prop_iri = self.resolve_iri(parts[0])?;
+            let super_prop_iri = self.resolve_iri(parts[1])?;
+
+            let sub_axiom = SubObjectPropertyAxiom::new(sub_prop_iri, super_prop_iri);
+            ontology.add_axiom(Axiom::SubObjectProperty(sub_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse EquivalentObjectProperties axiom
+    fn parse_equivalent_object_properties(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let prop_iris = self.parse_iri_list(content)?;
+        if prop_iris.len() >= 2 {
+            let equiv_axiom = EquivalentObjectPropertiesAxiom::new(prop_iris);
+            ontology.add_axiom(Axiom::EquivalentObjectProperties(equiv_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DisjointObjectProperties axiom
+    fn parse_disjoint_object_properties(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let prop_iris = self.parse_iri_list(content)?;
+        if prop_iris.len() >= 2 {
+            let disjoint_axiom = DisjointObjectPropertiesAxiom::new(prop_iris);
+            ontology.add_axiom(Axiom::DisjointObjectProperties(disjoint_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse ObjectPropertyDomain axiom
+    fn parse_object_property_domain(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let domain_iri = self.resolve_iri(parts[1])?;
+
+            // For now, skip ObjectPropertyDomain as it's not directly supported
+            // TODO: Implement using SubClassOf with restrictions
+        }
+        Ok(())
+    }
+
+    /// Parse ObjectPropertyRange axiom
+    fn parse_object_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let range_iri = self.resolve_iri(parts[1])?;
+
+            // For now, skip ObjectPropertyRange as it's not directly supported
+            // TODO: Implement using SubClassOf with restrictions
+        }
+        Ok(())
+    }
+
+    /// Parse InverseObjectProperties axiom
+    fn parse_inverse_object_properties(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop1_iri = self.resolve_iri(parts[0])?;
+            let prop2_iri = self.resolve_iri(parts[1])?;
+
+            let inverse_axiom = InverseObjectPropertiesAxiom::new(
+                ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(prop1_iri)),
+                ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(prop2_iri)),
+            );
+            ontology.add_axiom(Axiom::InverseObjectProperties(inverse_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse FunctionalObjectProperty axiom
+    fn parse_functional_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let functional_axiom = FunctionalPropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::FunctionalProperty(functional_axiom))?;
+        Ok(())
+    }
+
+    /// Parse InverseFunctionalObjectProperty axiom
+    fn parse_inverse_functional_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let inverse_functional_axiom = InverseFunctionalPropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::InverseFunctionalProperty(inverse_functional_axiom))?;
+        Ok(())
+    }
+
+    /// Parse ReflexiveObjectProperty axiom
+    fn parse_reflexive_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let reflexive_axiom = ReflexivePropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::ReflexiveProperty(reflexive_axiom))?;
+        Ok(())
+    }
+
+    /// Parse IrreflexiveObjectProperty axiom
+    fn parse_irreflexive_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let irreflexive_axiom = IrreflexivePropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::IrreflexiveProperty(irreflexive_axiom))?;
+        Ok(())
+    }
+
+    /// Parse SymmetricObjectProperty axiom
+    fn parse_symmetric_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let symmetric_axiom = SymmetricPropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::SymmetricProperty(symmetric_axiom))?;
+        Ok(())
+    }
+
+    /// Parse AsymmetricObjectProperty axiom
+    fn parse_asymmetric_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let asymmetric_axiom = AsymmetricPropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::AsymmetricProperty(asymmetric_axiom))?;
+        Ok(())
+    }
+
+    /// Parse TransitiveObjectProperty axiom
+    fn parse_transitive_object_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let transitive_axiom = TransitivePropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::TransitiveProperty(transitive_axiom))?;
+        Ok(())
+    }
+
+    /// Parse SubDataPropertyOf axiom
+    fn parse_sub_data_property_of(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let sub_prop_iri = self.resolve_iri(parts[0])?;
+            let super_prop_iri = self.resolve_iri(parts[1])?;
+
+            let sub_axiom = SubDataPropertyAxiom::new(sub_prop_iri, super_prop_iri);
+            ontology.add_axiom(Axiom::SubDataProperty(sub_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse EquivalentDataProperties axiom
+    fn parse_equivalent_data_properties(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let prop_iris = self.parse_iri_list(content)?;
+        if prop_iris.len() >= 2 {
+            let equiv_axiom = EquivalentDataPropertiesAxiom::new(prop_iris);
+            ontology.add_axiom(Axiom::EquivalentDataProperties(equiv_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DisjointDataProperties axiom
+    fn parse_disjoint_data_properties(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let prop_iris = self.parse_iri_list(content)?;
+        if prop_iris.len() >= 2 {
+            let disjoint_axiom = DisjointDataPropertiesAxiom::new(prop_iris);
+            ontology.add_axiom(Axiom::DisjointDataProperties(disjoint_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DataPropertyDomain axiom
+    fn parse_data_property_domain(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // For now, skip DataPropertyDomain as it's not directly supported
+        // TODO: Implement using proper restrictions
+        Ok(())
+    }
+
+    /// Parse DataPropertyRange axiom
+    fn parse_data_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // For now, skip DataPropertyRange as it's not directly supported
+        // TODO: Implement using proper restrictions
+        Ok(())
+    }
+
+    /// Parse FunctionalDataProperty axiom
+    fn parse_functional_data_property(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let functional_axiom = FunctionalDataPropertyAxiom::new(iri);
+        ontology.add_axiom(Axiom::FunctionalDataProperty(functional_axiom))?;
+        Ok(())
+    }
+
+    /// Parse ObjectPropertyAssertion axiom
+    fn parse_object_property_assertion(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 3 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let subject_iri = self.resolve_iri(parts[1])?;
+            let object_iri = self.resolve_iri(parts[2])?;
+
+            let assertion = PropertyAssertionAxiom::new(subject_iri, prop_iri, object_iri);
+            ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DataPropertyAssertion axiom
+    fn parse_data_property_assertion(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        // For now, skip data property assertions as they need literal handling
+        // TODO: Implement proper literal parsing
+        Ok(())
+    }
+
+    /// Parse NegativeObjectPropertyAssertion axiom
+    fn parse_negative_object_property_assertion(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        // TODO: Implement negative object property assertion
+        Ok(())
+    }
+
+    /// Parse NegativeDataPropertyAssertion axiom
+    fn parse_negative_data_property_assertion(
+        &self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
+        // TODO: Implement negative data property assertion
+        Ok(())
+    }
+
+    /// Parse SameIndividual axiom
+    fn parse_same_individual(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let individual_iris = self.parse_iri_list(content)?;
+        if individual_iris.len() >= 2 {
+            let same_axiom = SameIndividualAxiom::new(individual_iris);
+            ontology.add_axiom(Axiom::SameIndividual(same_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse DifferentIndividuals axiom
+    fn parse_different_individuals(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let individual_iris = self.parse_iri_list(content)?;
+        if individual_iris.len() >= 2 {
+            let different_axiom = DifferentIndividualsAxiom::new(individual_iris);
+            ontology.add_axiom(Axiom::DifferentIndividuals(different_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse HasKey axiom
+    fn parse_has_key(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // TODO: Implement HasKey axiom
+        Ok(())
+    }
+
+    /// Parse a list of IRIs from content
+    fn parse_iri_list(&self, content: &str) -> OwlResult<Vec<IRI>> {
+        let mut iris = Vec::new();
+        let parts: Vec<&str> = content.split_whitespace().collect();
+
+        for part in parts {
+            let iri = self.resolve_iri(part)?;
+            iris.push(iri);
+        }
+
+        Ok(iris)
+    }
+
     /// Validate the parsed ontology
     fn validate_ontology(&self, ontology: &Ontology) -> OwlResult<()> {
-        if ontology.classes().is_empty() && ontology.object_properties().is_empty()
-            && ontology.data_properties().is_empty() && ontology.named_individuals().is_empty()
-            && ontology.imports().is_empty() {
-            return Err(crate::error::OwlError::ValidationError("Ontology contains no entities or imports".to_string()));
+        if ontology.classes().is_empty()
+            && ontology.object_properties().is_empty()
+            && ontology.data_properties().is_empty()
+            && ontology.named_individuals().is_empty()
+            && ontology.imports().is_empty()
+        {
+            return Err(crate::error::OwlError::ValidationError(
+                "Ontology contains no entities or imports".to_string(),
+            ));
         }
         Ok(())
     }
@@ -262,7 +808,10 @@ impl OntologyParser for OwlFunctionalSyntaxParser {
         if self.config.max_file_size > 0 {
             let metadata = fs::metadata(path)?;
             if metadata.len() > self.config.max_file_size as u64 {
-                return Err(crate::error::OwlError::ParseError(format!("File size exceeds maximum allowed size: {} bytes", self.config.max_file_size)));
+                return Err(crate::error::OwlError::ParseError(format!(
+                    "File size exceeds maximum allowed size: {} bytes",
+                    self.config.max_file_size
+                )));
             }
         }
 
@@ -318,7 +867,10 @@ SubClassOf(:Professor :Person)
         assert!(result.is_ok(), "Parsing failed: {:?}", result);
 
         if let Ok(ontology) = result {
-            assert!(ontology.classes().len() >= 3, "Should have parsed at least 3 classes");
+            assert!(
+                ontology.classes().len() >= 3,
+                "Should have parsed at least 3 classes"
+            );
         }
     }
 
@@ -349,7 +901,11 @@ Declaration(Class(univ-bench:University))
         let parser = OwlFunctionalSyntaxParser::new();
         let result = parser.parse_str(hyphen_test);
 
-        assert!(result.is_ok(), "Hyphenated prefix parsing failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Hyphenated prefix parsing failed: {:?}",
+            result
+        );
 
         if let Ok(ontology) = result {
             assert_eq!(ontology.classes().len(), 1, "Should have parsed 1 class");
@@ -389,5 +945,82 @@ Declaration(Class(:Person))
 
         let parser = OwlFunctionalSyntaxParser::with_config(config);
         assert_eq!(parser.format_name(), "OWL Functional Syntax");
+    }
+
+    #[test]
+    fn test_comprehensive_owl_functional_parsing() {
+        let comprehensive_owl = r#"
+Prefix(:=<http://example.org/test#>)
+Prefix(owl:=<http://www.w3.org/2002/07/owl#>)
+Prefix(rdf:=<http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
+Prefix(rdfs:=<http://www.w3.org/2000/01/rdf-schema#>)
+Prefix(xsd:=<http://www.w3.org/2001/XMLSchema#>)
+
+Ontology(<http://example.org/test>
+
+Declaration(Class(:Person))
+Declaration(Class(:Student))
+Declaration(Class(:Professor))
+Declaration(Class(:Course))
+Declaration(Class(:EnrolledStudent))
+Declaration(ObjectProperty(:hasEnrollment))
+Declaration(ObjectProperty(:teaches))
+Declaration(DataProperty(:hasAge))
+Declaration(NamedIndividual(:John))
+Declaration(NamedIndividual(:Mary))
+Declaration(NamedIndividual(:CS101))
+Declaration(NamedIndividual(:JohnDoe))
+
+SubClassOf(:Student :Person)
+SubClassOf(:Professor :Person)
+EquivalentClasses(:Student :EnrolledStudent)
+FunctionalObjectProperty(:hasEnrollment)
+SymmetricObjectProperty(:teaches)
+TransitiveObjectProperty(:teaches)
+ObjectPropertyDomain(:hasEnrollment :Student)
+ObjectPropertyRange(:hasEnrollment :Course)
+DataPropertyDomain(:hasAge :Person)
+DataPropertyRange(:hasAge xsd:integer)
+FunctionalDataProperty(:hasAge)
+ClassAssertion(:Student :John)
+ClassAssertion(:Professor :Mary)
+ObjectPropertyAssertion(:teaches :Mary :CS101)
+SameIndividual(:John :JohnDoe)
+DifferentIndividuals(:John :Mary)
+
+)
+"#;
+
+        let parser = OwlFunctionalSyntaxParser::new();
+        let result = parser.parse_str(comprehensive_owl);
+
+        assert!(result.is_ok(), "Comprehensive parsing failed: {:?}", result);
+
+        if let Ok(ontology) = result {
+            // Check that we parsed the expected number of entities
+            assert!(
+                ontology.classes().len() >= 4,
+                "Should have parsed at least 4 classes"
+            );
+            assert!(
+                ontology.object_properties().len() >= 2,
+                "Should have parsed at least 2 object properties"
+            );
+            assert!(
+                ontology.data_properties().len() >= 1,
+                "Should have parsed at least 1 data property"
+            );
+            assert!(
+                ontology.named_individuals().len() >= 3,
+                "Should have parsed at least 3 named individuals"
+            );
+
+            // Check that axioms were added
+            println!("Total axioms parsed: {}", ontology.axioms().len());
+            assert!(
+                ontology.axioms().len() >= 10,
+                "Should have parsed multiple axioms"
+            );
+        }
     }
 }

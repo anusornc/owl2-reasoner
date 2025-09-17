@@ -1,5 +1,5 @@
 //! Biomedical Ontology Example
-//! 
+//!
 //! This example demonstrates how to create a biomedical ontology with
 //! gene-disease associations and protein interactions, showing more
 //! complex class expressions and reasoning patterns.
@@ -24,7 +24,16 @@ fn main() -> OwlResult<()> {
     let rare_disease = Class::new("http://example.org/RareDisease");
 
     // Add classes to ontology
-    for class in &[gene.clone(), protein.clone(), disease.clone(), symptom.clone(), treatment.clone(), drug.clone(), genetic_disorder.clone(), rare_disease.clone()] {
+    for class in &[
+        gene.clone(),
+        protein.clone(),
+        disease.clone(),
+        symptom.clone(),
+        treatment.clone(),
+        drug.clone(),
+        genetic_disorder.clone(),
+        rare_disease.clone(),
+    ] {
         ontology.add_class(class.clone())?;
     }
 
@@ -43,11 +52,21 @@ fn main() -> OwlResult<()> {
     interacts_with.add_characteristic(ObjectPropertyCharacteristic::Symmetric);
 
     // Add properties to ontology
-    for prop in &[encodes.clone(), associated_with.clone(), causes.clone(), treats.clone(), has_symptom.clone(), interacts_with.clone()] {
+    for prop in &[
+        encodes.clone(),
+        associated_with.clone(),
+        causes.clone(),
+        treats.clone(),
+        has_symptom.clone(),
+        interacts_with.clone(),
+    ] {
         ontology.add_object_property(prop.clone())?;
     }
 
-    println!("✓ Added {} biomedical properties", ontology.object_properties().len());
+    println!(
+        "✓ Added {} biomedical properties",
+        ontology.object_properties().len()
+    );
 
     // Add subclass relationships
     let subclass_axioms = vec![
@@ -72,15 +91,16 @@ fn main() -> OwlResult<()> {
         ontology.add_subclass_axiom(axiom)?;
     }
 
-    println!("✓ Added {} subclass axioms", ontology.subclass_axioms().len());
+    println!(
+        "✓ Added {} subclass axioms",
+        ontology.subclass_axioms().len()
+    );
 
     // Add equivalent classes (simplified for current API)
     // Note: Current API only supports IRI-based equivalent classes
     // Future versions will support complex class expressions
-    let equivalent_genetic = EquivalentClassesAxiom::new(vec![
-        genetic_disorder.iri().clone(),
-        disease.iri().clone(),
-    ]);
+    let equivalent_genetic =
+        EquivalentClassesAxiom::new(vec![genetic_disorder.iri().clone(), disease.iri().clone()]);
 
     ontology.add_equivalent_classes_axiom(equivalent_genetic)?;
 
@@ -95,40 +115,75 @@ fn main() -> OwlResult<()> {
     let fatigue = NamedIndividual::new("http://example.org/Fatigue");
 
     // Add individuals to ontology
-    for individual in &[brca1.clone(), brca2.clone(), brca1_protein.clone(), brca2_protein.clone(), breast_cancer.clone(), ovarian_cancer.clone(), tamoxifen.clone(), fatigue.clone()] {
+    for individual in &[
+        brca1.clone(),
+        brca2.clone(),
+        brca1_protein.clone(),
+        brca2_protein.clone(),
+        breast_cancer.clone(),
+        ovarian_cancer.clone(),
+        tamoxifen.clone(),
+        fatigue.clone(),
+    ] {
         ontology.add_named_individual(individual.clone())?;
     }
 
-    println!("✓ Added {} biomedical individuals", ontology.named_individuals().len());
+    println!(
+        "✓ Added {} biomedical individuals",
+        ontology.named_individuals().len()
+    );
 
     // Add class assertions
     let class_assertions = vec![
         // Genes
         ClassAssertionAxiom::new(brca1.iri().clone(), ClassExpression::Class(gene.clone())),
         ClassAssertionAxiom::new(brca2.iri().clone(), ClassExpression::Class(gene.clone())),
-        
         // Proteins
-        ClassAssertionAxiom::new(brca1_protein.iri().clone(), ClassExpression::Class(protein.clone())),
-        ClassAssertionAxiom::new(brca2_protein.iri().clone(), ClassExpression::Class(protein.clone())),
-        
+        ClassAssertionAxiom::new(
+            brca1_protein.iri().clone(),
+            ClassExpression::Class(protein.clone()),
+        ),
+        ClassAssertionAxiom::new(
+            brca2_protein.iri().clone(),
+            ClassExpression::Class(protein.clone()),
+        ),
         // Diseases
-        ClassAssertionAxiom::new(breast_cancer.iri().clone(), ClassExpression::Class(disease.clone())),
-        ClassAssertionAxiom::new(ovarian_cancer.iri().clone(), ClassExpression::Class(disease.clone())),
-        ClassAssertionAxiom::new(breast_cancer.iri().clone(), ClassExpression::Class(genetic_disorder.clone())),
-        ClassAssertionAxiom::new(ovarian_cancer.iri().clone(), ClassExpression::Class(genetic_disorder.clone())),
-        
+        ClassAssertionAxiom::new(
+            breast_cancer.iri().clone(),
+            ClassExpression::Class(disease.clone()),
+        ),
+        ClassAssertionAxiom::new(
+            ovarian_cancer.iri().clone(),
+            ClassExpression::Class(disease.clone()),
+        ),
+        ClassAssertionAxiom::new(
+            breast_cancer.iri().clone(),
+            ClassExpression::Class(genetic_disorder.clone()),
+        ),
+        ClassAssertionAxiom::new(
+            ovarian_cancer.iri().clone(),
+            ClassExpression::Class(genetic_disorder.clone()),
+        ),
         // Treatments
-        ClassAssertionAxiom::new(tamoxifen.iri().clone(), ClassExpression::Class(drug.clone())),
-        
+        ClassAssertionAxiom::new(
+            tamoxifen.iri().clone(),
+            ClassExpression::Class(drug.clone()),
+        ),
         // Symptoms
-        ClassAssertionAxiom::new(fatigue.iri().clone(), ClassExpression::Class(symptom.clone())),
+        ClassAssertionAxiom::new(
+            fatigue.iri().clone(),
+            ClassExpression::Class(symptom.clone()),
+        ),
     ];
 
     for assertion in class_assertions {
         ontology.add_class_assertion(assertion)?;
     }
 
-    println!("✓ Added {} class assertions", ontology.class_assertions().len());
+    println!(
+        "✓ Added {} class assertions",
+        ontology.class_assertions().len()
+    );
 
     // Add property assertions
     let property_assertions = vec![
@@ -143,7 +198,6 @@ fn main() -> OwlResult<()> {
             brca2.iri().clone(),
             brca2_protein.iri().clone(),
         ),
-        
         // Gene-disease associations
         PropertyAssertionAxiom::new(
             associated_with.iri().clone(),
@@ -165,7 +219,6 @@ fn main() -> OwlResult<()> {
             brca2.iri().clone(),
             ovarian_cancer.iri().clone(),
         ),
-        
         // Protein interactions
         PropertyAssertionAxiom::new(
             interacts_with.iri().clone(),
@@ -177,7 +230,6 @@ fn main() -> OwlResult<()> {
             brca2_protein.iri().clone(),
             brca1_protein.iri().clone(),
         ),
-        
         // Disease-symptom relationships
         PropertyAssertionAxiom::new(
             has_symptom.iri().clone(),
@@ -189,7 +241,6 @@ fn main() -> OwlResult<()> {
             ovarian_cancer.iri().clone(),
             fatigue.iri().clone(),
         ),
-        
         // Treatment relationships
         PropertyAssertionAxiom::new(
             treats.iri().clone(),
@@ -202,7 +253,10 @@ fn main() -> OwlResult<()> {
         ontology.add_property_assertion(assertion)?;
     }
 
-    println!("✓ Added {} property assertions", ontology.property_assertions().len());
+    println!(
+        "✓ Added {} property assertions",
+        ontology.property_assertions().len()
+    );
 
     // Create reasoner and perform reasoning
     println!("\n=== Biomedical Reasoning Results ===");
@@ -214,8 +268,16 @@ fn main() -> OwlResult<()> {
 
     // Check subclass relationships
     let subclass_checks = vec![
-        (genetic_disorder.clone(), disease.clone(), "GeneticDisorder ⊑ Disease"),
-        (rare_disease.clone(), disease.clone(), "RareDisease ⊑ Disease"),
+        (
+            genetic_disorder.clone(),
+            disease.clone(),
+            "GeneticDisorder ⊑ Disease",
+        ),
+        (
+            rare_disease.clone(),
+            disease.clone(),
+            "RareDisease ⊑ Disease",
+        ),
         (drug.clone(), treatment.clone(), "Drug ⊑ Treatment"),
     ];
 
@@ -260,7 +322,9 @@ fn main() -> OwlResult<()> {
     let gene_disease_pattern = QueryPattern::BasicGraphPattern(vec![
         TriplePattern {
             subject: PatternTerm::Variable("s".to_string()),
-            predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?),
+            predicate: PatternTerm::IRI(IRI::new(
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            )?),
             object: PatternTerm::IRI(gene.iri().clone()),
         },
         TriplePattern {
@@ -271,41 +335,52 @@ fn main() -> OwlResult<()> {
     ]);
 
     let genes_with_diseases = query_engine.execute_query(&gene_disease_pattern)?;
-    println!("✓ Found {} genes associated with diseases", genes_with_diseases.bindings.len());
+    println!(
+        "✓ Found {} genes associated with diseases",
+        genes_with_diseases.bindings.len()
+    );
 
     // Find all disease-symptom relationships
-    let symptom_pattern = QueryPattern::BasicGraphPattern(vec![
-        TriplePattern {
-            subject: PatternTerm::Variable("s".to_string()),
-            predicate: PatternTerm::IRI(has_symptom.iri().clone()),
-            object: PatternTerm::Variable("o".to_string()),
-        }
-    ]);
+    let symptom_pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+        subject: PatternTerm::Variable("s".to_string()),
+        predicate: PatternTerm::IRI(has_symptom.iri().clone()),
+        object: PatternTerm::Variable("o".to_string()),
+    }]);
 
     let symptom_relationships = query_engine.execute_query(&symptom_pattern)?;
-    println!("✓ Found {} disease-symptom relationships", symptom_relationships.bindings.len());
+    println!(
+        "✓ Found {} disease-symptom relationships",
+        symptom_relationships.bindings.len()
+    );
 
     // Find all protein-protein interactions
-    let interaction_pattern = QueryPattern::BasicGraphPattern(vec![
-        TriplePattern {
-            subject: PatternTerm::Variable("s".to_string()),
-            predicate: PatternTerm::IRI(interacts_with.iri().clone()),
-            object: PatternTerm::Variable("o".to_string()),
-        }
-    ]);
+    let interaction_pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+        subject: PatternTerm::Variable("s".to_string()),
+        predicate: PatternTerm::IRI(interacts_with.iri().clone()),
+        object: PatternTerm::Variable("o".to_string()),
+    }]);
 
     let interactions = query_engine.execute_query(&interaction_pattern)?;
-    println!("✓ Found {} protein-protein interactions", interactions.bindings.len());
+    println!(
+        "✓ Found {} protein-protein interactions",
+        interactions.bindings.len()
+    );
 
     // Performance statistics
     println!("\n=== Performance Statistics ===");
-    println!("✓ Total biomedical entities: {}", reasoner.ontology.entity_count());
-    println!("✓ Total biomedical axioms: {}", reasoner.ontology.axiom_count());
+    println!(
+        "✓ Total biomedical entities: {}",
+        reasoner.ontology.entity_count()
+    );
+    println!(
+        "✓ Total biomedical axioms: {}",
+        reasoner.ontology.axiom_count()
+    );
     println!("✓ Cache stats: {:?}", reasoner.cache_stats());
 
     // Complex class expression example (simplified)
     println!("\n=== Complex Class Expression Example ===");
-    
+
     // Note: Current API supports basic class expressions
     // Future versions will support complex nested expressions
     println!("✓ Basic class expressions are supported");

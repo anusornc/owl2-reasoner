@@ -1,0 +1,43 @@
+🧪 Advanced OWL2 Test Suite - Detailed Report
+==============================================
+
+📊 Overall Statistics:
+  Total Tests: 21
+  Passed: 0 (0.0%)
+  Failed: 21
+  Execution Time: 307.833µs
+
+🔬 Reasoning Metrics:
+  Consistency Checks: 21
+  Satisfiability Checks: 0
+  Classification Operations: 0
+  Advanced Reasoning Used: true
+  Average Reasoning Time: 5.587µs
+
+📈 Performance by Reasoning Mode:
+  Simple: 0/7 passed (0.0%), avg time: 12.845µs
+  Hybrid: 0/7 passed (0.0%), avg time: 1.887µs
+  AdvancedTableaux: 0/7 passed (0.0%), avg time: 2.029µs
+
+❌ Failed Tests (21):
+  - test_suite/simple_test.ofn (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/simple_test.ofn (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/simple_test.ofn (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/family_test.ttl (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/family_test.ttl (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/family_test.ttl (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/property_test.rdf (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/property_test.rdf (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/property_test.rdf (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/complex_expressions.ttl (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/complex_expressions.ttl (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/complex_expressions.ttl (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/biomedical_test.ttl (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/biomedical_test.ttl (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/biomedical_test.ttl (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/classification_test.rdf (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/classification_test.rdf (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/classification_test.rdf (Hybrid): I/O error: No such file or directory (os error 2)
+  - test_suite/inconsistent_test.ofn (Simple): I/O error: No such file or directory (os error 2)
+  - test_suite/inconsistent_test.ofn (AdvancedTableaux): I/O error: No such file or directory (os error 2)
+  - test_suite/inconsistent_test.ofn (Hybrid): I/O error: No such file or directory (os error 2)

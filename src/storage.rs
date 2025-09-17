@@ -1,20 +1,20 @@
 //! Storage backends for OWL2 ontologies
-//! 
+//!
 //! Provides different storage strategies for ontologies with different
 //! performance characteristics.
 
-use crate::ontology::Ontology;
 use crate::error::{OwlError, OwlResult};
+use crate::ontology::Ontology;
 use std::collections::HashMap;
 
 /// Trait for ontology storage backends
 pub trait StorageBackend {
     /// Store an ontology
     fn store(&mut self, ontology: Ontology) -> OwlResult<()>;
-    
+
     /// Retrieve an ontology
     fn retrieve(&self) -> OwlResult<&Ontology>;
-    
+
     /// Clear all stored data
     fn clear(&mut self) -> OwlResult<()>;
 }
@@ -37,11 +37,13 @@ impl StorageBackend for MemoryStorage {
         self.ontology = Some(ontology);
         Ok(())
     }
-    
+
     fn retrieve(&self) -> OwlResult<&Ontology> {
-        self.ontology.as_ref().ok_or_else(|| OwlError::StorageError("No ontology stored".to_string()))
+        self.ontology
+            .as_ref()
+            .ok_or_else(|| OwlError::StorageError("No ontology stored".to_string()))
     }
-    
+
     fn clear(&mut self) -> OwlResult<()> {
         self.ontology = None;
         Ok(())
@@ -63,32 +65,36 @@ impl IndexedStorage {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Build indexes from the ontology
     fn build_indexes(&mut self, ontology: &Ontology) {
         // Clear existing indexes
         self.class_index.clear();
         self.property_index.clear();
         self.individual_index.clear();
-        
+
         // Index classes
         for (idx, class) in ontology.classes().iter().enumerate() {
-            self.class_index.insert(class.iri().as_str().to_string(), idx);
+            self.class_index
+                .insert(class.iri().as_str().to_string(), idx);
         }
-        
+
         // Index object properties
         for (idx, prop) in ontology.object_properties().iter().enumerate() {
-            self.property_index.insert(prop.iri().as_str().to_string(), idx);
+            self.property_index
+                .insert(prop.iri().as_str().to_string(), idx);
         }
-        
+
         // Index data properties
         for (idx, prop) in ontology.data_properties().iter().enumerate() {
-            self.property_index.insert(prop.iri().as_str().to_string(), idx);
+            self.property_index
+                .insert(prop.iri().as_str().to_string(), idx);
         }
-        
+
         // Index individuals
         for (idx, individual) in ontology.named_individuals().iter().enumerate() {
-            self.individual_index.insert(individual.iri().as_str().to_string(), idx);
+            self.individual_index
+                .insert(individual.iri().as_str().to_string(), idx);
         }
     }
 }
@@ -99,11 +105,13 @@ impl StorageBackend for IndexedStorage {
         self.ontology = Some(ontology);
         Ok(())
     }
-    
+
     fn retrieve(&self) -> OwlResult<&Ontology> {
-        self.ontology.as_ref().ok_or_else(|| OwlError::StorageError("No ontology stored".to_string()))
+        self.ontology
+            .as_ref()
+            .ok_or_else(|| OwlError::StorageError("No ontology stored".to_string()))
     }
-    
+
     fn clear(&mut self) -> OwlResult<()> {
         self.ontology = None;
         self.class_index.clear();

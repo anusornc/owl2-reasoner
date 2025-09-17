@@ -16,12 +16,12 @@
 //! Uses simplified measurements for basic performance tracking and estimation.
 //! Results are estimates and may vary based on actual implementation details.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use owl2_reasoner::ontology::Ontology;
-use owl2_reasoner::entities::{Class, ObjectProperty, NamedIndividual};
-use owl2_reasoner::axioms::{SubClassOfAxiom, ClassExpression};
-use owl2_reasoner::reasoning::SimpleReasoner;
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
+use owl2_reasoner::entities::{Class, NamedIndividual, ObjectProperty};
 use owl2_reasoner::iri::IRI;
+use owl2_reasoner::ontology::Ontology;
+use owl2_reasoner::reasoning::SimpleReasoner;
 use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
 use std::time::Instant;
 
@@ -69,7 +69,13 @@ fn measure_response_times(c: &mut Criterion) {
                 let _stats = reasoner.get_cache_stats();
 
                 // Test subclass reasoning for a few classes
-                let classes: Vec<_> = reasoner.ontology.classes().iter().take(5).cloned().collect();
+                let classes: Vec<_> = reasoner
+                    .ontology
+                    .classes()
+                    .iter()
+                    .take(5)
+                    .cloned()
+                    .collect();
                 for i in 0..classes.len().min(3) {
                     for j in 0..classes.len().min(3) {
                         if i != j {
@@ -170,11 +176,18 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
                 for _ in 0..10 {
                     let _ = reasoner.is_consistent();
 
-                    let classes: Vec<_> = reasoner.ontology.classes().iter().take(5).cloned().collect();
+                    let classes: Vec<_> = reasoner
+                        .ontology
+                        .classes()
+                        .iter()
+                        .take(5)
+                        .cloned()
+                        .collect();
                     for i in 0..classes.len().min(3) {
                         for j in 0..classes.len().min(3) {
                             if i != j {
-                                let _ = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                                let _ =
+                                    reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
                             }
                         }
                     }
@@ -229,7 +242,8 @@ fn measure_arc_sharing(c: &mut Criterion) {
 
                 // Calculate basic sharing ratio
                 let total_references: usize = iri_references.values().sum();
-                let shared_references: usize = iri_references.values()
+                let shared_references: usize = iri_references
+                    .values()
                     .filter(|&&count| count > 1)
                     .map(|&count| count - 1)
                     .sum();
@@ -291,7 +305,13 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 // Perform cache operations
                 for _ in 0..5 {
                     let _ = reasoner.is_consistent();
-                    let classes: Vec<_> = reasoner.ontology.classes().iter().take(3).cloned().collect();
+                    let classes: Vec<_> = reasoner
+                        .ontology
+                        .classes()
+                        .iter()
+                        .take(3)
+                        .cloned()
+                        .collect();
                     for class in classes.iter().take(2) {
                         let _ = reasoner.is_class_satisfiable(&class.iri());
                     }
@@ -309,7 +329,8 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 }
 
                 let total_references: usize = iri_references.values().sum();
-                let shared_references: usize = iri_references.values()
+                let shared_references: usize = iri_references
+                    .values()
                     .filter(|&&count| count > 1)
                     .map(|&count| count - 1)
                     .sum();
@@ -322,7 +343,13 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 let total_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
 
                 // Record all measurements
-                black_box((response_time, memory_per_entity_kb, hit_rate, sharing_ratio, total_time));
+                black_box((
+                    response_time,
+                    memory_per_entity_kb,
+                    hit_rate,
+                    sharing_ratio,
+                    total_time,
+                ));
             })
         });
     }
@@ -335,7 +362,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
 fn create_test_ontology(size: usize) -> Ontology {
     let mut ontology = Ontology::new();
     let mut classes = Vec::new();
-    
+
     // Create classes with shared IRIs where possible
     for i in 0..size {
         let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
@@ -343,14 +370,14 @@ fn create_test_ontology(size: usize) -> Ontology {
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
     }
-    
+
     // Create object properties
     for i in 0..(size / 5).max(1) {
         let iri = IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(iri);
         ontology.add_object_property(prop).unwrap();
     }
-    
+
     // Create subclass relationships to enable reasoning tests
     for i in 1..classes.len().min(size) {
         let parent_idx = (i - 1) / 3; // Create reasonable hierarchy
@@ -362,14 +389,14 @@ fn create_test_ontology(size: usize) -> Ontology {
             ontology.add_subclass_axiom(subclass_axiom).unwrap();
         }
     }
-    
+
     // Add some individuals for completeness
     for i in 0..(size / 2) {
         let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }
-    
+
     ontology
 }
 

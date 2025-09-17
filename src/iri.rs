@@ -1,48 +1,48 @@
 //! IRI management for OWL2 entities
-//! 
-//! This module provides efficient IRI (Internationalized Resource Identifier) handling 
-//! with comprehensive caching and namespace support. IRIs are used throughout OWL2 to 
+//!
+//! This module provides efficient IRI (Internationalized Resource Identifier) handling
+//! with comprehensive caching and namespace support. IRIs are used throughout OWL2 to
 //! uniquely identify all entities (classes, properties, individuals).
-//! 
+//!
 //! ## Features
-//! 
+//!
 //! - **String Interning**: Automatic IRI deduplication with global cache
 //! - **Namespace Support**: Prefix-based IRI abbreviations (e.g., `owl:Class`)
 //! - **Memory Efficiency**: Arc-based sharing and pre-computed hashes
 //! - **Performance**: O(1) cache lookups and optimized comparisons
-//! 
+//!
 //! ## Usage
-//! 
+//!
 //! ```rust
 //! use owl2_reasoner::IRI;
-//! 
+//!
 //! // Create IRI (automatically cached)
 //! let person_iri = IRI::new("http://example.org/Person")?;
-//! 
+//!
 //! // Create IRI with namespace prefix
 //! let owl_class = IRI::with_prefix("http://www.w3.org/2002/07/owl#Class", "owl")?;
-//! 
+//!
 //! // Access IRI components
 //! assert_eq!(person_iri.as_str(), "http://example.org/Person");
 //! assert_eq!(person_iri.local_name(), "Person");
 //! assert_eq!(person_iri.namespace(), "http://example.org/");
-//! 
+//!
 //! // Check namespace membership
 //! assert!(owl_class.is_owl());
 //! assert!(!owl_class.is_rdf());
-//! 
+//!
 //! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
 
 use crate::error::{OwlError, OwlResult};
+use once_cell::sync::Lazy;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::sync::RwLock;
-use once_cell::sync::Lazy;
 
 /// Global IRI cache for interning IRIs across the entire application
-static GLOBAL_IRI_CACHE: Lazy<RwLock<hashbrown::HashMap<String, IRI>>> = 
+static GLOBAL_IRI_CACHE: Lazy<RwLock<hashbrown::HashMap<String, IRI>>> =
     Lazy::new(|| RwLock::new(hashbrown::HashMap::new()));
 
 /// Cache statistics for IRI operations
@@ -56,7 +56,10 @@ pub struct IriCacheStats {
 
 impl IriCacheStats {
     pub fn hit_rate(&self) -> f64 {
-        let total = self.global_cache_hits + self.global_cache_misses + self.local_cache_hits + self.local_cache_misses;
+        let total = self.global_cache_hits
+            + self.global_cache_misses
+            + self.local_cache_hits
+            + self.local_cache_misses;
         if total == 0 {
             0.0
         } else {
@@ -78,19 +81,19 @@ pub fn clear_global_iri_cache() {
 }
 
 /// Internationalized Resource Identifier (IRI)
-/// 
-/// Represents an IRI as defined in [RFC 3987](https://tools.ietf.org/html/rfc3987). 
+///
+/// Represents an IRI as defined in [RFC 3987](https://tools.ietf.org/html/rfc3987).
 /// OWL2 uses IRIs to uniquely identify all entities (classes, properties, individuals).
-/// 
+///
 /// ## Performance
-/// 
+///
 /// - **String Interning**: Automatic deduplication via global cache
 /// - **Memory Sharing**: Uses `Arc<str>` for efficient storage
 /// - **Fast Comparison**: Pre-computed hash values
 /// - **Namespace Caching**: Optional prefix storage for serialization
-/// 
+///
 /// ## Memory Layout
-/// 
+///
 /// ```text
 /// IRI {
 ///     iri: Arc<str>,           // Shared string storage
@@ -98,25 +101,25 @@ pub fn clear_global_iri_cache() {
 ///     hash: u64,               // Pre-computed hash
 /// }
 /// ```
-/// 
+///
 /// ## Examples
-/// 
+///
 /// ```rust
 /// use owl2_reasoner::IRI;
-/// 
+///
 /// // Basic IRI creation
 /// let iri = IRI::new("http://example.org/Person")?;
 /// assert_eq!(iri.as_str(), "http://example.org/Person");
-/// 
+///
 /// // IRI with prefix
 /// let iri_with_prefix = IRI::with_prefix("http://example.org/Person", "ex")?;
 /// assert_eq!(iri_with_prefix.prefix(), Some("ex"));
 /// assert_eq!(iri_with_prefix.to_string(), "ex:Person");
-/// 
+///
 /// // Component access
 /// assert_eq!(iri.local_name(), "Person");
 /// assert_eq!(iri.namespace(), "http://example.org/");
-/// 
+///
 /// # Ok::<(), owl2_reasoner::OwlError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -133,12 +136,12 @@ impl IRI {
     /// Create a new IRI from a string with global caching
     pub fn new<S: Into<String>>(iri: S) -> OwlResult<Self> {
         let iri_str = iri.into();
-        
+
         // Basic IRI validation
         if iri_str.is_empty() {
             return Err(OwlError::InvalidIRI("Empty IRI".to_string()));
         }
-        
+
         // Check global cache first
         {
             let cache = GLOBAL_IRI_CACHE.read().unwrap();
@@ -146,51 +149,51 @@ impl IRI {
                 return Ok(cached_iri.clone());
             }
         }
-        
+
         // TODO: Add more thorough IRI validation according to RFC 3987
-        
+
         let hash = {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             iri_str.hash(&mut hasher);
             hasher.finish()
         };
-        
+
         let iri = IRI {
             iri: Arc::from(iri_str.clone()),
             prefix: None,
             hash,
         };
-        
+
         // Store in global cache
         {
             let mut cache = GLOBAL_IRI_CACHE.write().unwrap();
             cache.insert(iri_str, iri.clone());
         }
-        
+
         Ok(iri)
     }
-    
+
     /// Create a new IRI with a namespace prefix
     pub fn with_prefix<S: Into<String>, P: Into<String>>(iri: S, prefix: P) -> OwlResult<Self> {
         let mut iri = Self::new(iri)?;
         iri.prefix = Some(Arc::from(prefix.into()));
         Ok(iri)
     }
-    
+
     /// Get the IRI as a string slice
     pub fn as_str(&self) -> &str {
         &self.iri
     }
-    
+
     /// Get the namespace prefix if available
     pub fn prefix(&self) -> Option<&str> {
         self.prefix.as_deref()
     }
-    
+
     /// Get the local name part (after last # or /)
     pub fn local_name(&self) -> &str {
         let iri = self.as_str();
-        
+
         // Find the last separator
         if let Some(hash_pos) = iri.rfind('#') {
             &iri[hash_pos + 1..]
@@ -200,11 +203,11 @@ impl IRI {
             iri
         }
     }
-    
+
     /// Get the namespace part (before last # or /)
     pub fn namespace(&self) -> &str {
         let iri = self.as_str();
-        
+
         if let Some(hash_pos) = iri.rfind('#') {
             &iri[..hash_pos + 1]
         } else if let Some(slash_pos) = iri.rfind('/') {
@@ -213,25 +216,28 @@ impl IRI {
             ""
         }
     }
-    
+
     /// Check if this IRI is in the OWL namespace
     pub fn is_owl(&self) -> bool {
         self.as_str().starts_with("http://www.w3.org/2002/07/owl#")
     }
-    
+
     /// Check if this IRI is in the RDF namespace
     pub fn is_rdf(&self) -> bool {
-        self.as_str().starts_with("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+        self.as_str()
+            .starts_with("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
     }
-    
+
     /// Check if this IRI is in the RDFS namespace
     pub fn is_rdfs(&self) -> bool {
-        self.as_str().starts_with("http://www.w3.org/2000/01/rdf-schema#")
+        self.as_str()
+            .starts_with("http://www.w3.org/2000/01/rdf-schema#")
     }
-    
+
     /// Check if this IRI is in the XSD namespace
     pub fn is_xsd(&self) -> bool {
-        self.as_str().starts_with("http://www.w3.org/2001/XMLSchema#")
+        self.as_str()
+            .starts_with("http://www.w3.org/2001/XMLSchema#")
     }
 }
 
@@ -251,6 +257,7 @@ impl Hash for IRI {
     }
 }
 
+/// Note: these From impls can panic on invalid IRIs; prefer `IRI::new` where possible.
 impl From<&str> for IRI {
     fn from(s: &str) -> Self {
         Self::new(s).expect("Invalid IRI")
@@ -266,13 +273,21 @@ impl From<String> for IRI {
 /// Common OWL2 IRIs
 pub static OWL_IRIS: Lazy<IRIRegistry> = Lazy::new(|| {
     let mut registry = IRIRegistry::new();
-    
+
     // OWL vocabulary
-    registry.register("owl", "http://www.w3.org/2002/07/owl#").unwrap();
-    registry.register("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#").unwrap();
-    registry.register("rdfs", "http://www.w3.org/2000/01/rdf-schema#").unwrap();
-    registry.register("xsd", "http://www.w3.org/2001/XMLSchema#").unwrap();
-    
+    registry
+        .register("owl", "http://www.w3.org/2002/07/owl#")
+        .unwrap();
+    registry
+        .register("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+        .unwrap();
+    registry
+        .register("rdfs", "http://www.w3.org/2000/01/rdf-schema#")
+        .unwrap();
+    registry
+        .register("xsd", "http://www.w3.org/2001/XMLSchema#")
+        .unwrap();
+
     registry
 });
 
@@ -290,32 +305,34 @@ impl IRIRegistry {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Register a namespace prefix
     pub fn register(&mut self, prefix: &str, namespace: &str) -> OwlResult<()> {
-        self.prefixes.insert(prefix.to_string(), namespace.to_string());
+        self.prefixes
+            .insert(prefix.to_string(), namespace.to_string());
         Ok(())
     }
-    
+
     /// Get the namespace for a prefix
     pub fn namespace(&self, prefix: &str) -> Option<&str> {
         self.prefixes.get(prefix).map(|s| s.as_str())
     }
-    
+
     /// Create an IRI with a registered prefix
     pub fn iri_with_prefix(&mut self, prefix: &str, local_name: &str) -> OwlResult<IRI> {
-        let namespace = self.namespace(prefix)
+        let namespace = self
+            .namespace(prefix)
             .ok_or_else(|| OwlError::UnknownPrefix(prefix.to_string()))?;
-        
+
         let full_iri = format!("{namespace}{local_name}");
         let iri = IRI::with_prefix(full_iri, prefix)?;
-        
+
         // Cache the IRI locally as well
         self.iris.insert(iri.as_str().to_string(), iri.clone());
-        
+
         Ok(iri)
     }
-    
+
     /// Get or create an IRI with enhanced caching
     pub fn get_or_create_iri(&mut self, iri_str: &str) -> OwlResult<IRI> {
         // Check local cache first
@@ -323,52 +340,56 @@ impl IRIRegistry {
             self.cache_hits += 1;
             return Ok(cached.clone());
         }
-        
+
         self.cache_misses += 1;
-        
+
         // The global cache is already checked in IRI::new
         let iri = IRI::new(iri_str)?;
         self.iris.insert(iri_str.to_string(), iri.clone());
         Ok(iri)
     }
-    
+
     /// Get cache statistics for this registry
     pub fn cache_stats(&self) -> (usize, usize) {
         (self.cache_hits, self.cache_misses)
     }
-    
+
     /// Clear the local cache
     pub fn clear_cache(&mut self) {
         self.iris.clear();
         self.cache_hits = 0;
         self.cache_misses = 0;
     }
-    
+
     /// Get the number of cached IRIs
     pub fn cached_iri_count(&self) -> usize {
         self.iris.len()
     }
-    
+
     /// Get all registered prefixes
     pub fn prefixes(&self) -> impl Iterator<Item = (&str, &str)> {
         self.prefixes.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
-    
+
     /// Create commonly used OWL IRIs efficiently
     pub fn owl_class(&mut self, class_name: &str) -> OwlResult<IRI> {
         self.get_or_create_iri(&format!("http://www.w3.org/2002/07/owl#{class_name}"))
     }
-    
+
     /// Create commonly used RDF IRIs efficiently
     pub fn rdf_property(&mut self, prop_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/1999/02/22-rdf-syntax-ns#{prop_name}"))
+        self.get_or_create_iri(&format!(
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#{prop_name}"
+        ))
     }
-    
+
     /// Create commonly used RDFS IRIs efficiently
     pub fn rdfs_class(&mut self, class_name: &str) -> OwlResult<IRI> {
-        self.get_or_create_iri(&format!("http://www.w3.org/2000/01/rdf-schema#{class_name}"))
+        self.get_or_create_iri(&format!(
+            "http://www.w3.org/2000/01/rdf-schema#{class_name}"
+        ))
     }
-    
+
     /// Create commonly used XSD IRIs efficiently
     pub fn xsd_datatype(&mut self, type_name: &str) -> OwlResult<IRI> {
         self.get_or_create_iri(&format!("http://www.w3.org/2001/XMLSchema#{type_name}"))
@@ -389,7 +410,7 @@ impl IRIRef {
     pub fn iri<S: Into<IRI>>(iri: S) -> Self {
         IRIRef::IRI(iri.into())
     }
-    
+
     /// Create an abbreviated IRI reference
     pub fn abbreviated<P: Into<String>, L: Into<String>>(prefix: P, local: L) -> Self {
         IRIRef::Abbreviated {
@@ -397,14 +418,12 @@ impl IRIRef {
             local: local.into(),
         }
     }
-    
+
     /// Resolve to a full IRI using the given registry
     pub fn resolve(&self, registry: &mut IRIRegistry) -> OwlResult<IRI> {
         match self {
             IRIRef::IRI(iri) => Ok(iri.clone()),
-            IRIRef::Abbreviated { prefix, local } => {
-                registry.iri_with_prefix(prefix, local)
-            }
+            IRIRef::Abbreviated { prefix, local } => registry.iri_with_prefix(prefix, local),
         }
     }
 }
@@ -420,30 +439,30 @@ mod tests {
         assert_eq!(iri.local_name(), "Person");
         assert_eq!(iri.namespace(), "http://example.org/");
     }
-    
+
     #[test]
     fn test_iri_with_prefix() {
         let iri = IRI::with_prefix("http://example.org/Person", "ex").unwrap();
         assert_eq!(iri.as_str(), "http://example.org/Person");
         assert_eq!(iri.prefix(), Some("ex"));
     }
-    
+
     #[test]
     fn test_iri_namespaces() {
         let owl_iri = IRI::new("http://www.w3.org/2002/07/owl#Class").unwrap();
         assert!(owl_iri.is_owl());
         assert!(!owl_iri.is_rdf());
-        
+
         let rdf_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
         assert!(rdf_iri.is_rdf());
         assert!(!rdf_iri.is_owl());
     }
-    
+
     #[test]
     fn test_iri_registry() {
         let mut registry = IRIRegistry::new();
         registry.register("ex", "http://example.org/").unwrap();
-        
+
         let iri = registry.iri_with_prefix("ex", "Person").unwrap();
         assert_eq!(iri.as_str(), "http://example.org/Person");
         assert_eq!(iri.prefix(), Some("ex"));

@@ -1,5 +1,5 @@
 //! Integration tests for end-to-end OWL2 reasoning pipeline
-//! 
+//!
 //! This module tests the complete workflow from ontology parsing through reasoning
 //! components, ensuring all parts work together correctly.
 
@@ -38,29 +38,42 @@ ex:hasPet a owl:ObjectProperty ;
 
         // Step 1: Parse the ontology
         let parser = TurtleParser::new();
-        let ontology = parser.parse_str(turtle_content)
+        let ontology = parser
+            .parse_str(turtle_content)
             .expect("Failed to parse ontology");
 
-        assert!(ontology.classes().len() >= 3, "Should have at least 3 classes");
-        assert!(ontology.object_properties().len() >= 2, "Should have at least 2 properties");
+        assert!(
+            ontology.classes().len() >= 3,
+            "Should have at least 3 classes"
+        );
+        assert!(
+            ontology.object_properties().len() >= 2,
+            "Should have at least 2 properties"
+        );
 
         // Step 2: Initialize reasoner with parsed ontology
         let reasoner = SimpleReasoner::new(ontology.clone());
 
         // Step 3: Test basic reasoning functionality
-        let is_consistent = reasoner.is_consistent()
-            .expect("Should check consistency");
+        let is_consistent = reasoner.is_consistent().expect("Should check consistency");
 
         assert!(is_consistent, "Ontology should be consistent");
 
         // Step 4: Test reasoner caching functionality
         let stats = reasoner.cache_stats();
-        assert!(stats.contains_key("consistency"), "Should have consistency stats");
-        
+        assert!(
+            stats.contains_key("consistency"),
+            "Should have consistency stats"
+        );
+
         // Test cache clearing
         reasoner.clear_caches();
         let stats_after = reasoner.cache_stats();
-        assert_eq!(stats_after.get("consistency"), Some(&0), "Cache should be cleared");
+        assert_eq!(
+            stats_after.get("consistency"),
+            Some(&0),
+            "Cache should be cleared"
+        );
     }
 
     #[test]
@@ -83,7 +96,7 @@ ex:hasFather rdfs:subPropertyOf ex:hasParent .
         // Parse and create reasoner
         let parser = TurtleParser::new();
         let ontology = parser.parse_str(turtle_content).unwrap();
-        
+
         let reasoner = SimpleReasoner::new(ontology);
 
         // Test consistency checking
@@ -92,12 +105,19 @@ ex:hasFather rdfs:subPropertyOf ex:hasParent .
 
         // Test cache functionality
         let stats = reasoner.cache_stats();
-        assert!(stats.contains_key("consistency"), "Should have consistency stats");
+        assert!(
+            stats.contains_key("consistency"),
+            "Should have consistency stats"
+        );
 
         // Test cache clearing
         reasoner.clear_caches();
         let stats_after = reasoner.cache_stats();
-        assert_eq!(stats_after.get("consistency"), Some(&0), "Cache should be cleared");
+        assert_eq!(
+            stats_after.get("consistency"),
+            Some(&0),
+            "Cache should be cleared"
+        );
     }
 
     #[test]
@@ -158,25 +178,31 @@ ex:TechCorp a ex:Company .
 "#;
 
         let start_time = Instant::now();
-        
+
         // Complete pipeline test
         let parser = TurtleParser::new();
         let ontology = parser.parse_str(complex_content).unwrap();
-        
+
         let reasoner = SimpleReasoner::new(ontology.clone());
-        
+
         let duration = start_time.elapsed();
-        
+
         // Verify pipeline completed
         let is_consistent = reasoner.is_consistent().unwrap();
         assert!(is_consistent, "Complex ontology should be consistent");
-        
+
         // Verify ontology structure
         // Note: Current parser captures basic entity declarations
-        assert!(ontology.classes().len() >= 1, "Should have at least basic classes");
-        assert!(ontology.object_properties().len() >= 3, "Should have multiple properties");
+        assert!(
+            ontology.classes().len() >= 1,
+            "Should have at least basic classes"
+        );
+        assert!(
+            ontology.object_properties().len() >= 3,
+            "Should have multiple properties"
+        );
         // More sophisticated parsing needed for data properties and individuals
-        
+
         println!("Complex pipeline completed in: {:?}", duration);
     }
 
@@ -204,7 +230,7 @@ ex:Test a owl:Class .
 "#;
 
         let ontology = parser.parse_str(minimal_content).unwrap();
-        
+
         // Should be able to create reasoner with minimal ontology
         let reasoner = SimpleReasoner::new(ontology);
         let is_consistent = reasoner.is_consistent();
@@ -227,14 +253,20 @@ ex:TestProperty a owl:ObjectProperty .
         let turtle_ontology = turtle_parser.parse_str(turtle_content).unwrap();
 
         // Test auto-detection
-        let auto_parser = ParserFactory::auto_detect(turtle_content)
-            .expect("Should auto-detect Turtle format");
-        
+        let auto_parser =
+            ParserFactory::auto_detect(turtle_content).expect("Should auto-detect Turtle format");
+
         let auto_ontology = auto_parser.parse_str(turtle_content).unwrap();
 
         // Both should produce equivalent results
-        assert_eq!(turtle_ontology.classes().len(), auto_ontology.classes().len());
-        assert_eq!(turtle_ontology.object_properties().len(), auto_ontology.object_properties().len());
+        assert_eq!(
+            turtle_ontology.classes().len(),
+            auto_ontology.classes().len()
+        );
+        assert_eq!(
+            turtle_ontology.object_properties().len(),
+            auto_ontology.object_properties().len()
+        );
 
         // Test pipeline with auto-detected parser
         let reasoner = SimpleReasoner::new(auto_ontology);
@@ -263,7 +295,7 @@ ex2:ClassC a owl:Class .
         // Process first ontology
         let parser = TurtleParser::new();
         let ontology1 = parser.parse_str(content1).unwrap();
-        
+
         let reasoner1 = SimpleReasoner::new(ontology1.clone());
         let consistent1 = reasoner1.is_consistent().unwrap();
 
@@ -273,8 +305,16 @@ ex2:ClassC a owl:Class .
         let consistent2 = reasoner2.is_consistent().unwrap();
 
         // Verify state isolation
-        assert_eq!(ontology1.classes().len(), 1, "First ontology should have 1 class");
-        assert_eq!(ontology2.classes().len(), 2, "Second ontology should have 2 classes");
+        assert_eq!(
+            ontology1.classes().len(),
+            1,
+            "First ontology should have 1 class"
+        );
+        assert_eq!(
+            ontology2.classes().len(),
+            2,
+            "Second ontology should have 2 classes"
+        );
         assert!(consistent1, "First ontology should be consistent");
         assert!(consistent2, "Second ontology should be consistent");
     }
@@ -362,12 +402,12 @@ ex:Carol a ex:Student ;
 
         // Step 1: Parse with auto-detection
         let start_time = Instant::now();
-        let parser = ParserFactory::auto_detect(realistic_content)
-            .expect("Should detect format");
-        
-        let ontology = parser.parse_str(realistic_content)
+        let parser = ParserFactory::auto_detect(realistic_content).expect("Should detect format");
+
+        let ontology = parser
+            .parse_str(realistic_content)
             .expect("Should parse realistic ontology");
-        
+
         let parse_time = start_time.elapsed();
         println!("Parsing completed in: {:?}", parse_time);
 
@@ -375,18 +415,20 @@ ex:Carol a ex:Student ;
         // Note: Current parser implementation captures basic entity declarations
         // More sophisticated axiom parsing would be needed for full OWL support
         assert!(ontology.classes().len() >= 2, "Should have basic classes");
-        assert!(ontology.object_properties().len() >= 4, "Should have multiple properties");
+        assert!(
+            ontology.object_properties().len() >= 4,
+            "Should have multiple properties"
+        );
         // Data properties and individuals require more sophisticated parsing
 
         // Step 3: Initialize reasoner
         let reasoner = SimpleReasoner::new(ontology.clone());
-        
+
         // Step 4: Test reasoning
         let reasoning_start = Instant::now();
-        let is_consistent = reasoner.is_consistent()
-            .expect("Reasoning should succeed");
+        let is_consistent = reasoner.is_consistent().expect("Reasoning should succeed");
         let reasoning_time = reasoning_start.elapsed();
-        
+
         println!("Reasoning completed in: {:?}", reasoning_time);
         assert!(is_consistent, "Ontology should be consistent");
 
@@ -395,7 +437,10 @@ ex:Carol a ex:Student ;
         println!("Total end-to-end time: {:?}", total_time);
 
         // Performance assertions
-        assert!(total_time.as_secs() < 10, "End-to-end workflow should complete within 10 seconds");
+        assert!(
+            total_time.as_secs() < 10,
+            "End-to-end workflow should complete within 10 seconds"
+        );
 
         println!("End-to-end workflow test completed successfully!");
     }
@@ -411,19 +456,23 @@ ex:Carol a ex:Student ;
         for i in 0..100 {
             large_content.push_str(&format!("ex:Class{} a owl:Class .\n", i));
             if i > 0 {
-                large_content.push_str(&format!("ex:Class{} rdfs:subClassOf ex:Class{} .\n", i, i-1));
+                large_content.push_str(&format!(
+                    "ex:Class{} rdfs:subClassOf ex:Class{} .\n",
+                    i,
+                    i - 1
+                ));
             }
         }
 
         // Run complete pipeline
         let parser = TurtleParser::new();
         let ontology = parser.parse_str(&large_content).unwrap();
-        
+
         let reasoner = SimpleReasoner::new(ontology.clone());
 
         // Should handle large input without memory issues
         assert!(ontology.classes().len() >= 50, "Should handle many classes");
-        
+
         let is_consistent = reasoner.is_consistent().unwrap();
         assert!(is_consistent, "Should handle reasoning on large ontology");
     }

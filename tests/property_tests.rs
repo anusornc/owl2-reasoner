@@ -11,8 +11,8 @@ mod tests {
 
         // Run a simple property test to verify functionality
         use owl2_reasoner::iri::IRI;
-        use std::hash::Hash;
         use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hash;
 
         let iri = IRI::new("http://example.org/test");
         if let Ok(iri) = iri {
@@ -56,13 +56,27 @@ mod tests {
         let transitive_axiom = TransitivePropertyAxiom::new(ancestor.iri().clone());
 
         // Add axioms to ontology
-        ontology.add_axiom(Axiom::FunctionalProperty(functional_axiom)).unwrap();
-        ontology.add_axiom(Axiom::InverseFunctionalProperty(inv_functional_axiom)).unwrap();
-        ontology.add_axiom(Axiom::ReflexiveProperty(reflexive_axiom)).unwrap();
-        ontology.add_axiom(Axiom::IrreflexiveProperty(irreflexive_axiom)).unwrap();
-        ontology.add_axiom(Axiom::SymmetricProperty(symmetric_axiom)).unwrap();
-        ontology.add_axiom(Axiom::AsymmetricProperty(asymmetric_axiom)).unwrap();
-        ontology.add_axiom(Axiom::TransitiveProperty(transitive_axiom)).unwrap();
+        ontology
+            .add_axiom(Axiom::FunctionalProperty(functional_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::InverseFunctionalProperty(inv_functional_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::ReflexiveProperty(reflexive_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::IrreflexiveProperty(irreflexive_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::SymmetricProperty(symmetric_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::AsymmetricProperty(asymmetric_axiom))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::TransitiveProperty(transitive_axiom))
+            .unwrap();
 
         // Test that all axioms were added correctly
         assert_eq!(ontology.functional_property_axioms().len(), 1);
@@ -119,23 +133,43 @@ mod tests {
         ontology.add_object_property(married_to.clone()).unwrap();
 
         // Add property characteristics
-        ontology.add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(has_parent.iri().clone()))).unwrap();
-        ontology.add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(has_child.iri().clone()))).unwrap();
-        ontology.add_axiom(Axiom::SymmetricProperty(SymmetricPropertyAxiom::new(married_to.iri().clone()))).unwrap();
-        ontology.add_axiom(Axiom::IrreflexiveProperty(IrreflexivePropertyAxiom::new(has_parent.iri().clone()))).unwrap();
+        ontology
+            .add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(
+                has_parent.iri().clone(),
+            )))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(
+                has_child.iri().clone(),
+            )))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::SymmetricProperty(SymmetricPropertyAxiom::new(
+                married_to.iri().clone(),
+            )))
+            .unwrap();
+        ontology
+            .add_axiom(Axiom::IrreflexiveProperty(IrreflexivePropertyAxiom::new(
+                has_parent.iri().clone(),
+            )))
+            .unwrap();
 
         // Add class hierarchy
         let subclass_axiom = SubClassOfAxiom::new(
             ClassExpression::from(male.clone()),
             ClassExpression::from(person.clone()),
         );
-        ontology.add_axiom(Axiom::SubClassOf(subclass_axiom)).unwrap();
+        ontology
+            .add_axiom(Axiom::SubClassOf(subclass_axiom))
+            .unwrap();
 
         let subclass_axiom2 = SubClassOfAxiom::new(
             ClassExpression::from(female.clone()),
             ClassExpression::from(person.clone()),
         );
-        ontology.add_axiom(Axiom::SubClassOf(subclass_axiom2)).unwrap();
+        ontology
+            .add_axiom(Axiom::SubClassOf(subclass_axiom2))
+            .unwrap();
 
         // Test that the ontology contains all expected axioms
         assert_eq!(ontology.asymmetric_property_axioms().len(), 2);
@@ -146,7 +180,10 @@ mod tests {
         // Test consistency (basic check that ontology doesn't have contradictions)
         let mut reasoner = OwlReasoner::new(ontology.clone());
         let is_consistent = reasoner.is_consistent().unwrap();
-        assert!(is_consistent, "Ontology with property characteristics should be consistent");
+        assert!(
+            is_consistent,
+            "Ontology with property characteristics should be consistent"
+        );
 
         println!("✅ Property characteristics with reasoning test passed!");
         println!("  - Complex ontology with multiple property characteristics");

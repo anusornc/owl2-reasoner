@@ -1,13 +1,13 @@
 //! OWL/XML format parser for OWL2 ontologies
-//! 
+//!
 //! Implements parsing of the OWL/XML serialization format using simple XML parsing.
 
-use crate::parser::{ParserConfig, OntologyParser};
-use crate::ontology::Ontology;
+use crate::axioms::SubClassOfAxiom;
+use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
-use crate::entities::*;
-use crate::axioms::SubClassOfAxiom;
+use crate::ontology::Ontology;
+use crate::parser::{OntologyParser, ParserConfig};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -22,7 +22,7 @@ impl OwlXmlParser {
     pub fn new() -> Self {
         Self::with_config(ParserConfig::default())
     }
-    
+
     /// Create a new OWL/XML parser with custom configuration
     pub fn with_config(config: ParserConfig) -> Self {
         let mut namespaces = HashMap::new();
@@ -31,11 +31,11 @@ impl OwlXmlParser {
         }
         OwlXmlParser { config, namespaces }
     }
-    
+
     /// Parse OWL/XML content and build an ontology
     fn parse_content(&mut self, content: &str) -> OwlResult<Ontology> {
         let mut ontology = Ontology::new();
-        
+
         // Simple XML parsing for OWL/XML constructs
         if let Ok(document) = self.parse_xml_document(content) {
             // Debug: print what we found
@@ -44,34 +44,34 @@ impl OwlXmlParser {
             // if let Some(root) = &document.root {
             //     println!("Root children: {}", root.children.len());
             // }
-            
+
             self.process_owl_xml_document(&mut ontology, &document)?;
-            
+
             if self.config.strict_validation {
                 self.validate_ontology(&ontology)?;
             }
         }
-        
+
         Ok(ontology)
     }
-    
+
     /// Parse XML document into a simple structure
     fn parse_xml_document(&mut self, content: &str) -> OwlResult<XmlDocument> {
         let mut document = XmlDocument {
             root: None,
             elements: Vec::new(),
         };
-        
+
         // More sophisticated XML parsing for OWL/XML structure
         let lines: Vec<&str> = content.lines().collect();
         let mut element_stack: Vec<(XmlElement, usize)> = Vec::new();
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            
+
             // Parse tags in the line
             let mut pos = 0;
             while pos < line.len() {
@@ -80,17 +80,17 @@ impl OwlXmlParser {
                     if let Some(tag_end) = line[tag_start_pos..].find('>') {
                         let tag_end_pos = tag_start_pos + tag_end;
                         let mut tag_content = &line[tag_start_pos + 1..tag_end_pos];
-                        
+
                         // Handle self-closing tags by removing trailing slash
                         let is_self_closing = tag_content.ends_with('/');
                         if is_self_closing {
                             tag_content = tag_content[..tag_content.len() - 1].trim_end();
                         }
-                        
+
                         if !tag_content.starts_with("!--") && !tag_content.starts_with("?") {
                             if tag_content.starts_with("/") {
                                 // Closing tag
-                                  if let Some((opening_element, _)) = element_stack.pop() {
+                                if let Some((opening_element, _)) = element_stack.pop() {
                                     let element_name = opening_element.name.clone();
                                     // Push the completed element to its parent or document
                                     if let Some((parent_element, _)) = element_stack.last_mut() {
@@ -105,8 +105,9 @@ impl OwlXmlParser {
                                 }
                             } else {
                                 // Opening tag
-                                let tag_name = tag_content.split_whitespace().next().unwrap_or(tag_content);
-                                
+                                let tag_name =
+                                    tag_content.split_whitespace().next().unwrap_or(tag_content);
+
                                 // Extract attributes
                                 let mut element = XmlElement {
                                     name: tag_name.to_string(),
@@ -114,11 +115,11 @@ impl OwlXmlParser {
                                     content: String::new(),
                                     children: Vec::new(),
                                 };
-                                
+
                                 // Parse attributes
                                 let attr_content = &tag_content[tag_name.len()..];
                                 self.parse_attributes(attr_content, &mut element);
-                                
+
                                 // For self-closing tags, add to parent immediately
                                 if is_self_closing {
                                     if let Some((parent_element, _)) = element_stack.last_mut() {
@@ -134,7 +135,7 @@ impl OwlXmlParser {
                                 }
                             }
                         }
-                        
+
                         pos = tag_end_pos + 1;
                     } else {
                         pos += tag_start + 1;
@@ -144,10 +145,10 @@ impl OwlXmlParser {
                 }
             }
         }
-        
+
         Ok(document)
     }
-    
+
     /// Parse XML attributes
     fn parse_attributes(&mut self, attr_content: &str, element: &mut XmlElement) {
         let attr_parts: Vec<&str> = attr_content.split_whitespace().collect();
@@ -157,26 +158,36 @@ impl OwlXmlParser {
                 let value = &part[eq_pos + 1..];
                 if value.len() >= 2 && (value.starts_with('"') || value.starts_with('\'')) {
                     let clean_value = &value[1..value.len() - 1];
-                    element.attributes.insert(key.to_string(), clean_value.to_string());
-                    
+                    element
+                        .attributes
+                        .insert(key.to_string(), clean_value.to_string());
+
                     // Track namespace declarations
                     if let Some(prefix) = key.strip_prefix("xmlns:") {
-                        self.namespaces.insert(prefix.to_string(), clean_value.to_string());
+                        self.namespaces
+                            .insert(prefix.to_string(), clean_value.to_string());
                     } else if key == "xmlns" {
-                        self.namespaces.insert("".to_string(), clean_value.to_string());
+                        self.namespaces
+                            .insert("".to_string(), clean_value.to_string());
                     }
                 } else {
                     // Handle unquoted values
-                    element.attributes.insert(key.to_string(), value.to_string());
+                    element
+                        .attributes
+                        .insert(key.to_string(), value.to_string());
                 }
             }
         }
     }
-    
+
     /// Process OWL/XML document and populate ontology
-    fn process_owl_xml_document(&self, ontology: &mut Ontology, document: &XmlDocument) -> OwlResult<()> {
+    fn process_owl_xml_document(
+        &self,
+        ontology: &mut Ontology,
+        document: &XmlDocument,
+    ) -> OwlResult<()> {
         let mut processed_ids = std::collections::HashSet::new();
-        
+
         // Process root element first
         if let Some(root) = &document.root {
             self.process_owl_xml_element_with_tracking(ontology, root, &mut processed_ids)?;
@@ -187,7 +198,7 @@ impl OwlXmlParser {
                 self.process_element_recursive_with_tracking(ontology, child, &mut processed_ids)?;
             }
         }
-        
+
         // Process standalone elements (only if not already processed)
         for element in &document.elements {
             self.process_owl_xml_element_with_tracking(ontology, element, &mut processed_ids)?;
@@ -195,35 +206,49 @@ impl OwlXmlParser {
         }
         Ok(())
     }
-    
+
     /// Process element with duplicate tracking
-    fn process_owl_xml_element_with_tracking(&self, ontology: &mut Ontology, element: &XmlElement, processed_ids: &mut std::collections::HashSet<String>) -> OwlResult<()> {
+    fn process_owl_xml_element_with_tracking(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+        processed_ids: &mut std::collections::HashSet<String>,
+    ) -> OwlResult<()> {
         // Create a unique ID for this element based on its name and key attributes
         let element_id = if let Some(iri) = element.attributes.get("IRI") {
             format!("{}:{}", element.name, iri)
         } else {
             element.name.clone()
         };
-        
+
         // Only process if we haven't seen this element before
         if processed_ids.insert(element_id.clone()) {
             self.process_owl_xml_element_internal(ontology, element)?;
         }
         Ok(())
     }
-    
+
     /// Process element and all its children recursively with tracking
-    fn process_element_recursive_with_tracking(&self, ontology: &mut Ontology, element: &XmlElement, processed_ids: &mut std::collections::HashSet<String>) -> OwlResult<()> {
+    fn process_element_recursive_with_tracking(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+        processed_ids: &mut std::collections::HashSet<String>,
+    ) -> OwlResult<()> {
         for child in &element.children {
             self.process_owl_xml_element_with_tracking(ontology, child, processed_ids)?;
             self.process_element_recursive_with_tracking(ontology, child, processed_ids)?;
         }
         Ok(())
     }
-    
+
     /// Process element and all its children recursively (legacy method - now uses tracking)
     #[allow(dead_code)]
-    fn process_element_recursive(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_element_recursive(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         let mut processed_ids = std::collections::HashSet::new();
         for child in &element.children {
             self.process_owl_xml_element_with_tracking(ontology, child, &mut processed_ids)?;
@@ -231,9 +256,13 @@ impl OwlXmlParser {
         }
         Ok(())
     }
-    
+
     /// Process individual OWL/XML elements (internal implementation)
-    fn process_owl_xml_element_internal(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_owl_xml_element_internal(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         match element.name.as_str() {
             "Ontology" => {
                 if let Some(iri) = element.attributes.get("IRI") {
@@ -272,7 +301,7 @@ impl OwlXmlParser {
         }
         Ok(())
     }
-    
+
     /// Process class declaration
     fn process_declaration(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
         for child in &element.children {
@@ -297,7 +326,7 @@ impl OwlXmlParser {
                         format!("http://example.org/{iri}")
                     }
                 };
-                
+
                 match child.name.as_str() {
                     "Class" => {
                         let class = Class::new(IRI::new(&resolved_iri)?);
@@ -321,12 +350,12 @@ impl OwlXmlParser {
         }
         Ok(())
     }
-    
+
     /// Process subclass relationship
     fn process_subclass_of(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
         let mut sub_class = None;
         let mut super_class = None;
-        
+
         for child in &element.children {
             if child.name == "Class" {
                 if let Some(iri) = child.attributes.get("IRI") {
@@ -338,7 +367,7 @@ impl OwlXmlParser {
                 }
             }
         }
-        
+
         if let (Some(sub), Some(sup)) = (sub_class, super_class) {
             let subclass_axiom = SubClassOfAxiom::new(
                 crate::axioms::class_expressions::ClassExpression::Class(sub),
@@ -346,55 +375,80 @@ impl OwlXmlParser {
             );
             ontology.add_subclass_axiom(subclass_axiom)?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Process object property
-    fn process_object_property(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_object_property(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(iri) = element.attributes.get("IRI") {
             let prop = ObjectProperty::new(IRI::new(iri)?);
             ontology.add_object_property(prop)?;
         }
         Ok(())
     }
-    
+
     /// Process data property
-    fn process_data_property(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_data_property(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(iri) = element.attributes.get("IRI") {
             let prop = DataProperty::new(IRI::new(iri)?);
             ontology.add_data_property(prop)?;
         }
         Ok(())
     }
-    
+
     /// Process named individual
-    fn process_named_individual(&self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_named_individual(
+        &self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(iri) = element.attributes.get("IRI") {
             let individual = NamedIndividual::new(IRI::new(iri)?);
             ontology.add_named_individual(individual)?;
         }
         Ok(())
     }
-    
+
     /// Process equivalent classes (placeholder)
-    fn process_equivalent_classes(&self, _ontology: &mut Ontology, _element: &XmlElement) -> OwlResult<()> {
+    fn process_equivalent_classes(
+        &self,
+        _ontology: &mut Ontology,
+        _element: &XmlElement,
+    ) -> OwlResult<()> {
         // TODO: Implement equivalent classes processing
         Ok(())
     }
-    
+
     /// Process disjoint classes (placeholder)
-    fn process_disjoint_classes(&self, _ontology: &mut Ontology, _element: &XmlElement) -> OwlResult<()> {
+    fn process_disjoint_classes(
+        &self,
+        _ontology: &mut Ontology,
+        _element: &XmlElement,
+    ) -> OwlResult<()> {
         // TODO: Implement disjoint classes processing
         Ok(())
     }
-    
+
     /// Validate the parsed ontology
     fn validate_ontology(&self, ontology: &Ontology) -> OwlResult<()> {
-        if ontology.classes().is_empty() && ontology.object_properties().is_empty() 
-            && ontology.data_properties().is_empty() && ontology.named_individuals().is_empty()
-            && ontology.imports().is_empty() {
-            return Err(crate::error::OwlError::ValidationError("Ontology contains no entities or imports".to_string()));
+        if ontology.classes().is_empty()
+            && ontology.object_properties().is_empty()
+            && ontology.data_properties().is_empty()
+            && ontology.named_individuals().is_empty()
+            && ontology.imports().is_empty()
+        {
+            return Err(crate::error::OwlError::ValidationError(
+                "Ontology contains no entities or imports".to_string(),
+            ));
         }
         Ok(())
     }
@@ -406,26 +460,29 @@ impl OntologyParser for OwlXmlParser {
         let mut parser_copy = OwlXmlParser::with_config(self.config.clone());
         parser_copy.parse_content(content)
     }
-    
+
     fn parse_file(&self, path: &Path) -> OwlResult<Ontology> {
         use std::fs;
         use std::io::Read;
-        
+
         // Check file size
         if self.config.max_file_size > 0 {
             let metadata = fs::metadata(path)?;
             if metadata.len() > self.config.max_file_size as u64 {
-                return Err(crate::error::OwlError::ParseError(format!("File size exceeds maximum allowed size: {} bytes", self.config.max_file_size)));
+                return Err(crate::error::OwlError::ParseError(format!(
+                    "File size exceeds maximum allowed size: {} bytes",
+                    self.config.max_file_size
+                )));
             }
         }
-        
+
         let mut file = fs::File::open(path)?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
-        
+
         self.parse_str(&content)
     }
-    
+
     fn format_name(&self) -> &'static str {
         "OWL/XML"
     }
@@ -474,23 +531,31 @@ mod tests {
         <Class IRI="Person"/>
     </Declaration>
 </Ontology>"#;
-        
+
         let mut config = ParserConfig::default();
         config.strict_validation = false; // Disable validation for debugging
         let parser = OwlXmlParser::with_config(config);
         let result = parser.parse_str(simple_owl_xml);
-        
+
         // Should not fail due to "not implemented" error
         assert!(result.is_ok(), "Parsing failed: {:?}", result);
-        
+
         if let Ok(ontology) = result {
             // Should have parsed the expected entities
             assert_eq!(ontology.classes().len(), 1, "Should have parsed 1 class");
-            
+
             // Verify specific entity was parsed
-            let class_iris: Vec<String> = ontology.classes().iter().map(|c| c.iri().to_string()).collect();
+            let class_iris: Vec<String> = ontology
+                .classes()
+                .iter()
+                .map(|c| c.iri().to_string())
+                .collect();
             println!("Found class IRIs: {:?}", class_iris); // Debug output
-            assert!(class_iris.contains(&"http://example.org/Person".to_string()), "Expected IRI not found. Found: {:?}", class_iris);
+            assert!(
+                class_iris.contains(&"http://example.org/Person".to_string()),
+                "Expected IRI not found. Found: {:?}",
+                class_iris
+            );
         }
     }
 
@@ -502,7 +567,7 @@ mod tests {
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
         };
-        
+
         let parser = OwlXmlParser::with_config(config);
         assert_eq!(parser.format_name(), "OWL/XML");
     }

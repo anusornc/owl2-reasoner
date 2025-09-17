@@ -52,8 +52,17 @@ criterion = { version = "0.5", features = ["html_reports"] }
 # Random generation
 rand = "0.8"
 
+# Test suite integration
+glob = "0.3"
+
 [dev-dependencies]
 tempfile = "3.8"
+owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }
+ 
+[features]
+# Default to streaming RDF/XML backend in non-strict mode
+default = ["rio-xml"]
+rio-xml = []
 
 [[bench]]
 name = "basic_benchmarks"

@@ -1,0 +1,25 @@
+🧪 Advanced OWL2 Test Suite - Detailed Report
+==============================================
+
+📊 Overall Statistics:
+  Total Tests: 21
+  Passed: 18 (85.7%)
+  Failed: 3
+  Execution Time: 12.660208ms
+
+🔬 Reasoning Metrics:
+  Consistency Checks: 21
+  Satisfiability Checks: 33
+  Classification Operations: 0
+  Advanced Reasoning Used: true
+  Average Reasoning Time: 45.355µs
+
+📈 Performance by Reasoning Mode:
+  Simple: 6/7 passed (85.7%), avg time: 70.904µs
+  AdvancedTableaux: 6/7 passed (85.7%), avg time: 33.273µs
+  Hybrid: 6/7 passed (85.7%), avg time: 31.886µs
+
+❌ Failed Tests (3):
+  - test_suite/inconsistent_test.ofn (Simple): Parse error: Unknown prefix: ObjectSomeValuesFrom(
+  - test_suite/inconsistent_test.ofn (AdvancedTableaux): Parse error: Unknown prefix: ObjectSomeValuesFrom(
+  - test_suite/inconsistent_test.ofn (Hybrid): Parse error: Unknown prefix: ObjectSomeValuesFrom(
