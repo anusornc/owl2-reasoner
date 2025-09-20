@@ -1044,32 +1044,32 @@ mod tests {
     #[test]
     fn test_property_assertion_axiom() {
         let john_iri = IRI::new("http://example.org/john").unwrap();
-        let hasParent_iri = IRI::new("http://example.org/hasParent").unwrap();
+        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let mary_iri = IRI::new("http://example.org/mary").unwrap();
 
         let axiom =
-            PropertyAssertionAxiom::new(john_iri.clone(), hasParent_iri.clone(), mary_iri.clone());
+            PropertyAssertionAxiom::new(john_iri.clone(), has_parent_iri.clone(), mary_iri.clone());
 
         assert_eq!(axiom.subject(), &john_iri);
-        assert_eq!(axiom.property(), &hasParent_iri);
+        assert_eq!(axiom.property(), &has_parent_iri);
         assert_eq!(axiom.object(), &mary_iri);
     }
 
     // Tests for property characteristic axioms
     #[test]
     fn test_functional_property_axiom() {
-        let hasFather_iri = IRI::new("http://example.org/hasFather").unwrap();
-        let axiom = FunctionalPropertyAxiom::new(hasFather_iri.clone());
+        let has_father_iri = IRI::new("http://example.org/hasFather").unwrap();
+        let axiom = FunctionalPropertyAxiom::new(has_father_iri.clone());
 
-        assert_eq!(axiom.property(), &hasFather_iri);
+        assert_eq!(axiom.property(), &has_father_iri);
     }
 
     #[test]
     fn test_inverse_functional_property_axiom() {
-        let hasSSN_iri = IRI::new("http://example.org/hasSSN").unwrap();
-        let axiom = InverseFunctionalPropertyAxiom::new(hasSSN_iri.clone());
+        let has_ssn_iri = IRI::new("http://example.org/hasSSN").unwrap();
+        let axiom = InverseFunctionalPropertyAxiom::new(has_ssn_iri.clone());
 
-        assert_eq!(axiom.property(), &hasSSN_iri);
+        assert_eq!(axiom.property(), &has_ssn_iri);
     }
 
     #[test]
@@ -1082,10 +1082,10 @@ mod tests {
 
     #[test]
     fn test_irreflexive_property_axiom() {
-        let parentOf_iri = IRI::new("http://example.org/parentOf").unwrap();
-        let axiom = IrreflexivePropertyAxiom::new(parentOf_iri.clone());
+        let parent_of_iri = IRI::new("http://example.org/parentOf").unwrap();
+        let axiom = IrreflexivePropertyAxiom::new(parent_of_iri.clone());
 
-        assert_eq!(axiom.property(), &parentOf_iri);
+        assert_eq!(axiom.property(), &parent_of_iri);
     }
 
     #[test]
@@ -1098,10 +1098,10 @@ mod tests {
 
     #[test]
     fn test_asymmetric_property_axiom() {
-        let parentOf_iri = IRI::new("http://example.org/parentOf").unwrap();
-        let axiom = AsymmetricPropertyAxiom::new(parentOf_iri.clone());
+        let parent_of_iri = IRI::new("http://example.org/parentOf").unwrap();
+        let axiom = AsymmetricPropertyAxiom::new(parent_of_iri.clone());
 
-        assert_eq!(axiom.property(), &parentOf_iri);
+        assert_eq!(axiom.property(), &parent_of_iri);
     }
 
     #[test]
@@ -1114,12 +1114,12 @@ mod tests {
 
     #[test]
     fn test_axiom_enum_property_characteristics() {
-        let hasFather_iri = IRI::new("http://example.org/hasFather").unwrap();
+        let has_father_iri = IRI::new("http://example.org/hasFather").unwrap();
         let knows_iri = IRI::new("http://example.org/knows").unwrap();
         let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
 
         let functional_axiom =
-            Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(hasFather_iri.clone()));
+            Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(has_father_iri.clone()));
         let reflexive_axiom =
             Axiom::ReflexiveProperty(ReflexivePropertyAxiom::new(knows_iri.clone()));
         let transitive_axiom =

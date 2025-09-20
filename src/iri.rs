@@ -493,7 +493,7 @@ impl IRI {
         }
 
         // Scheme must start with a letter
-        if !scheme.chars().next().map_or(false, |c| c.is_ascii_alphabetic()) {
+        if !scheme.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
             return Err(OwlError::InvalidIRI(
                 "IRI scheme must start with a letter".to_string()
             ));
@@ -637,12 +637,10 @@ impl IRI {
                         "IRI query exceeds maximum length".to_string()
                     ));
                 }
-            } else {
-                if query_part.len() > 2000 {
-                    return Err(OwlError::InvalidIRI(
-                        "IRI query exceeds maximum length".to_string()
-                    ));
-                }
+            } else if query_part.len() > 2000 {
+                return Err(OwlError::InvalidIRI(
+                    "IRI query exceeds maximum length".to_string()
+                ));
             }
         }
 

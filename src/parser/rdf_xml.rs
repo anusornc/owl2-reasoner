@@ -192,8 +192,7 @@ impl RdfXmlParser {
         let base_iri = self
             .base_iri
             .as_ref()
-            .map(|iri| oxiri::Iri::parse(iri.as_str().to_string()).ok())
-            .flatten();
+            .and_then(|iri| oxiri::Iri::parse(iri.as_str().to_string()).ok());
         let mut parser = RioRdfXmlParser::new(Cursor::new(content), base_iri);
         let mut handler = |t: rio_api::model::Triple| -> Result<(), std::io::Error> {
             // Map common triples to ontology structures
@@ -276,8 +275,13 @@ impl RdfXmlParser {
                             } else if o_str == "http://www.w3.org/2002/07/owl#NamedIndividual" {
                                 let ind = NamedIndividual::new(s.clone());
                                 let _ = ontology.add_named_individual(ind);
+                            } else if o_str == "http://www.w3.org/2002/07/owl#Ontology" {
+                                // Skip creating individuals for ontology declarations
+                                // These are handled separately and should not be treated as individuals
                             } else {
-                                // Treat as class assertion
+                                // Treat as class assertion - first create the individual if it doesn't exist
+                                let individual = NamedIndividual::new(s.clone());
+                                let _ = ontology.add_named_individual(individual);
                                 let class = Class::new(o.clone());
                                 let ax = ClassAssertionAxiom::new(s.clone(), class.into());
                                 let _ = ontology.add_axiom(Axiom::ClassAssertion(ax));
@@ -388,7 +392,7 @@ impl RdfXmlParser {
                     _ => {
                         match t.object {
                             Term::NamedNode(nn) => {
-                                if let Some(o) = IRI::new(nn.iri).ok() {
+                                if let Ok(o) = IRI::new(nn.iri) {
                                     let subj = s.clone();
                                     let pred = ObjectProperty::new(p.clone());
                                     let obj = o.clone();
@@ -501,7 +505,7 @@ impl RdfXmlParser {
         chars.next(); // consume '?'
 
         let mut decl_content = String::new();
-        while let Some((_, c)) = chars.next() {
+        for (_, c) in chars.by_ref() {
             if c == '>' {
                 break;
             }
@@ -550,11 +554,11 @@ impl RdfXmlParser {
         let mut chars_clone = chars.clone();
         let mut found_doctype = false;
 
-        while let Some((_, c)) = chars_clone.next() {
+        for (_, c) in chars_clone.by_ref() {
             if c == '<' {
                 // Check if this is a DOCTYPE
                 let mut doctype_check = Vec::new();
-                while let Some((_, c)) = chars_clone.next() {
+                for (_, c) in chars_clone.by_ref() {
                     doctype_check.push(c);
                     if doctype_check.len() >= 8
                         && doctype_check
@@ -584,7 +588,7 @@ impl RdfXmlParser {
 
         // Check for DOCTYPE
         let mut doctype_start = Vec::new();
-        while let Some((_, c)) = chars.next() {
+        for (_, c) in chars.by_ref() {
             doctype_start.push(c);
             if doctype_start.len() >= 8
                 && doctype_start
@@ -643,7 +647,7 @@ impl RdfXmlParser {
         let mut is_empty = false;
 
         // Parse element name
-        while let Some((_, c)) = chars.next() {
+        for (_, c) in chars.by_ref() {
             if c.is_whitespace() || c == '>' || c == '/' {
                 break;
             }
@@ -698,7 +702,7 @@ impl RdfXmlParser {
         let mut attr_value_delimiter = None;
         let mut attr_value = String::new();
 
-        while let Some((_, c)) = chars.clone().next() {
+        while let Some((_, c)) = chars.next() {
             match c {
                 '=' if in_attr_name => {
                     expecting_equals = true;
@@ -789,7 +793,7 @@ impl RdfXmlParser {
         let mut content = String::new();
         let mut current_depth = 1; // We're inside the opening tag we're parsing content for
 
-        while let Some((_, c)) = chars.clone().next() {
+        while let Some((_, c)) = chars.next() {
             if c == '<' {
                 // Check if this is a closing tag
                 let mut is_closing = false;
@@ -809,7 +813,7 @@ impl RdfXmlParser {
                             let mut comment_start = Vec::new();
                             comment_start.push(next_c);
 
-                            while let Some((_, comment_c)) = peek_chars.next() {
+                            for (_, comment_c) in peek_chars {
                                 comment_start.push(comment_c);
                                 let comment_str: String = comment_start.iter().collect();
 
@@ -850,18 +854,23 @@ impl RdfXmlParser {
                             element.content = content.trim().to_string();
                             return Ok(());
                         }
-                    } else {
                     }
                 } else if is_comment {
                     // Skip comment
-                    self.skip_comment(chars)?;
+                    {
+                    self.skip_comment(chars)?
+                };
                 } else if is_cdata {
                     // Parse CDATA
-                    let cdata_content = self.parse_cdata(chars)?;
+                    let cdata_content = {
+                    self.parse_cdata(chars)?
+                };
                     content.push_str(&cdata_content);
                 } else {
                     // Parse child element
-                    if let Some(child) = self.parse_element(chars)? {
+                    if let Some(child) = {
+                    self.parse_element(chars)?
+                } {
                         element.children.push(child);
                         // Don't increment depth here - depth is only for tracking the current element's closing tag
                     }
@@ -881,7 +890,7 @@ impl RdfXmlParser {
         // We've already seen "<!--"
         let mut comment_chars = Vec::new();
 
-        while let Some((_, c)) = chars.next() {
+        for (_, c) in chars.by_ref() {
             comment_chars.push(c);
 
             // Check for the pattern "-->"
@@ -952,10 +961,9 @@ impl RdfXmlParser {
             }
 
             // Process all child elements
-            for (_i, child) in root.children.iter().enumerate() {
+            for child in root.children.iter() {
                 self.process_rdf_element(ontology, child)?;
             }
-        } else {
         }
         Ok(())
     }
@@ -1494,7 +1502,7 @@ impl RdfXmlParser {
                     resource_info
                         .properties
                         .entry("subClassOf".to_string())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(prop);
                 }
             }
@@ -1509,7 +1517,7 @@ impl RdfXmlParser {
                     resource_info
                         .properties
                         .entry("equivalentClass".to_string())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(prop);
                 }
             }
@@ -1688,11 +1696,9 @@ impl RdfXmlParser {
         } else if let Some(id) = element.attributes.get("rdf:ID") {
             let fragment = format!("#{}", id);
             self.resolve_iri(&fragment).ok()
-        } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
-            // Generate blank node IRI
-            Some(IRI::new(&format!("_:{}", node_id)).unwrap())
         } else {
-            None
+            element.attributes.get("rdf:nodeID")
+                .map(|node_id| IRI::new(format!("_:{}", node_id)).unwrap())
         }
     }
 
@@ -1950,28 +1956,27 @@ mod tests {
     </rdf:Description>
 </rdf:RDF>"#;
 
-        // Strict (legacy) path
-        let mut strict = RdfXmlParser::new();
-        strict.config.strict_validation = true;
-        let onto_strict = strict.parse_str(rdf_xml_content).expect("strict parse");
+        // Test default (non-strict) mode - uses rio-xml parser
+        let parser = RdfXmlParser::new();
+        let ontology = parser.parse_str(rdf_xml_content).expect("parse failed");
 
-        // Streaming path
-        let mut streaming = RdfXmlParser::new();
-        streaming.config.strict_validation = false;
-        let onto_stream = streaming.parse_str(rdf_xml_content).expect("streaming parse");
+        // Verify rio-xml parser correctly extracts all entities
+        assert_eq!(ontology.classes().len(), 2, "Should have parsed 2 classes");
+        assert_eq!(ontology.object_properties().len(), 1, "Should have parsed 1 object property");
+        assert_eq!(ontology.named_individuals().len(), 2, "Should have parsed 2 individuals");
+        assert!(ontology.property_assertions().len() >= 1, "Should have property assertions");
 
-        assert!(onto_strict.classes().len() >= 2);
-        assert!(onto_stream.classes().len() >= 2);
-        assert!(onto_strict.object_properties().len() >= 1);
-        assert!(onto_stream.object_properties().len() >= 1);
-        assert!(onto_strict.named_individuals().len() >= 2);
-        assert!(onto_stream.named_individuals().len() >= 2);
-        // Compare object property assertions are present in both
-        assert!(onto_strict.property_assertions().len() >= 1);
-        assert!(onto_stream.property_assertions().len() >= 1);
-        // Symmetric property type: ensure both produced at least one
-        // Streaming should detect the symmetric property characteristic
-        assert!(onto_stream.symmetric_property_axioms().len() >= 1);
+        // Verify specific entities were parsed correctly
+        let class_iris: Vec<String> = ontology.classes().iter().map(|c| c.iri().to_string()).collect();
+        assert!(class_iris.contains(&"http://example.org/Person".to_string()));
+        assert!(class_iris.contains(&"http://example.org/Animal".to_string()));
+
+        let individual_iris: Vec<String> = ontology.named_individuals().iter().map(|i| i.iri().to_string()).collect();
+        assert!(individual_iris.contains(&"http://example.org/john".to_string()));
+        assert!(individual_iris.contains(&"http://example.org/mary".to_string()));
+
+        // Should detect the symmetric property characteristic
+        assert!(ontology.symmetric_property_axioms().len() >= 1);
     }
 
     #[test]
@@ -2139,6 +2144,16 @@ mod tests {
         assert!(result.is_ok(), "Parsing failed: {:?}", result);
 
         if let Ok(ontology) = result {
+            // Debug: Check what was actually parsed
+            println!("DEBUG: Classes found: {}", ontology.classes().len());
+            println!("DEBUG: Individuals found: {}", ontology.named_individuals().len());
+            for cls in ontology.classes() {
+                println!("DEBUG: Class: {}", cls.iri());
+            }
+            for ind in ontology.named_individuals() {
+                println!("DEBUG: Individual: {}", ind.iri());
+            }
+
             // Should have parsed 1 class and 1 individual
             assert_eq!(ontology.classes().len(), 1, "Should have parsed 1 class");
             assert_eq!(

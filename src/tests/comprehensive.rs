@@ -127,8 +127,8 @@ pub mod family {
             .unwrap();
 
         // Add domain and range restrictions
-        let parent_domain = ClassExpression::Class(parent.clone());
-        let child_range = ClassExpression::Class(child.clone());
+        let _parent_domain = ClassExpression::Class(parent.clone());
+        let _child_range = ClassExpression::Class(child.clone());
 
         // Create individuals for testing
         let john = NamedIndividual::new(IRI::new("http://example.org/family/John").unwrap());

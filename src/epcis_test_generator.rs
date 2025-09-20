@@ -457,7 +457,7 @@ mod tests {
         let config = small_scale_config();
         let mut generator = EPCISTestDataGenerator::new(config);
 
-        let ontology = generator.generate_ontology().unwrap();
+        let _ontology = generator.generate_ontology().unwrap();
         let stats = generator.get_stats();
 
         assert!(stats.actual_events_generated >= 100);

@@ -528,8 +528,8 @@ impl Default for ParserConfig {
     fn default() -> Self {
         Self {
             max_file_size: 100 * 1024 * 1024, // 100MB
-            // Default to strict validation to satisfy tests and ensure predictable parsing
-            strict_validation: true,
+            // Default to non-strict validation to use the modern rio-xml parser
+            strict_validation: false,
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
             // Enable arena allocation by default for better performance
@@ -606,7 +606,7 @@ mod tests {
     fn test_parser_config() {
         let config = ParserConfig::default();
         assert_eq!(config.max_file_size, 100 * 1024 * 1024);
-        assert!(config.strict_validation);
+        assert!(!config.strict_validation); // Updated to use rio-xml parser by default
         assert!(!config.resolve_base_iri);
         assert!(config.prefixes.is_empty());
     }

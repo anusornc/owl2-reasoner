@@ -14,7 +14,9 @@ mod tests {
 
     #[test]
     fn test_empty_string_input() {
-        let parser = TurtleParser::new();
+        let mut config = ParserConfig::default();
+        config.strict_validation = true; // Explicit strict validation for error testing
+        let parser = TurtleParser::with_config(config);
         let result = parser.parse_str("");
 
         // Empty input should fail validation
@@ -45,11 +47,13 @@ mod tests {
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix ex: <http://example.org/> .
 
-ex:Person a owl:Class 
+ex:Person a owl:Class
 ex:Animal a owl:Class .
 "#; // Missing dot after first class declaration
 
-        let parser = TurtleParser::new();
+        let mut config = ParserConfig::default();
+        config.strict_validation = true; // Explicit strict validation for error testing
+        let parser = TurtleParser::with_config(config);
         let result = parser.parse_str(malformed_content);
 
         // Malformed syntax should result in parse error
@@ -151,7 +155,9 @@ ex:Person a owl:Class .  # Third declaration
 ex:Person a unknown:Class .  # undefined prefix 'unknown'
 "#;
 
-        let parser = TurtleParser::new();
+        let mut config = ParserConfig::default();
+        config.strict_validation = true; // Explicit strict validation for error testing
+        let parser = TurtleParser::with_config(config);
         let result = parser.parse_str(undefined_prefix_content);
 
         // Undefined prefix should result in error
