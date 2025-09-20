@@ -71,6 +71,15 @@ $RECYCLE.BIN/
 *.log
 *.cache
 
+# Log files (more comprehensive)
+test_*.log
+*_test.log
+benchmark*.log
+performance*.log
+external_*.log
+cargo_*.log
+detailed*.log
+
 # Rust cache
 .cargo/
 .rustup/
@@ -187,6 +196,26 @@ datasets/
 *.ttl
 *.owl
 *.rdf
+
+# Generated results and data files
+*.results
+*.json.results
+*.txt.results
+
+# Test and benchmark output files
+*_report.txt
+*_report.md
+*_report.log
+*_performance.txt
+*_validation_report.md
+*_test_report.txt
+external_benchmark_*
+real_external_benchmark.*
+advanced_test_report.*
+final_performance_report.*
+SYSTEM_VALIDATION_REPORT.*
+cargo_test_detailed.*
+external_benchmark_detailed.*
 
 # Generated ontology files (keep source, exclude generated)
 generated/
@@ -324,6 +353,26 @@ proto/
 NOTES.md
 TODO.md
 DRAFT.md
+
+# Test and benchmark reports (generated files)
+*_report.*
+report_*.*
+results_*.*
+output_*.*
+final_*.*
+advanced_*.*
+system_*.*
+validation_*.*
+
+# Test scripts and temporary files
+*_test.*
+test_*.*
+*_benchmark.*
+benchmark_*.*
+
+# Generated Python files
+*_benchmark.py
+benchmark_*.py
 
 # === Runtime Files ===
 # PID files
