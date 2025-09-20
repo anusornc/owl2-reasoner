@@ -220,4 +220,3 @@ fn create_wide_hierarchy(width: usize) -> Ontology {
 
     ontology
 }
-#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

@@ -74,4 +74,3 @@ fn generate_rdfxml(classes: usize, individuals: usize) -> String {
 
 criterion_group!(benches, bench_rdfxml_parsing);
 criterion_main!(benches);
-#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

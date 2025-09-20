@@ -21,4 +21,3 @@ pub use parser_bench::*;
 pub use query_bench::*;
 pub use reasoning_bench::*;
 pub use scalability_bench::*;
-#![allow(unused_imports, unused_must_use, unused_variables, unused_mut, dead_code)]

@@ -455,7 +455,7 @@ cargo doc --no-deps
 
 ```bash
 # Update all documentation
-./update_docs.sh "Description of changes"
+./scripts/update_docs.sh "Description of changes"
 
 # This script updates:
 # - Rustdoc API documentation

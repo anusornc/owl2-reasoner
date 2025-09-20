@@ -112,4 +112,3 @@ fn create_hierarchy_ontology(size: usize) -> Ontology {
 
 criterion_group!(benches, benchmark_suite);
 criterion_main!(benches);
-#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

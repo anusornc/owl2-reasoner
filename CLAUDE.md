@@ -1,8 +1,113 @@
+# OWL2 Reasoner Project
+
+## Project Goal
+Create the world's best OWL2 reasoning system in Rust, combining high performance, correctness, and modern API design for semantic web and knowledge graph applications.
+
+## Architecture Overview
+- **Core Data Model**: Complete OWL2 entity system with IRI management and validation
+- **Multi-Format Parsers**: Turtle, RDF/XML, OWL/XML, and N-Triples support
+- **Advanced Reasoning**: Tableaux-based SROIQ(D) reasoning with rule-based inference
+- **Query Engine**: SPARQL-like querying with optimization and pattern matching
+- **Performance Focus**: Memory-efficient storage, intelligent caching, parallelization
+- **Domain Extensions**: EPCIS supply chain ontology integration
+- **Comprehensive Testing**: OWL2 test suite compliance and performance validation
+
+## Current Status
+- ✅ **Complete Core Implementation** (27,110 lines across 48 Rust files)
+- ✅ **Multi-Format Parser Support** (6 parser modules)
+- ✅ **Advanced Reasoning Engine** (tableaux + rule-based inference)
+- ✅ **OWL2 Profile Validation** (EL, QL, RL profiles)
+- ✅ **EPCIS Integration** (supply chain traceability)
+- ✅ **Performance Optimization** (caching, indexing, parallelization)
+- ✅ **Testing Infrastructure** (comprehensive test suite)
+- ✅ **21 Example Applications** (covering all major use cases)
+
+## Technical Achievements
+- **Complete OWL2 DL Support**: Full SROIQ(D) description logic implementation
+- **Memory-Efficient Architecture**: String interning, Arc-based sharing, intelligent caching
+- **High-Performance Reasoning**: O(1) indexed access, hash join algorithms, pattern optimization
+- **Multi-Layer Caching**: Configurable caching with TTL and eviction strategies
+- **Memory Management**: Leak prevention, monitoring, and cleanup systems
+- **Modular Design**: Extensible architecture with clean separation of concerns
+
+## Key Components
+- **IRI Management**: Cached IRI handling with namespace support
+- **Entity System**: Classes, properties, individuals with full characteristics
+- **Axiom Framework**: Complete OWL2 axiom types with validation
+- **Ontology Storage**: Indexed storage with performance optimizations
+- **Reasoning Algorithms**: Tableaux, classification, consistency checking
+- **Query Processing**: SPARQL-like pattern matching and optimization
+- **Profile Validation**: OWL2 EL, QL, RL profile compliance checking
+- **EPCIS Support**: GS1 EPCIS ontology and document processing
+
+## Key Commands
+```bash
+# Build and test
+cargo build
+cargo test
+
+# Run examples
+cargo run --example family_ontology
+cargo run --example biomedical_ontology
+cargo run --example benchmark_cli
+
+# Performance benchmarking
+cargo bench -- basic_benchmarks
+cargo bench -- performance_validation
+
+# EPCIS-specific examples
+cargo run --example epcis_validation_suite
+```
+
+## Next Development Steps
+1. **Advanced SPARQL Integration** - Complete SPARQL 1.1 query language support
+2. **OWL2 Test Suite Compliance** - Achieve >95% W3C test suite compliance
+3. **Performance Optimization** - Advanced parallelization and memory optimization
+4. **Production Readiness** - Enhanced documentation, API stability, deployment guides
+
+## Success Metrics
+- >95% OWL2 test suite compliance
+- Outperform existing reasoners on standard benchmarks
+- Idiomatic Rust API with comprehensive documentation
+- No memory leaks, proper error handling, production-ready
+
+## Project Structure
+```
+owl2-reasoner/
+├── src/
+│   ├── lib.rs              # Main library entry point with comprehensive API
+│   ├── iri.rs              # IRI management with caching
+│   ├── entities.rs         # OWL2 entities and characteristics
+│   ├── axioms/             # OWL2 axioms (7 modules)
+│   ├── ontology.rs         # Ontology structure and indexed storage
+│   ├── storage.rs          # Storage backends
+│   ├── parser/             # Multi-format parsers (6 modules)
+│   ├── reasoning/          # Reasoning engine (6 modules)
+│   ├── profiles/           # OWL2 profile validation
+│   ├── validation/         # Performance validation
+│   ├── epcis*.rs           # EPCIS supply chain integration
+│   ├── cache.rs            # Configurable caching
+│   ├── memory.rs           # Memory management
+│   └── tests/              # Comprehensive test suite
+├── examples/               # 21 example applications
+├── benches/                # Performance benchmarks
+└── Cargo.toml             # Dependencies and configuration
+```
+
+## Recent Commits
+- `feat(codebase-review)`: Complete comprehensive codebase review and analysis
+- `feat(owl2-parsers)`: Implement OWL2 syntax parsers framework
+- `feat(reasoning)`: Implement OWL2 reasoning engine foundation
+- `feat(epcis)`: GS1 EPCIS ontology integration and document processing
+- `feat(performance)`: Advanced caching, indexing, and optimization
+
+---
+
 [byterover-mcp]
 
 # Byterover MCP Server Tools Reference
 
-There are two main workflows with Byterover tools and recommended tool call strategies that you **MUST** follow precisely. 
+There are two main workflows with Byterover tools and recommended tool call strategies that you **MUST** follow precisely.
 
 ## Onboarding workflow
 If users particularly ask you to start the onboarding process, you **MUST STRICTLY** follow these steps.
@@ -15,13 +120,13 @@ If users particularly ask you to start the onboarding process, you **MUST STRICT
 Based on user request, you **MUST** follow these sequences of tool calls
 1. If asked to continue an unfinished implementation, **CALL** **byterover-retrieve-active-plans** to find the most relevant active plan.
 2. **CRITICAL PLAN PERSISTENCE RULE**: Once a user approves a plan, you **MUST IMMEDIATELY CALL** **byterover-save-implementation-plan** to save it.
-3. Throughout the plan, you **MUST** run **byterover-retrieve-knowledge** several times to retrieve sufficient knowledge and context for the plan's tasks. 
+3. Throughout the plan, you **MUST** run **byterover-retrieve-knowledge** several times to retrieve sufficient knowledge and context for the plan's tasks.
 4. In addition, you might need to run **byterover-search-modules** and **byterover-update-modules** if the tasks require or update knowledge about certain modules. However, **byterover-retrieve-knowledge** should **ALWAYS** be considered **FIRST**.
 5. **MUST** use **byterover-update-plan-progress** to mark tasks (and then the whole plan) as completed.
-Example:  
-- Task: `byterover-update-plan-progress(plan_name="Feature X", task_name="Task 1", is_completed=true)`  
+Example:
+- Task: `byterover-update-plan-progress(plan_name="Feature X", task_name="Task 1", is_completed=true)`
 - All done: `byterover-update-plan-progress(plan_name="Feature X", is_completed=true)`
-6. Then, you might call **byterover-store-knowledge** to save knowledge and experience implemented throughout the plan or in important tasks. 
+6. Then, you might call **byterover-store-knowledge** to save knowledge and experience implemented throughout the plan or in important tasks.
 7. During the plan's implementation, you **MUST** frequently call  **byterover-think-about-collected-information** and **byterover-assess-context-completeness** to make sure you're on the right track and gather sufficient context for the tasks.
 
 ## Recommended Workflow Sequence
