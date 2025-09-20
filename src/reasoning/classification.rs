@@ -2,14 +2,14 @@
 //!
 //! Implements classification algorithms to compute class hierarchy and relationships.
 
-use crate::axioms::*;
-use crate::entities::*;
-use crate::error::OwlResult;
+use crate::axioms::ClassExpression;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::tableaux::TableauxReasoner;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use hashbrown::HashMap;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 /// Classification engine for OWL2 ontologies
@@ -47,8 +47,8 @@ impl Default for ClassificationConfig {
     }
 }
 
-/// Class hierarchy representation
-#[derive(Debug, Clone)]
+/// Optimized class hierarchy representation
+#[derive(Debug, Clone, Default)]
 pub struct ClassHierarchy {
     /// Parent relationships (class -> its superclasses)
     parents: HashMap<IRI, HashSet<IRI>>,
@@ -59,7 +59,10 @@ pub struct ClassHierarchy {
     /// Disjoint classes
     disjointness: HashMap<IRI, HashSet<IRI>>,
     /// Satisfiability cache
+    #[allow(dead_code)]
     satisfiable: HashMap<IRI, bool>,
+    /// Hierarchy depth cache for optimization
+    depth_cache: HashMap<IRI, usize>,
 }
 
 /// Classification result
@@ -90,8 +93,8 @@ impl ClassificationEngine {
     /// Create a new classification engine with custom configuration
     pub fn with_config(ontology: Ontology, config: ClassificationConfig) -> Self {
         let ontology = Arc::new(ontology);
-        let tableaux_reasoner = TableauxReasoner::new(ontology.as_ref().clone());
-        let hierarchy = ClassHierarchy::new(ontology.as_ref());
+        let tableaux_reasoner = TableauxReasoner::from_arc(&ontology); // Use Arc reference to avoid cloning
+        let hierarchy = ClassHierarchy::new(&ontology); // Pass reference instead of cloning
 
         ClassificationEngine {
             ontology,
@@ -130,7 +133,7 @@ impl ClassificationEngine {
         let time_ms = start_time.elapsed().as_millis() as u64;
 
         Ok(ClassificationResult {
-            hierarchy: self.hierarchy.clone(),
+            hierarchy: self.hierarchy.clone(), // Clone the computed hierarchy instead of creating new
             stats: ClassificationStats {
                 classes_processed: self.ontology.classes().len(),
                 relationships_discovered: self.count_relationships(),
@@ -146,13 +149,21 @@ impl ClassificationEngine {
     /// Initialize the class hierarchy with direct relationships
     fn initialize_hierarchy(&mut self) -> OwlResult<()> {
         // Add owl:Thing as the root
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
+        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/2002/07/owl#Thing".to_string(),
+                context: format!("Failed to create owl:Thing IRI: {}", e),
+            })?;
         self.hierarchy
             .parents
             .insert(thing_iri.clone(), HashSet::new());
 
         // Add owl:Nothing as the bottom
-        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing").unwrap();
+        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/2002/07/owl#Nothing".to_string(),
+                context: format!("Failed to create owl:Nothing IRI: {}", e),
+            })?;
         self.hierarchy
             .children
             .insert(nothing_iri.clone(), HashSet::new());
@@ -198,16 +209,16 @@ impl ClassificationEngine {
     /// Compute transitive closure of subclass relationships using evolved BFS algorithm
     /// This replaces the O(n³) iterative approach with an efficient O(N+E) BFS algorithm
     fn compute_transitive_closure(&mut self) -> OwlResult<()> {
-        // Get all classes
-        let classes: Vec<IRI> = self
+        // Get all classes without cloning IRIs
+        let classes: Vec<&IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| c.iri()) // Use references instead of cloning
             .collect();
 
         // For each class, compute all transitive superclasses using BFS
-        for class_iri in &classes {
+        for class_iri in classes {
             let mut visited: HashSet<IRI> = HashSet::new();
             let mut queue: VecDeque<IRI> = VecDeque::new();
             let mut transitive_parents: HashSet<IRI> = HashSet::new();
@@ -278,17 +289,18 @@ impl ClassificationEngine {
 
     /// Discover equivalent classes through reasoning
     fn discover_equivalences_by_reasoning(&mut self) -> OwlResult<()> {
-        let classes: Vec<IRI> = self
+        // Get classes without cloning IRIs
+        let classes: Vec<&IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| c.iri()) // Use references instead of cloning
             .collect();
 
         for i in 0..classes.len() {
             for j in i + 1..classes.len() {
-                let class1 = &classes[i];
-                let class2 = &classes[j];
+                let class1 = classes[i];
+                let class2 = classes[j];
 
                 // Skip if already known to be equivalent
                 if self.hierarchy.are_equivalent(class1, class2) {
@@ -337,17 +349,18 @@ impl ClassificationEngine {
 
     /// Discover disjoint classes through reasoning
     fn discover_disjointness_by_reasoning(&mut self) -> OwlResult<()> {
-        let classes: Vec<IRI> = self
+        // Get classes without cloning IRIs
+        let classes: Vec<&IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| c.iri()) // Use references instead of cloning
             .collect();
 
         for i in 0..classes.len() {
             for j in i + 1..classes.len() {
-                let class1 = &classes[i];
-                let class2 = &classes[j];
+                let class1 = classes[i];
+                let class2 = classes[j];
 
                 // Skip if already known to be disjoint
                 if self.hierarchy.are_disjoint(class1, class2) {
@@ -385,16 +398,17 @@ impl ClassificationEngine {
 
     /// Detect cycles in the class hierarchy
     fn detect_cycles(&self) -> OwlResult<()> {
-        let classes: Vec<IRI> = self
+        // Get classes without cloning IRIs
+        let classes: Vec<&IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| c.iri()) // Use references instead of cloning
             .collect();
 
-        for class_iri in &classes {
+        for class_iri in classes {
             if self.has_cycle_from_class(class_iri) {
-                return Err(crate::error::OwlError::ValidationError(format!(
+                return Err(OwlError::OwlViolation(format!(
                     "Cycle detected in class hierarchy starting from {}",
                     class_iri
                 )));
@@ -438,15 +452,21 @@ impl ClassificationEngine {
 
     /// Ensure owl:Nothing is subclass of all classes
     fn ensure_nothing_bottom(&mut self) -> OwlResult<()> {
-        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing").unwrap();
-        let classes: Vec<IRI> = self
+        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/2002/07/owl#Nothing".to_string(),
+                context: format!("Failed to create owl:Nothing IRI: {}", e),
+            })?;
+
+        // Get classes without cloning IRIs
+        let classes: Vec<&IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| c.iri()) // Use references instead of cloning
             .collect();
 
-        for class_iri in &classes {
+        for class_iri in classes {
             if class_iri != &nothing_iri {
                 self.hierarchy
                     .add_parent(nothing_iri.clone(), class_iri.clone());
@@ -520,13 +540,14 @@ impl ClassificationEngine {
 
 impl ClassHierarchy {
     /// Create a new class hierarchy
-    pub fn new(_ontology: &Ontology) -> Self {
+    pub fn new(_ontology: &Arc<Ontology>) -> Self {
         ClassHierarchy {
             parents: HashMap::new(),
             children: HashMap::new(),
             equivalences: HashMap::new(),
             disjointness: HashMap::new(),
             satisfiable: HashMap::new(),
+            depth_cache: HashMap::new(),
         }
     }
 
@@ -540,6 +561,7 @@ impl ClassHierarchy {
             .entry(parent)
             .or_insert_with(HashSet::new)
             .insert(child);
+        self.depth_cache.clear(); // Invalidate depth cache
     }
 
     /// Add a child relationship
@@ -675,6 +697,7 @@ impl ClassHierarchy {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
+    use crate::{Class, SubClassOfAxiom, EquivalentClassesAxiom};
 
     #[test]
     fn test_classification_engine_creation() {
@@ -751,7 +774,8 @@ mod tests {
 
     #[test]
     fn test_class_hierarchy_methods() {
-        let mut hierarchy = ClassHierarchy::new(&Ontology::new());
+        let ontology = Arc::new(Ontology::new());
+        let mut hierarchy = ClassHierarchy::new(&ontology);
 
         let person_iri = IRI::new("http://example.org/Person").unwrap();
         let animal_iri = IRI::new("http://example.org/Animal").unwrap();

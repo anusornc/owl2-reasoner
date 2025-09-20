@@ -3,15 +3,13 @@
 //! Provides algorithms for checking ontology consistency and detecting contradictions.
 
 use crate::Axiom;
-use crate::axioms::*;
 use crate::entities::*;
-use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::tableaux::TableauxReasoner;
+use crate::error::{OwlError, OwlResult};
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use smallvec::SmallVec;
 
 /// Consistency checker for OWL2 ontologies
 pub struct ConsistencyChecker {
@@ -55,7 +53,7 @@ pub struct ConsistencyResult {
 #[derive(Debug, Clone)]
 pub struct InconsistencyExplanation {
     pub description: String,
-    pub involved_axioms: Vec<crate::Axiom>,
+    pub involved_axioms: SmallVec<[crate::Axiom; 8]>,
     pub contradiction_type: ContradictionType,
 }
 
@@ -90,12 +88,12 @@ pub struct ConsistencyStats {
 impl ConsistencyChecker {
     /// Create a new consistency checker
     pub fn new(ontology: Ontology) -> Self {
-        Self::with_config(ontology, ConsistencyConfig::default())
+        Self::with_config(&ontology, ConsistencyConfig::default())
     }
 
     /// Create a new consistency checker with custom configuration
-    pub fn with_config(ontology: Ontology, config: ConsistencyConfig) -> Self {
-        let tableaux_reasoner = TableauxReasoner::new(ontology);
+    pub fn with_config(ontology: &Ontology, config: ConsistencyConfig) -> Self {
+        let tableaux_reasoner = TableauxReasoner::new(ontology.clone());
 
         ConsistencyChecker {
             tableaux_reasoner,
@@ -117,13 +115,17 @@ impl ConsistencyChecker {
         let mut axioms_analyzed = 0;
 
         // Check basic consistency using tableaux reasoning
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
+        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/2002/07/owl#Thing".to_string(),
+                context: format!("Failed to create owl:Thing IRI: {}", e),
+            })?;
         let tableaux_result = self.tableaux_reasoner.is_class_satisfiable(&thing_iri)?;
 
         if !tableaux_result {
             explanations.push(InconsistencyExplanation {
                 description: "Ontology is inconsistent: owl:Thing is unsatisfiable".to_string(),
-                involved_axioms: Vec::new(),
+                involved_axioms: SmallVec::new(),
                 contradiction_type: ContradictionType::Other("owl:Thing unsatisfiable".to_string()),
             });
             contradictions_found += 1;
@@ -208,7 +210,7 @@ impl ConsistencyChecker {
                             involved_axioms: vec![
                                 Axiom::DisjointClasses(axiom.clone()),
                                 Axiom::EquivalentClasses(equiv_axiom.clone()),
-                            ],
+                            ].into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
                                 vec![class1.clone(), class2.clone()],
                             ),
@@ -246,7 +248,7 @@ impl ConsistencyChecker {
                             involved_axioms: vec![
                                 Axiom::EquivalentClasses(axiom.clone()),
                                 Axiom::DisjointClasses(disjoint_axiom.clone()),
-                            ],
+                            ].into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
                                 vec![class1.clone(), class2.clone()],
                             ),
@@ -294,9 +296,7 @@ impl ConsistencyChecker {
             // Asymmetric and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both asymmetric and reflexive", prop.iri()),
-                involved_axioms: vec![
-                    // These would be the actual axioms that define the characteristics
-                ],
+                involved_axioms: SmallVec::new(),
                 contradiction_type: ContradictionType::Other(format!(
                     "Asymmetric and reflexive property: {}",
                     prop.iri()
@@ -310,7 +310,7 @@ impl ConsistencyChecker {
             // Irreflexive and reflexive properties are contradictory
             contradictions.push(InconsistencyExplanation {
                 description: format!("Property {} is both irreflexive and reflexive", prop.iri()),
-                involved_axioms: vec![],
+                involved_axioms: SmallVec::new(),
                 contradiction_type: ContradictionType::Other(format!(
                     "Irreflexive and reflexive property: {}",
                     prop.iri()
@@ -341,7 +341,7 @@ impl ConsistencyChecker {
             if !is_satisfiable {
                 unsatisfiable.push(InconsistencyExplanation {
                     description: format!("Class {} is unsatisfiable", class_iri),
-                    involved_axioms: self.find_axioms_involving_class(class_iri)?,
+                    involved_axioms: self.find_axioms_involving_class(class_iri)?.into(),
                     contradiction_type: ContradictionType::UnsatisfiableClass(class_iri.clone()),
                 });
             }
@@ -432,6 +432,7 @@ impl ConsistencyChecker {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
+    use crate::{Class, DisjointClassesAxiom};
 
     #[test]
     fn test_consistency_checker_creation() {
@@ -460,7 +461,8 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Create a simple inconsistency: class is disjoint with itself
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
+        let person_iri = IRI::new("http://example.org/Person")
+            .expect("Failed to create Person IRI for testing");
         let person_class = Class::new(person_iri.clone());
         ontology.add_class(person_class).unwrap();
 

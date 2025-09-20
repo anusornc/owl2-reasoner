@@ -2,14 +2,14 @@
 //!
 //! This file runs all benchmarks for the OWL2 reasoning system.
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
-use owl2_reasoner::parser::OwlParser;
+use owl2_reasoner::OntologyParser;
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::reasoning::query::QueryEngine;
+use owl2_reasoner::reasoning::query::{QueryEngine, QueryPattern, TriplePattern, PatternTerm};
 
 fn benchmark_suite(c: &mut Criterion) {
     println!("Running OWL2 Reasoner Benchmark Suite...");
@@ -63,7 +63,7 @@ fn bench_class_satisfiability(c: &mut Criterion) {
         let ontology = create_hierarchy_ontology(*size);
         let reasoner = SimpleReasoner::new(ontology);
 
-        if let Some(first_class) = reasoner.ontology.classes().first() {
+        if let Some(first_class) = reasoner.ontology.classes().iter().next() {
             group.bench_with_input(
                 BenchmarkId::new("class_satisfiability", size),
                 size,
@@ -116,8 +116,8 @@ fn bench_turtle_parsing(c: &mut Criterion) {
         &small_turtle,
         |b, content| {
             b.iter(|| {
-                let mut parser = owl2_reasoner::parser::turtle::TurtleParser::new();
-                let result = parser.parse(black_box(content));
+                let parser = owl2_reasoner::parser::turtle::TurtleParser::new();
+                let result = parser.parse_str(black_box(content));
                 black_box(result);
             })
         },
@@ -150,11 +150,15 @@ fn bench_simple_queries(c: &mut Criterion) {
         let ontology = create_hierarchy_ontology(*size);
         let mut engine = QueryEngine::new(ontology);
 
-        let query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10";
+        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern { 
+            subject: PatternTerm::Variable("s".into()),
+            predicate: PatternTerm::Variable("p".into()),
+            object: PatternTerm::Variable("o".into()),
+        }]);
 
         group.bench_with_input(BenchmarkId::new("simple_select", size), size, |b, _| {
             b.iter(|| {
-                let result = engine.query(black_box(query));
+                let result = engine.execute_query(black_box(&pattern));
                 black_box(result);
             })
         });
@@ -231,3 +235,4 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
 criterion_group!(benches, benchmark_suite);
 criterion_main!(benches);
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

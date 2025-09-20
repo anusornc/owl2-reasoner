@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Any, Optional
 from dataclasses import dataclass, asdict, field
 import argparse
 import tempfile
+import shutil
 
 # Import the original framework
 import sys
@@ -948,7 +949,7 @@ class EnhancedBenchmarkFramework:
         with open(self.config_file, 'r') as f:
             return json.load(f)
 
-    def run_comprehensive_benchmark(self, reasoners: List[str] = None, iterations: int = 3) -> List[BenchmarkSuiteResult]:
+    def run_comprehensive_benchmark(self, reasoners: List[str] = None, iterations: int = 3, warmup: int = 1) -> List[BenchmarkSuiteResult]:
         """Run comprehensive benchmarks across all reasoners and benchmark suites"""
         all_results = []
 
@@ -956,7 +957,7 @@ class EnhancedBenchmarkFramework:
         if reasoners is None:
             reasoners = list(self.config["reasoners"].keys())
 
-        print(f"🚀 Running comprehensive benchmark with {iterations} iterations...")
+        print(f"🚀 Running comprehensive benchmark with warmup={warmup}, iterations={iterations}...")
         print(f"📊 Reasoners: {reasoners}")
 
         for reasoner_name in reasoners:
@@ -966,13 +967,13 @@ class EnhancedBenchmarkFramework:
             # Run LUBM benchmarks
             if self.config["benchmarks"]["lubm"]["enabled"]:
                 print("   📊 Running LUBM benchmarks...")
-                lubm_results = self._run_lubm_benchmarks(reasoner_name, reasoner_config, iterations)
+                lubm_results = self._run_lubm_benchmarks(reasoner_name, reasoner_config, iterations, warmup)
                 all_results.extend(lubm_results)
 
             # Run SP2B benchmarks
             if self.config["benchmarks"]["sp2b"]["enabled"]:
                 print("   📊 Running SP2B benchmarks...")
-                sp2b_results = self._run_sp2b_benchmarks(reasoner_name, reasoner_config, iterations)
+                sp2b_results = self._run_sp2b_benchmarks(reasoner_name, reasoner_config, iterations, warmup)
                 all_results.extend(sp2b_results)
 
             # Run scalability benchmarks
@@ -983,13 +984,25 @@ class EnhancedBenchmarkFramework:
 
         return all_results
 
-    def _run_lubm_benchmarks(self, reasoner_name: str, reasoner_config: dict, iterations: int) -> List[BenchmarkSuiteResult]:
+    def _run_lubm_benchmarks(self, reasoner_name: str, reasoner_config: dict, iterations: int, warmup: int) -> List[BenchmarkSuiteResult]:
         """Run LUBM benchmarks"""
         results = []
         lubm_config = self.config["benchmarks"]["lubm"]
 
         for university_count in lubm_config["university_counts"]:
             print(f"      🏫 Testing {university_count} university dataset...")
+
+            # Warmup runs (not recorded)
+            if warmup > 0:
+                _ = self.lubm_benchmark.run_lubm_test(
+                    reasoner_name, reasoner_config, university_count, "classification", warmup
+                )
+                _ = self.lubm_benchmark.run_lubm_test(
+                    reasoner_name, reasoner_config, university_count, "consistency", warmup
+                )
+                _ = self.lubm_benchmark.run_lubm_test(
+                    reasoner_name, reasoner_config, university_count, "query", warmup
+                )
 
             # Classification test
             class_results = self.lubm_benchmark.run_lubm_test(
@@ -1011,13 +1024,25 @@ class EnhancedBenchmarkFramework:
 
         return results
 
-    def _run_sp2b_benchmarks(self, reasoner_name: str, reasoner_config: dict, iterations: int) -> List[BenchmarkSuiteResult]:
+    def _run_sp2b_benchmarks(self, reasoner_name: str, reasoner_config: dict, iterations: int, warmup: int) -> List[BenchmarkSuiteResult]:
         """Run SP2B benchmarks"""
         results = []
         sp2b_config = self.config["benchmarks"]["sp2b"]
 
         for scale_factor in sp2b_config["scale_factors"]:
             print(f"      📈 Testing scale {scale_factor} dataset...")
+
+            # Warmup
+            if warmup > 0:
+                _ = self.sp2b_benchmark.run_sp2b_test(
+                    reasoner_name, reasoner_config, scale_factor, "classification", warmup
+                )
+                _ = self.sp2b_benchmark.run_sp2b_test(
+                    reasoner_name, reasoner_config, scale_factor, "consistency", warmup
+                )
+                _ = self.sp2b_benchmark.run_sp2b_test(
+                    reasoner_name, reasoner_config, scale_factor, "query", warmup
+                )
 
             # Classification test
             class_results = self.sp2b_benchmark.run_sp2b_test(
@@ -1187,9 +1212,15 @@ def main():
     """Main function"""
     parser = argparse.ArgumentParser(description="Enhanced OWL2 Reasoner Benchmark Framework")
     parser.add_argument("--config", default="benchmarking/config.json", help="Configuration file path")
-    parser.add_argument("--reasoners", nargs="+", help="Specific reasoners to benchmark")
-    parser.add_argument("--iterations", type=int, default=3, help="Number of iterations")
+    parser.add_argument("--reasoners", nargs="+", help="Specific reasoners to benchmark (use 'all' for all configured)")
+    parser.add_argument("--iterations", type=int, default=3, help="Number of iterations (per task, after warmup)")
+    parser.add_argument("--warmup", type=int, default=1, help="Warmup runs to discard before timing")
     parser.add_argument("--setup", action="store_true", help="Run setup first")
+    parser.add_argument("--suites", help="Comma-separated suites to run (e.g., LUBM,UOBM,SP2B)")
+    parser.add_argument("--sizes", help="Comma-separated sizes per suite (e.g., 1,5,10 for LUBM)")
+    parser.add_argument("--output-format", choices=["markdown","json","csv"], help="Preferred report format")
+    parser.add_argument("--out", dest="out_dir", help="Output directory for results")
+    parser.add_argument("--dry-run", action="store_true", help="List plan and exit without running benchmarks")
 
     args = parser.parse_args()
 
@@ -1216,8 +1247,32 @@ def main():
         print("   Run with --setup to create configuration")
         sys.exit(1)
 
+    # If dry-run, summarize plan and exit
+    if args.dry_run:
+        print("🔎 Dry Run (no benchmarks will be executed)\n")
+        print(f"Config: {args.config}")
+        print(f"Warmup: {args.warmup}")
+        print(f"Iterations: {args.iterations}")
+        if args.reasoners:
+            print(f"Reasoners: {', '.join(args.reasoners)}")
+        if args.suites:
+            print(f"Suites: {args.suites}")
+        if args.sizes:
+            print(f"Sizes: {args.sizes}")
+        if args.output_format:
+            print(f"Output format: {args.output_format}")
+        if args.out_dir:
+            print(f"Output directory: {args.out_dir}")
+        # Basic environment check
+        java_ok = shutil.which("java") is not None
+        mvn_ok = shutil.which("mvn") is not None
+        print(f"Java found: {java_ok}")
+        print(f"Maven found: {mvn_ok}")
+        print("\nPlan preview complete. Exiting.")
+        return
+
     # Run comprehensive benchmark
-    results = framework.run_comprehensive_benchmark(args.reasoners, args.iterations)
+    results = framework.run_comprehensive_benchmark(args.reasoners, args.iterations, args.warmup)
 
     # Generate reports
     framework.generate_reports(results)

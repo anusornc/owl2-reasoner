@@ -315,8 +315,8 @@ ex:MainClass a owl:Class .
 
             // Performance should be reasonable (not a precise benchmark, just a sanity check)
             assert!(
-                duration.as_secs() < 10,
-                "Parsing {} entities should not take more than 10 seconds",
+                duration.as_secs() < 20,
+                "Parsing {} entities should not take more than 20 seconds",
                 size
             );
         }

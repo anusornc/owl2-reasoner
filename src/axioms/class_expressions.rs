@@ -5,6 +5,7 @@
 use super::property_expressions::{DataPropertyExpression, ObjectPropertyExpression};
 use crate::entities::Class;
 use crate::iri::IRI;
+use smallvec::SmallVec;
 
 /// A class expression in OWL2
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,13 +13,13 @@ pub enum ClassExpression {
     /// Named class
     Class(Class),
     /// Object intersection of (C and D)
-    ObjectIntersectionOf(Vec<ClassExpression>),
+    ObjectIntersectionOf(SmallVec<[Box<ClassExpression>; 4]>),
     /// Object union of (C or D)
-    ObjectUnionOf(Vec<ClassExpression>),
+    ObjectUnionOf(SmallVec<[Box<ClassExpression>; 4]>),
     /// Object complement of (not C)
     ObjectComplementOf(Box<ClassExpression>),
     /// Object one of {a, b, c}
-    ObjectOneOf(Vec<crate::entities::Individual>),
+    ObjectOneOf(SmallVec<[crate::entities::Individual; 8]>),
     /// Object some values from (∃R.C)
     ObjectSomeValuesFrom(Box<ObjectPropertyExpression>, Box<ClassExpression>),
     /// Object all values from (∀R.C)
@@ -52,19 +53,19 @@ impl ClassExpression {
     pub fn simplify(&self) -> ClassExpression {
         match self {
             ClassExpression::ObjectIntersectionOf(operands) => {
-                let simplified: Vec<ClassExpression> =
-                    operands.iter().map(|op| op.simplify()).collect();
+                let simplified: SmallVec<[Box<ClassExpression>; 4]> =
+                    operands.iter().map(|op| Box::new(op.simplify())).collect();
                 if simplified.len() == 1 {
-                    simplified[0].clone()
+                    *simplified[0].clone()
                 } else {
                     ClassExpression::ObjectIntersectionOf(simplified)
                 }
             }
             ClassExpression::ObjectUnionOf(operands) => {
-                let simplified: Vec<ClassExpression> =
-                    operands.iter().map(|op| op.simplify()).collect();
+                let simplified: SmallVec<[Box<ClassExpression>; 4]> =
+                    operands.iter().map(|op| Box::new(op.simplify())).collect();
                 if simplified.len() == 1 {
-                    simplified[0].clone()
+                    *simplified[0].clone()
                 } else {
                     ClassExpression::ObjectUnionOf(simplified)
                 }
@@ -83,6 +84,79 @@ impl ClassExpression {
         match self {
             ClassExpression::Class(class) => Some(class),
             _ => None,
+        }
+    }
+
+    /// Collect all subexpressions recursively
+    pub fn collect_subexpressions(&self) -> Vec<&ClassExpression> {
+        let mut result = Vec::new();
+        self._collect_subexpressions(&mut result);
+        result
+    }
+
+    /// Internal helper for collecting subexpressions
+    fn _collect_subexpressions<'a>(&'a self, result: &mut Vec<&'a ClassExpression>) {
+        result.push(self);
+
+        match self {
+            ClassExpression::Class(_) => {
+                // No subexpressions for named classes
+            }
+            ClassExpression::ObjectIntersectionOf(operands) => {
+                for operand in operands {
+                    operand._collect_subexpressions(result);
+                }
+            }
+            ClassExpression::ObjectUnionOf(operands) => {
+                for operand in operands {
+                    operand._collect_subexpressions(result);
+                }
+            }
+            ClassExpression::ObjectComplementOf(operand) => {
+                operand._collect_subexpressions(result);
+            }
+            ClassExpression::ObjectOneOf(_) => {
+                // No subexpressions for individuals
+            }
+            ClassExpression::ObjectSomeValuesFrom(_, filler) => {
+                filler._collect_subexpressions(result);
+            }
+            ClassExpression::ObjectAllValuesFrom(_, filler) => {
+                filler._collect_subexpressions(result);
+            }
+            ClassExpression::ObjectHasValue(_, _) => {
+                // No subexpressions for individuals
+            }
+            ClassExpression::ObjectHasSelf(_) => {
+                // No subexpressions
+            }
+            ClassExpression::ObjectMinCardinality(_, _) => {
+                // No subexpressions
+            }
+            ClassExpression::ObjectMaxCardinality(_, _) => {
+                // No subexpressions
+            }
+            ClassExpression::ObjectExactCardinality(_, _) => {
+                // No subexpressions
+            }
+            ClassExpression::DataSomeValuesFrom(_, _) => {
+                // No class subexpressions for data ranges
+            }
+            ClassExpression::DataAllValuesFrom(_, _) => {
+                // No class subexpressions for data ranges
+            }
+            ClassExpression::DataHasValue(_, _) => {
+                // No class subexpressions
+            }
+            ClassExpression::DataMinCardinality(_, _) => {
+                // No class subexpressions
+            }
+            ClassExpression::DataMaxCardinality(_, _) => {
+                // No class subexpressions
+            }
+            ClassExpression::DataExactCardinality(_, _) => {
+                // No class subexpressions
+            }
         }
     }
 }

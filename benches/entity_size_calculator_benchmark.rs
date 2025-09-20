@@ -187,3 +187,4 @@ fn create_test_ontology(entity_count: usize) -> Ontology {
 
 criterion_group!(benches, entity_size_benchmark_suite);
 criterion_main!(benches);
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

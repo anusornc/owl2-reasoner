@@ -12,6 +12,43 @@ pub use property_expressions::*;
 
 use crate::iri::IRI;
 
+/// OWL2 Axiom type identifiers for indexing and classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AxiomType {
+    SubClassOf,
+    EquivalentClasses,
+    DisjointClasses,
+    ClassAssertion,
+    PropertyAssertion,
+    DataPropertyAssertion,
+    SubObjectProperty,
+    EquivalentObjectProperties,
+    DisjointObjectProperties,
+    FunctionalProperty,
+    InverseFunctionalProperty,
+    ReflexiveProperty,
+    IrreflexiveProperty,
+    SymmetricProperty,
+    AsymmetricProperty,
+    TransitiveProperty,
+    SubPropertyChainOf,
+    InverseObjectProperties,
+    SubDataProperty,
+    EquivalentDataProperties,
+    DisjointDataProperties,
+    FunctionalDataProperty,
+    SameIndividual,
+    DifferentIndividuals,
+    HasKey,
+    AnnotationAssertion,
+    ObjectMinQualifiedCardinality,
+    ObjectMaxQualifiedCardinality,
+    ObjectExactQualifiedCardinality,
+    DataMinQualifiedCardinality,
+    DataMaxQualifiedCardinality,
+    DataExactQualifiedCardinality,
+}
+
 /// OWL2 Axiom types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Axiom {
@@ -79,6 +116,52 @@ pub enum Axiom {
     DataMaxQualifiedCardinality(DataMaxQualifiedCardinalityAxiom),
     /// Data exact qualified cardinality: ⊤ ⊑ =n R.D
     DataExactQualifiedCardinality(DataExactQualifiedCardinalityAxiom),
+}
+
+impl Axiom {
+    /// Get the type of this axiom
+    pub fn axiom_type(&self) -> AxiomType {
+        match self {
+            Axiom::SubClassOf(_) => AxiomType::SubClassOf,
+            Axiom::EquivalentClasses(_) => AxiomType::EquivalentClasses,
+            Axiom::DisjointClasses(_) => AxiomType::DisjointClasses,
+            Axiom::ClassAssertion(_) => AxiomType::ClassAssertion,
+            Axiom::PropertyAssertion(_) => AxiomType::PropertyAssertion,
+            Axiom::DataPropertyAssertion(_) => AxiomType::DataPropertyAssertion,
+            Axiom::SubObjectProperty(_) => AxiomType::SubObjectProperty,
+            Axiom::EquivalentObjectProperties(_) => AxiomType::EquivalentObjectProperties,
+            Axiom::DisjointObjectProperties(_) => AxiomType::DisjointObjectProperties,
+            Axiom::FunctionalProperty(_) => AxiomType::FunctionalProperty,
+            Axiom::InverseFunctionalProperty(_) => AxiomType::InverseFunctionalProperty,
+            Axiom::ReflexiveProperty(_) => AxiomType::ReflexiveProperty,
+            Axiom::IrreflexiveProperty(_) => AxiomType::IrreflexiveProperty,
+            Axiom::SymmetricProperty(_) => AxiomType::SymmetricProperty,
+            Axiom::AsymmetricProperty(_) => AxiomType::AsymmetricProperty,
+            Axiom::TransitiveProperty(_) => AxiomType::TransitiveProperty,
+            Axiom::SubPropertyChainOf(_) => AxiomType::SubPropertyChainOf,
+            Axiom::InverseObjectProperties(_) => AxiomType::InverseObjectProperties,
+            Axiom::SubDataProperty(_) => AxiomType::SubDataProperty,
+            Axiom::EquivalentDataProperties(_) => AxiomType::EquivalentDataProperties,
+            Axiom::DisjointDataProperties(_) => AxiomType::DisjointDataProperties,
+            Axiom::FunctionalDataProperty(_) => AxiomType::FunctionalDataProperty,
+            Axiom::SameIndividual(_) => AxiomType::SameIndividual,
+            Axiom::DifferentIndividuals(_) => AxiomType::DifferentIndividuals,
+            Axiom::HasKey(_) => AxiomType::HasKey,
+            Axiom::AnnotationAssertion(_) => AxiomType::AnnotationAssertion,
+            Axiom::ObjectMinQualifiedCardinality(_) => AxiomType::ObjectMinQualifiedCardinality,
+            Axiom::ObjectMaxQualifiedCardinality(_) => AxiomType::ObjectMaxQualifiedCardinality,
+            Axiom::ObjectExactQualifiedCardinality(_) => AxiomType::ObjectExactQualifiedCardinality,
+            Axiom::DataMinQualifiedCardinality(_) => AxiomType::DataMinQualifiedCardinality,
+            Axiom::DataMaxQualifiedCardinality(_) => AxiomType::DataMaxQualifiedCardinality,
+            Axiom::DataExactQualifiedCardinality(_) => AxiomType::DataExactQualifiedCardinality,
+        }
+    }
+
+    /// Get the signature IRIs of this axiom (main entities involved)
+    pub fn signature(&self) -> Vec<IRI> {
+        // Simplified signature extraction - will be enhanced with proper axiom methods
+        vec![] // Placeholder implementation
+    }
 }
 
 /// Subclass axiom: C ⊑ D

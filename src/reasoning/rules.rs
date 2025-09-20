@@ -1,7 +1,6 @@
 //! Rule-based reasoning engine for OWL2 ontologies
 
 use crate::axioms::*;
-use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
@@ -44,10 +43,13 @@ impl Default for RuleConfig {
 /// A reasoning rule
 #[derive(Debug, Clone)]
 pub struct ReasoningRule {
+    #[allow(dead_code)]
     name: String,
+    #[allow(dead_code)]
     description: String,
     pattern: RulePattern,
     action: RuleAction,
+    #[allow(dead_code)]
     priority: u32,
 }
 
@@ -511,7 +513,7 @@ impl RuleEngine {
                     Ok(var.clone())
                 }
             }
-            PatternVar::Constant(iri) => Ok(var.clone()),
+            PatternVar::Constant(_iri) => Ok(var.clone()),
         }
     }
 
@@ -564,6 +566,7 @@ fn extract_class_iri(class_expr: &ClassExpression) -> Option<IRI> {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
+    use crate::{Class, NamedIndividual};
 
     #[test]
     fn test_rule_engine_creation() {
@@ -579,34 +582,43 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add some test data
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let human_iri = IRI::new("http://example.org/Human").unwrap();
-        let individual_iri = IRI::new("http://example.org/john").unwrap();
+        let person_iri = IRI::new("http://example.org/Person")
+            .expect("Failed to create Person IRI for testing");
+        let human_iri = IRI::new("http://example.org/Human")
+            .expect("Failed to create Human IRI for testing");
+        let individual_iri = IRI::new("http://example.org/john")
+            .expect("Failed to create john IRI for testing");
 
         let person_class = Class::new(person_iri.clone());
         let human_class = Class::new(human_iri.clone());
         let individual = NamedIndividual::new(individual_iri.clone());
 
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(human_class.clone()).unwrap();
-        ontology.add_named_individual(individual).unwrap();
+        ontology.add_class(person_class.clone())
+            .expect("Failed to add Person class");
+        ontology.add_class(human_class.clone())
+            .expect("Failed to add Human class");
+        ontology.add_named_individual(individual)
+            .expect("Failed to add individual");
 
         // Add subclass axiom: Person ⊑ Human
         let subclass_axiom = SubClassOfAxiom::new(
             ClassExpression::Class(person_class.clone()),
             ClassExpression::Class(human_class.clone()),
         );
-        ontology.add_subclass_axiom(subclass_axiom).unwrap();
+        ontology.add_subclass_axiom(subclass_axiom)
+            .expect("Failed to add subclass axiom");
 
         // Add class assertion: john ∈ Person
         let class_assertion = crate::axioms::ClassAssertionAxiom::new(
             individual_iri.clone(),
             ClassExpression::Class(person_class.clone()),
         );
-        ontology.add_class_assertion(class_assertion).unwrap();
+        ontology.add_class_assertion(class_assertion)
+            .expect("Failed to add class assertion");
 
         let mut engine = RuleEngine::new(ontology);
-        let rules_applied = engine.run_forward_chaining().unwrap();
+        let rules_applied = engine.run_forward_chaining()
+            .expect("Failed to run forward chaining");
 
         assert!(rules_applied > 0);
 
@@ -626,7 +638,8 @@ mod tests {
         let mut bindings = HashMap::new();
         bindings.insert(
             "?x".to_string(),
-            IRI::new("http://example.org/test").unwrap(),
+            IRI::new("http://example.org/test")
+                .expect("Failed to create test IRI"),
         );
 
         let var = PatternVar::Variable("?x".to_string());
@@ -634,7 +647,8 @@ mod tests {
 
         assert_eq!(
             resolved,
-            PatternVar::Constant(IRI::new("http://example.org/test").unwrap())
+            PatternVar::Constant(IRI::new("http://example.org/test")
+                .expect("Failed to create test IRI"))
         );
     }
 }

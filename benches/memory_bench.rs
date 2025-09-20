@@ -119,3 +119,4 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
     ontology
 }
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

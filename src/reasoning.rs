@@ -81,7 +81,7 @@ impl OwlReasoner {
         let simple = SimpleReasoner::new(ontology.clone());
         let tableaux = if config.use_advanced_reasoning {
             Some(TableauxReasoner::with_config(
-                ontology,
+                &ontology,
                 config.tableaux_config,
             ))
         } else {

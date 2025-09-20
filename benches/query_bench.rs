@@ -1,11 +1,13 @@
 //! Query performance benchmarks
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::reasoning::query::QueryEngine;
+use owl2_reasoner::reasoning::query::{
+    PatternTerm, QueryEngine, QueryPattern, TriplePattern,
+};
 
 /// Benchmark query engine creation
 pub fn bench_query_engine_creation(c: &mut Criterion) {
@@ -32,12 +34,15 @@ pub fn bench_simple_queries(c: &mut Criterion) {
     for size in [10, 50, 100, 500].iter() {
         let ontology = create_query_ontology(*size);
         let mut engine = QueryEngine::new(ontology);
-
-        let query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10";
+        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("s".into()),
+            predicate: PatternTerm::Variable("p".into()),
+            object: PatternTerm::Variable("o".into()),
+        }]);
 
         group.bench_with_input(BenchmarkId::new("simple_select", size), size, |b, _| {
             b.iter(|| {
-                let result = engine.query(black_box(query));
+                let result = engine.execute_query(black_box(&pattern));
                 black_box(result);
             })
         });
@@ -53,12 +58,17 @@ pub fn bench_class_queries(c: &mut Criterion) {
     for size in [10, 50, 100, 500].iter() {
         let ontology = create_query_ontology(*size);
         let mut engine = QueryEngine::new(ontology);
-
-        let query = "SELECT ?s WHERE { ?s rdf:type <http://example.org/Class0> }";
+        let rdf_type = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+        let class0 = IRI::new("http://example.org/Class0").unwrap();
+        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("s".into()),
+            predicate: PatternTerm::IRI(rdf_type),
+            object: PatternTerm::IRI(class0),
+        }]);
 
         group.bench_with_input(BenchmarkId::new("class_type_query", size), size, |b, _| {
             b.iter(|| {
-                let result = engine.query(black_box(query));
+                let result = engine.execute_query(black_box(&pattern));
                 black_box(result);
             })
         });
@@ -74,12 +84,17 @@ pub fn bench_subclass_queries(c: &mut Criterion) {
     for size in [10, 50, 100, 500].iter() {
         let ontology = create_query_ontology(*size);
         let mut engine = QueryEngine::new(ontology);
-
-        let query = "SELECT ?s WHERE { ?s rdfs:subClassOf <http://example.org/Class0> }";
+        let rdfs_subclass = IRI::new("http://www.w3.org/2000/01/rdf-schema#subClassOf").unwrap();
+        let class0 = IRI::new("http://example.org/Class0").unwrap();
+        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("s".into()),
+            predicate: PatternTerm::IRI(rdfs_subclass),
+            object: PatternTerm::IRI(class0),
+        }]);
 
         group.bench_with_input(BenchmarkId::new("subclass_query", size), size, |b, _| {
             b.iter(|| {
-                let result = engine.query(black_box(query));
+                let result = engine.execute_query(black_box(&pattern));
                 black_box(result);
             })
         });
@@ -110,3 +125,4 @@ fn create_query_ontology(size: usize) -> Ontology {
 
     ontology
 }
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

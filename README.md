@@ -6,30 +6,28 @@
 [![Benchmark](https://img.shields.io/badge/benchmark-comprehensive-blue.svg)](https://github.com/anusornc/owl2-reasoner)
 [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://anusornc.github.io/owl2-reasoner/)
 
-High-performance native Rust OWL2 reasoner with benchmarking, practical performance results, and an actively evolving parser/reasoner.
+High‑performance Rust OWL2 reasoner with an actively evolving parser/reasoner, examples, test-suite integration, and Criterion benchmarks.
 
 ## 🏆 Key Achievements
 
 ### **Performance Notes**
-- Competitive performance vs JVM reasoners on internal benches
-- Sub‑10–20ms responses on typical small ontologies (informative)
-- CI enforces clippy + fmt; coverage improving alongside features
+- Competitive performance on internal Criterion benches (informative)
+- Fast responses on small ontologies; release mode recommended for timing
+- Clippy + fmt supported locally; CI integration and coverage are evolving
 
 ### **Format & Reasoning Support**
-- Parsers: Turtle, RDF/XML (with streaming backend), OWL Functional (in progress), N‑Triples
+- Parsers: Turtle, RDF/XML (streaming backend available), OWL Functional (in progress), N‑Triples
 - Tableaux reasoning: practical SROIQ(D) subset with ongoing improvements
-- **Multi-level reasoning**: Simple, Advanced Tableaux, and Hybrid reasoning modes
-- **Rule-based inference**: Forward chaining with optimization
-- **Query engine**: SPARQL-like pattern matching
-- **Memory efficiency**: Conservative memory management with pooling
-- **Comprehensive benchmarking**: Internal and external benchmarking frameworks
+- Multi‑level reasoning modes (simple to advanced/tableaux)
+- Rule‑based inference (forward chaining)
+- Query engine: SPARQL‑like pattern matching
+- Memory efficiency: conservative allocation, pooling, sharing
+- Benchmarks: Criterion benches in‑repo; external comparisons optional
 
 ### **Advanced Reasoning Capabilities**
-- **TableauxReasoner**: Advanced tableaux-based reasoning with SROIQ(D) algorithm
-- **OwlReasoner**: Main reasoning engine supporting multiple reasoning strategies
-- **Advanced Test Suite**: 85.7% pass rate across all reasoning modes
-- **Real-time classification**: Sub-20µs average reasoning time
-- **Scalable architecture**: Linear performance scaling to 10,000+ classes
+- Tableaux‑based reasoning engine with configurable limits/timeouts
+- Multiple reasoning strategies under a unified API
+- Scalable architecture; performance validated with Criterion benches
 
 ## 🎯 Project Overview
 
@@ -71,10 +69,13 @@ Benchmark comparisons with other reasoners are available in the benchmarking fol
 
 ## 🚀 Getting Started
 
+This crate lives in a Rust workspace together with a reusable test‑suite crate:
+- Core: `owl2-reasoner/` (this crate)
+- Test suite: `owl2-reasoner-test-suite/` (shared datasets/tests)
+
 ### Prerequisites
 - Rust 1.70+
-- Java 11+ (for benchmark comparisons)
-- Maven 3.6+ (for building OWLAPI dependencies)
+- Optional (for external comparisons): Java 11+ and Maven 3.6+
 
 ### Installation
 
@@ -83,19 +84,24 @@ Benchmark comparisons with other reasoners are available in the benchmarking fol
 git clone https://github.com/anusornc/owl2-reasoner.git
 cd owl2-reasoner
 
-# Build the main reasoner
-cargo build --release
+# Build (this crate)
+cargo build
 
-# Build CLI tool
-cargo build --bin owl2-reasoner-cli
+# Build entire workspace
+cargo build --workspace
 
 # Run tests
-cargo test
+cargo test                 # workspace tests
+cargo test -p owl2-reasoner  # crate tests only
+
+# Format and lint
+cargo fmt --all
+cargo clippy --all-targets -- -D warnings
 
 # Parser feature flags
-# Streaming RDF/XML (rio-xml) is enabled by default in non-strict mode.
-# Disable to force legacy parser only:
-cargo test --no-default-features
+# Streaming RDF/XML support (feature `rio-xml`) is enabled by default.
+# Disable to force legacy RDF/XML path only:
+cargo test -p owl2-reasoner --no-default-features
 ```
 
 ### Quick Start
@@ -106,13 +112,13 @@ use owl2_reasoner::*;
 
 // Create and populate ontology
 let mut ontology = Ontology::new();
-let person_class = Class::new("http://example.org/Person")?;
+let person_class = Class::new("http://example.org/Person");
 ontology.add_class(person_class)?;
 
 // Initialize reasoner
 let reasoner = SimpleReasoner::new(ontology);
 
-// Check consistency (sub-10ms response)
+// Check consistency
 let is_consistent = reasoner.is_consistent()?;
 println!("Ontology consistent: {}", is_consistent);
 
@@ -151,21 +157,16 @@ let is_satisfiable = reasoner.is_class_satisfiable(&class_iri)?;
 let classification = reasoner.classify()?;
 ```
 
-#### CLI Usage
+#### Example CLI usage (via `cargo run --example`)
 ```bash
-# Consistency checking (sub-10ms)
-./target/release/owl2-reasoner-cli --consistent ontology.ttl
-
-# Classification (sub-15ms)
-./target/release/owl2-reasoner-cli --classify ontology.ttl
-
-# Query interface
-./target/release/owl2-reasoner-cli --query "SELECT ?class WHERE { ?class rdfs:subClassOf :Person }" ontology.ttl
+# Consistency/classification helpers
+cargo run --example benchmark_cli -- --consistent path/to/ontology.ttl
+cargo run --example benchmark_cli -- --classify  path/to/ontology.ttl
 ```
 
 ## 📚 Project Structure
 
-The project has been reorganized with a clean, modular structure:
+The project is structured as a workspace with a modular core crate:
 
 ```
 owl2-reasoner/
@@ -182,43 +183,43 @@ owl2-reasoner/
 │   └── advanced/          # Advanced use cases
 │       ├── comparative_analysis.rs
 │       └── epcis_validation_suite.rs
-├── benches/               # Rust Criterion benchmarks
-│   ├── parser_bench.rs    # Turtle parsing benchmarks
-│   └── rdfxml_parser_bench.rs  # RDF/XML parsing benchmarks
+├── benches/               # Criterion benches (targeted)
+│   ├── parser_bench.rs        # Turtle parsing
+│   ├── rdfxml_parser_bench.rs # RDF/XML parsing
+│   ├── reasoning_bench.rs     # Reasoning paths
+│   └── query_bench.rs         # Query engine
 ├── tests/                 # Unit and integration tests
 ├── benchmarking/          # External benchmarking framework
 │   ├── framework/         # Python benchmarking tools
 │   ├── established_reasoners/  # External reasoners (HermiT, ELK, etc.)
 │   └── datasets/          # Benchmark datasets (LUBM, SP2B, BioPortal)
-├── scripts/               # Utility scripts
-│   ├── run_benchmarks.sh  # Complete benchmark suite
-│   └── validate_system.sh # System validation
+├── scripts/               # Utility scripts (see Scripts section)
 ├── archive/               # Legacy and historical components
 └── docs/                  # Documentation (organized by category)
 
 ## 🔧 Parser Modes & Features
 
-- RDF/XML streaming (rio-xml): default feature. In non-strict mode, the parser uses streaming to reduce memory.
-- Strict mode: forces stricter validation and may use the legacy path for parity.
+- RDF/XML streaming (`rio-xml` feature): enabled by default. When `strict_validation` is false, the streaming backend is used to reduce memory usage.
+- Strict mode (default in ParserConfig): validates input rigorously and uses the legacy parser path.
 
 Examples:
-- Non-strict (default): `cargo test` uses streaming RDF/XML.
-- Strict validation (example in code via ParserConfig): switch to strict to validate input rigorously.
-- Disable streaming feature: `cargo test --no-default-features`.
+- Strict validation (default): `ParserConfig::default()` sets `strict_validation: true`.
+- Non‑strict (streaming): set `strict_validation: false` in `ParserConfig` to prefer streaming RDF/XML.
+- Disable streaming feature entirely: `cargo test --no-default-features`.
 
 ### Usage: RDF/XML Streaming vs Strict
 ```rust
-use owl2_reasoner::parser::{Parser, ParserConfig};
+use owl2_reasoner::parser::{RdfXmlParser, ParserConfig, OntologyParser};
 
-// Non-strict mode (default behavior): uses streaming RDF/XML when feature is enabled
+// Non‑strict mode: uses streaming RDF/XML when feature is enabled
 let cfg = ParserConfig { strict_validation: false, ..Default::default() };
-let mut parser = Parser::with_config(cfg);
-let onto_streaming = parser.parse_path("examples/ontologies/sample.rdf")?;
+let parser = RdfXmlParser::with_config(cfg);
+let onto_streaming = parser.parse_file(std::path::Path::new("examples/ontologies/sample.rdf"))?;
 
-// Strict mode: validates input rigorously; may use legacy RDF/XML path for parity
+// Strict mode (default): validates input rigorously; uses legacy RDF/XML path
 let strict_cfg = ParserConfig { strict_validation: true, ..Default::default() };
-let mut strict_parser = Parser::with_config(strict_cfg);
-let onto_strict = strict_parser.parse_path("examples/ontologies/sample.rdf")?;
+let strict_parser = RdfXmlParser::with_config(strict_cfg);
+let onto_strict = strict_parser.parse_file(std::path::Path::new("examples/ontologies/sample.rdf"))?;
 
 assert_eq!(onto_streaming.entities_len(), onto_strict.entities_len());
 ```
@@ -232,19 +233,31 @@ The W3C-style test runner lives in a separate crate to keep the core lean:
 
 Usage:
 - From `owl2-reasoner/`: `cargo run --example test_suite_runner`
-- As a dependency (in another project): add `owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }`.
+- As a dependency: add `owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }` to your dev‑dependencies.
+Note: the runner loads zero cases unless you point it to a populated test‑suite directory; see the config in `owl2-reasoner-test-suite/src/lib.rs`.
+
+Runner flags (examples):
+```bash
+# Point to a specific suite directory and output location
+cargo run --example test_suite_runner -- \
+  --suite-dir ./test_suite/owl2 \
+  --out ./test_results \
+  --timeout 60 \
+  --jobs 8
+
+# Include extra-credit tests
+cargo run --example test_suite_runner -- --extra-credit
+```
 
 ## 📈 Benchmarks
 
-- Internal Criterion benchmarks in `benches/`.
-- Run all benches: `cargo bench`
-- Turtle parsing: `cargo bench --bench parser_bench`
-- RDF/XML parsing: `cargo bench --bench rdfxml_parser_bench` (default uses streaming; disable with `--no-default-features`).
-    ├── performance/        # Performance analysis
-    ├── project/           # Project management
-    ├── technical/         # Technical specifications
-    └── archive/           # Historical documents
-```
+- Criterion benches live in `benches/`.
+- Run targeted benches:
+  - Turtle parsing: `cargo bench --bench parser_bench`
+  - RDF/XML parsing: `cargo bench --bench rdfxml_parser_bench`
+  - Reasoning: `cargo bench --bench reasoning_bench`
+  - Query engine: `cargo bench --bench query_bench`
+- Aggregate bench binaries are placeholders to keep `cargo test --all-targets` green. Prefer targeted benches above.
 
 ### Key Documentation
 - **API Documentation**: `target/doc/owl2_reasoner/` (generated with `cargo doc`)
@@ -258,17 +271,17 @@ Usage:
 ### Running Tests
 
 ```bash
-# Run all tests (152 tests)
+# Run all workspace tests
 cargo test
 
-# Run library tests only
-cargo test --lib
+# Run crate library tests only
+cargo test -p owl2-reasoner --lib
 
 # Run specific test modules
 cargo test validation
 cargo test reasoning
 
-# Run tests with release mode for performance testing
+# Run tests with release mode (timing/perf checks)
 cargo test --release
 ```
 
@@ -307,6 +320,11 @@ cargo run --example complete_validation
 # Advanced examples
 cargo run --example comparative_analysis
 cargo run --example epcis_validation_suite
+cargo run --example real_world_simulation
+
+# EPCIS examples (focus)
+cargo run --example epcis_validation_suite      # EPCIS compliance/validation
+cargo run --example real_world_simulation       # Large‑scale EPCIS simulation
 ```
 
 ## 📊 Benchmarking
@@ -317,10 +335,16 @@ cargo run --example epcis_validation_suite
 # Run comprehensive benchmark suite
 ./scripts/run_benchmarks.sh
 
-# Run Rust Criterion benchmarks (optimized, no timeouts)
-cargo bench --bench basic_benchmarks
-cargo bench --bench performance_validation
-cargo bench --bench scale_testing
+# Run Rust Criterion benchmarks (release mode)
+cargo bench --bench parser_bench
+cargo bench --bench rdfxml_parser_bench
+cargo bench --bench reasoning_bench
+cargo bench --bench query_bench
+
+# Build benches without executing (fast sanity check)
+cargo bench --no-run
+# Or only one bench target without running
+cargo bench --no-run --bench parser_bench
 
 # Run external reasoner comparisons
 cd benchmarking/established_reasoners
@@ -329,6 +353,53 @@ python3 run_simple_comprehensive_benchmark.py
 # Quick benchmark test
 python3 run_simple_comprehensive_benchmark.py --quick
 ```
+
+### External Benchmarks (LUBM/UOBM, Established Reasoners)
+
+This project includes an external benchmarking harness to compare against established Java reasoners (ELK, HermiT, JFact, Pellet) using the university‑domain LUBM and UOBM suites.
+
+Prerequisites
+- Install Java 11+ and Maven 3.6+ locally
+- Prepare datasets offline (no network fetch in this environment):
+  - Place LUBM datasets under `benchmarking/datasets/lubm/`:
+    - `benchmarking/datasets/lubm/lubm1/*.ttl`
+    - `benchmarking/datasets/lubm/lubm5/*.ttl`
+  - Place UOBM datasets under `benchmarking/datasets/uobm/`:
+    - `benchmarking/datasets/uobm/uobm1/*.{owl,rdf,ttl}`
+    - `benchmarking/datasets/uobm/uobm5/*.{owl,rdf,ttl}`
+
+Run external comparisons
+```bash
+cd benchmarking
+
+# Optional one-time setup (creates/validates structure and config)
+python3 framework/setup_benchmarks.py --base-dir .
+
+# Full run: LUBM + UOBM, all reasoners, 5 iterations, Markdown output
+python3 framework/enhanced_benchmark_framework.py \
+  --suites LUBM,UOBM \
+  --reasoners all \
+  --iterations 5 \
+  --output-format markdown \
+  --out results
+
+# Targeted run: LUBM sizes 1 and 5 only
+python3 framework/enhanced_benchmark_framework.py \
+  --suites LUBM \
+  --sizes 1,5 \
+  --reasoners all \
+  --iterations 5 \
+  --output-format markdown \
+  --out results
+```
+
+Output
+- Main report (Markdown): `benchmarking/results/Benchmark_Report.md`
+- Per‑run artifacts (JSON/CSV) may be emitted alongside, depending on framework settings.
+
+Notes
+- If any reasoner binaries or JARs need setup, use `benchmarking/setup_reasoners.sh` or follow the notes in `benchmarking/README_Enhanced_Benchmarking.md` and `benchmarking/IMPLEMENTATION_SUMMARY.md`.
+- The external harness reads `benchmarking/config.json` for paths and parameters; adjust if you keep datasets elsewhere.
 
 ### Benchmark Results
 
@@ -396,18 +467,28 @@ cargo doc --no-deps
 
 ### Project Scripts
 
-- `validate_system.sh` - Comprehensive system validation
-- `run_benchmarks.sh` - Complete benchmark suite
-- `update_docs.sh` - Documentation update and generation
-- `build-technical-docs.sh` - Technical documentation build
+- `scripts/validate_system.sh`
+  - Builds, runs unit/integration tests, and exercises key examples.
+  - Usage: from `owl2-reasoner/`: `./scripts/validate_system.sh`
+
+- `scripts/run_benchmarks.sh`
+  - Runs the release build, targeted Criterion benches, then the Python framework and report generator (if available).
+  - Usage: `./scripts/run_benchmarks.sh`
+
+- `scripts/update_docs.sh`
+  - Builds Rustdoc, checks core examples, builds mdBook in `docs/`, and optionally builds Typst technical docs.
+  - Usage: `./scripts/update_docs.sh "Description of changes"`
+  - Requirements: `mdbook` installed; optional `typst` for technical PDF.
+
+- `scripts/build-technical-docs.sh`
+  - Directly builds the Typst technical documentation to `docs/technical-documentation/output/`.
+  - Usage: `./scripts/build-technical-docs.sh`
 
 ## 📈 Performance Characteristics
 
-### Measured Performance
-- **Response Times**: 5-15ms for typical ontologies
-- **Memory Usage**: 150-390 bytes per entity (conservative)
-- **Reasoning Speed**: ~100,000 inferences per second
-- **Scalability**: Linear to 10,000+ entities
+### Notes on Performance
+- Prefer `--release` for measurements and benches.
+- Treat README numbers as informative; rely on local Criterion results.
 
 ### Real-World Applications
 - **Interactive Tools**: Real-time ontology editing and validation
@@ -417,18 +498,9 @@ cargo doc --no-deps
 
 ## 🔬 Research Contributions
 
-### Academic Impact
-1. **Native Implementation Superiority**: Demonstrates 30.7x performance advantage vs HermiT
-2. **Memory Efficiency**: 25x reduction in memory footprint vs JVM implementations
-3. **Real-Time Viability**: Sub-10ms response enables new application classes
-4. **Scientific Benchmarking**: Comprehensive methodology for reasoner evaluation
-5. **Benchmark Optimization**: Eliminated timeout issues in Criterion benchmarks
-
-### Publication Ready
-- **Complete methodology**: Transparent experimental design
-- **Statistical validation**: Significant performance improvements
-- **Reproducible results**: Full benchmark suite and data
-- **Comparative analysis**: 5-reasoner comprehensive study
+### Academic/Research Use
+- External comparisons (ELK, HermiT, JFact, Pellet) are supported via the `benchmarking/` folder; Java/Maven required.
+- Use results as informative baselines; rerun locally for current measurements.
 
 ## 🏗️ Architecture Details
 
@@ -474,27 +546,23 @@ cargo doc --no-deps --open
 
 ## 📊 Current Status
 
-### ✅ **Completed Features**
-- **Core OWL2 Reasoning Engine**: Complete SROIQ(D) implementation
-- **Multi-Format Parsers**: Turtle, RDF/XML, OWL/XML, N-Triples, OWL Functional Syntax
-- **CLI Interface**: Full command-line tool with timing
-- **Benchmarking Framework**: 5-way comparative analysis
-- **Performance Validation**: 30.7x speedup demonstrated vs HermiT
-- **Memory Management**: Efficient pooling and caching
-- **Type Safety**: 100% safe Rust code
-- **Documentation**: Comprehensive API and user guides
-- **Benchmark Optimization**: Eliminated Criterion timeout issues with optimized configurations
+### ✅ **Current Capabilities**
+- OWL2 reasoning engine with tableaux and rule‑based paths (practical SROIQ(D) subset)
+- Parsers: Turtle, RDF/XML (streaming available), OWL XML, N‑Triples; OWL Functional (in progress)
+- Benchmarks: Criterion benches and external comparison framework
+- Caching and memory pooling utilities; entity/IRI interning
+- Documentation: API docs, mdBook, and technical docs (Typst)
 
 ### 🔄 **In Progress**
-- **External Reasoner Integration**: Completing JFact and Pellet integration
-- **Parser Bug Fixes**: Resolving remaining format-specific issues
-- **Performance Optimization**: Further benchmark improvements
+- Parser/IRI validation modes (strict vs relaxed)
+- Bench aggregation re‑enablement (placeholders present)
+- EPCIS coverage and examples
 
 ### 📋 **Next Steps**
-1. **Complete External Reasoner Integration**: Resolve JFact and Pellet compatibility issues
-2. **Parser Format Coverage**: Achieve 100% success rate across all OWL formats
-3. **Performance Benchmarking**: Expand test suite with larger ontologies
-4. **Production Deployment**: Containerization and distribution optimization
+1. Re‑enable aggregator benches (currently placeholders)
+2. Expand strict vs relaxed IRI/parse validation tests
+3. Add EPCIS samples and end‑to‑end tests
+4. Tighten clippy across all targets and docs
 
 ## 📄 License
 

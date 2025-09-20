@@ -66,7 +66,7 @@ fn measure_response_times(c: &mut Criterion) {
 
                 // Perform basic reasoning operations
                 let _consistency = reasoner.is_consistent();
-                let _stats = reasoner.get_cache_stats();
+                let _ = reasoner.get_cache_stats();
 
                 // Test subclass reasoning for a few classes
                 let classes: Vec<_> = reasoner
@@ -170,7 +170,7 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("cache_efficiency", size), size, |b, _| {
             b.iter(|| {
                 // Reset cache stats for clean measurement
-                reasoner.reset_cache_stats();
+                let _ = reasoner.reset_cache_stats();
 
                 // Perform operations that use cache
                 for _ in 0..10 {
@@ -197,8 +197,10 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
                     }
                 }
 
-                let stats = reasoner.get_cache_stats();
-                let hit_rate = stats.hit_rate();
+                let hit_rate = reasoner
+                    .get_cache_stats()
+                    .map(|s| s.hit_rate())
+                    .unwrap_or(0.0);
 
                 // Record measurement (no assertions - just measurement)
                 black_box(hit_rate);
@@ -284,7 +286,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 // MEASUREMENT 1: Response time
                 let response_start = Instant::now();
                 let _consistency = reasoner.is_consistent();
-                let _stats = reasoner.get_cache_stats();
+                let _ = reasoner.get_cache_stats();
                 let response_time = response_start.elapsed().as_nanos() as f64 / 1_000_000.0;
 
                 // MEASUREMENT 2: Memory usage estimation
@@ -299,7 +301,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 let memory_per_entity_kb = (total_bytes / count.max(1)) as f64 / 1024.0;
 
                 // MEASUREMENT 3: Cache effectiveness
-                reasoner.reset_cache_stats();
+                let _ = reasoner.reset_cache_stats();
                 let _result = reasoner.warm_up_caches();
 
                 // Perform cache operations
@@ -317,8 +319,10 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                     }
                 }
 
-                let cache_stats = reasoner.get_cache_stats();
-                let hit_rate = cache_stats.hit_rate();
+                let hit_rate = reasoner
+                    .get_cache_stats()
+                    .map(|s| s.hit_rate())
+                    .unwrap_or(0.0);
 
                 // MEASUREMENT 4: Basic Arc sharing analysis
                 use std::collections::HashMap;
@@ -402,3 +406,4 @@ fn create_test_ontology(size: usize) -> Ontology {
 
 criterion_group!(benches, performance_validation_suite);
 criterion_main!(benches);
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

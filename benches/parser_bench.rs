@@ -1,8 +1,8 @@
 //! Parser performance benchmarks
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use owl2_reasoner::parser::OwlParser;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::parser::turtle::TurtleParser;
+use owl2_reasoner::OntologyParser;
 
 /// Benchmark Turtle parsing performance
 pub fn bench_turtle_parsing(c: &mut Criterion) {
@@ -38,13 +38,13 @@ pub fn bench_turtle_parsing(c: &mut Criterion) {
     ];
 
     for (name, content) in test_cases {
-        let mut parser = TurtleParser::new();
+        let parser = TurtleParser::new();
         group.bench_with_input(
             BenchmarkId::new("parse_turtle", name),
             &content,
             |b, content| {
                 b.iter(|| {
-                    let result = parser.parse(black_box(content));
+                    let result = parser.parse_str(black_box(content));
                     black_box(result);
                 })
             },
@@ -109,3 +109,4 @@ fn generate_large_turtle() -> String {
 
     content
 }
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

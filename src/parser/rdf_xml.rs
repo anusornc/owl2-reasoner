@@ -16,25 +16,80 @@ use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{OntologyParser, ParserConfig};
-#[cfg(feature = "rio-xml")]
-use rio_api::model::{Subject, Term};
+use crate::parser::{OntologyParser, ParserConfig, ParserArenaBuilder, ParserArenaTrait};
 #[cfg(feature = "rio-xml")]
 use rio_api::parser::TriplesParser as _;
 #[cfg(feature = "rio-xml")]
 use rio_xml::RdfXmlParser as RioRdfXmlParser;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 #[cfg(feature = "rio-xml")]
 use std::io::Cursor;
 use std::path::Path;
+
+/// Static string constants to avoid allocations
+static PREFIX_RDF: &str = "rdf";
+static NS_RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+static PREFIX_RDFS: &str = "rdfs";
+static NS_RDFS: &str = "http://www.w3.org/2000/01/rdf-schema#";
+static PREFIX_OWL: &str = "owl";
+static NS_OWL: &str = "http://www.w3.org/2002/07/owl#";
+static PREFIX_XSD: &str = "xsd";
+static NS_XSD: &str = "http://www.w3.org/2001/XMLSchema#";
+#[allow(dead_code)]
+static NS_OWL_THING: &str = "http://www.w3.org/2002/07/owl#Thing";
+#[allow(dead_code)]
+static NS_XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
+
+/// Static strings for XML/RDF parsing
+static XMLNS: &str = "xmlns";
+static XMLNS_XML: &str = "xml:base";
+#[allow(dead_code)]
+static XML_LANG: &str = "xml:lang";
+static RDF_ABOUT: &str = "rdf:about";
+static RDF_RESOURCE: &str = "rdf:resource";
+#[allow(dead_code)]
+static RDF_ID: &str = "rdf:ID";
+#[allow(dead_code)]
+static RDF_NODE_ID: &str = "rdf:nodeID";
+static RDF_TYPE: &str = "rdf:type";
+static RDF_DESCRIPTION: &str = "rdf:Description";
+static RDF_RDF: &str = "rdf:RDF";
+static RDFS_SUBCLASSOF: &str = "rdfs:subClassOf";
+static RDFS_DOMAIN: &str = "rdfs:domain";
+static RDFS_RANGE: &str = "rdfs:range";
+
+/// Static strings for OWL elements
+static OWL_ONTOLOGY: &str = "owl:Ontology";
+static OWL_CLASS: &str = "owl:Class";
+static OWL_OBJECT_PROPERTY: &str = "owl:ObjectProperty";
+static OWL_DATATYPE_PROPERTY: &str = "owl:DatatypeProperty";
+static OWL_NAMED_INDIVIDUAL: &str = "owl:NamedIndividual";
+static OWL_RESTRICTION: &str = "owl:Restriction";
+static OWL_EQUIVALENT_CLASS: &str = "owl:equivalentClass";
+static OWL_DISJOINT_WITH: &str = "owl:disjointWith";
+#[allow(dead_code)]
+static OWL_INVERSE_OF: &str = "owl:inverseOf";
+#[allow(dead_code)]
+static OWL_PROPERTY_DISJOINT_WITH: &str = "owl:propertyDisjointWith";
+static OWL_IMPORTS: &str = "owl:imports";
+
+/// Static strings for error messages
+static ERR_EMPTY_ONTOLOGY: &str = "Ontology contains no entities or imports";
+static ERR_FILE_TOO_LARGE: &str = "File size exceeds maximum allowed size";
+static ERR_RIO_XML_PARSE: &str = "rio-xml parse error";
+static ERR_UNKNOWN_PROPERTY_CHAR: &str = "Unknown property characteristic";
 
 /// RDF/XML format parser
 pub struct RdfXmlParser {
     pub config: ParserConfig,
     namespaces: HashMap<String, String>,
     base_iri: Option<IRI>,
+    #[allow(dead_code)]
     blank_node_counter: u32,
     resource_map: HashMap<String, ResourceInfo>,
+    /// Arena allocator for efficient string and object allocation
+    #[allow(dead_code)]
+    arena: Option<Box<dyn ParserArenaTrait>>,
 }
 
 impl RdfXmlParser {
@@ -46,27 +101,24 @@ impl RdfXmlParser {
     /// Create a new RDF/XML parser with custom configuration
     pub fn with_config(config: ParserConfig) -> Self {
         let mut namespaces = HashMap::new();
-        // Add standard OWL2 namespaces
-        namespaces.insert(
-            "rdf".to_string(),
-            "http://www.w3.org/1999/02/22-rdf-syntax-ns#".to_string(),
-        );
-        namespaces.insert(
-            "rdfs".to_string(),
-            "http://www.w3.org/2000/01/rdf-schema#".to_string(),
-        );
-        namespaces.insert(
-            "owl".to_string(),
-            "http://www.w3.org/2002/07/owl#".to_string(),
-        );
-        namespaces.insert(
-            "xsd".to_string(),
-            "http://www.w3.org/2001/XMLSchema#".to_string(),
-        );
+        // Add standard OWL2 namespaces using static constants
+        namespaces.insert(PREFIX_RDF.to_string(), NS_RDF.to_string());
+        namespaces.insert(PREFIX_RDFS.to_string(), NS_RDFS.to_string());
+        namespaces.insert(PREFIX_OWL.to_string(), NS_OWL.to_string());
+        namespaces.insert(PREFIX_XSD.to_string(), NS_XSD.to_string());
 
         for (prefix, namespace) in &config.prefixes {
             namespaces.insert(prefix.clone(), namespace.clone());
         }
+
+        // Initialize arena allocator if enabled
+        let arena = if config.use_arena_allocation {
+            Some(ParserArenaBuilder::new()
+                .with_capacity(config.arena_capacity)
+                .build())
+        } else {
+            None
+        };
 
         RdfXmlParser {
             config,
@@ -74,6 +126,33 @@ impl RdfXmlParser {
             base_iri: None,
             blank_node_counter: 0,
             resource_map: HashMap::new(),
+            arena,
+        }
+    }
+
+    /// Get a reference to the arena allocator
+    #[allow(dead_code)]
+    fn arena(&self) -> Option<&dyn ParserArenaTrait> {
+        self.arena.as_deref()
+    }
+
+    /// Allocate a string in the arena if available, otherwise return the original
+    #[allow(dead_code)]
+    fn alloc_string<'a>(&'a self, s: &'a str) -> &'a str {
+        if let Some(arena) = self.arena() {
+            arena.arena().alloc_str(s)
+        } else {
+            s
+        }
+    }
+
+    /// Allocate a string in the arena if available, otherwise clone
+    #[allow(dead_code)]
+    fn alloc_string_clone(&self, s: &str) -> String {
+        if let Some(arena) = self.arena() {
+            arena.arena().alloc_str(s).to_string()
+        } else {
+            s.to_string()
         }
     }
 
@@ -81,7 +160,7 @@ impl RdfXmlParser {
     fn parse_content(&mut self, content: &str) -> OwlResult<Ontology> {
         if self.config.strict_validation && content.trim().is_empty() {
             return Err(crate::error::OwlError::ValidationError(
-                "Ontology contains no entities or imports".to_string(),
+                ERR_EMPTY_ONTOLOGY.to_string(),
             ));
         }
         // Non-strict mode: always use streaming RDF/XML if available
@@ -139,20 +218,23 @@ impl RdfXmlParser {
                             // Handle property characteristics first
                             match o_str {
                                 "http://www.w3.org/2002/07/owl#FunctionalProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                                    let ax = FunctionalPropertyAxiom::new(s.clone());
+                                    let prop_iri = s.clone();
+                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let ax = FunctionalPropertyAxiom::new(prop_iri);
                                     let _ = ontology.add_axiom(Axiom::FunctionalProperty(ax));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#InverseFunctionalProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                                    let ax = InverseFunctionalPropertyAxiom::new(s.clone());
+                                    let prop_iri = s.clone();
+                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let ax = InverseFunctionalPropertyAxiom::new(prop_iri);
                                     let _ = ontology.add_axiom(Axiom::InverseFunctionalProperty(ax));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#SymmetricProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                                    let ax = SymmetricPropertyAxiom::new(s.clone());
+                                    let prop_iri = s.clone();
+                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let ax = SymmetricPropertyAxiom::new(prop_iri);
                                     let _ = ontology.add_axiom(Axiom::SymmetricProperty(ax));
                                     return Ok(());
                                 }
@@ -241,56 +323,6 @@ impl RdfXmlParser {
                             let ax = SubClassOfAxiom::new(sub, all);
                             let _ = ontology.add_axiom(Axiom::SubClassOf(ax));
                         }
-                    }
-                    // Property characteristics by rdf:type
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#FunctionalProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = FunctionalPropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::FunctionalProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#InverseFunctionalProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = InverseFunctionalPropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::InverseFunctionalProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#SymmetricProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = SymmetricPropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::SymmetricProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#TransitiveProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = TransitivePropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::TransitiveProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#ReflexiveProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = ReflexivePropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::ReflexiveProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#IrreflexiveProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = IrreflexivePropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::IrreflexiveProperty(ax));
-                    }
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" if obj_iri
-                        .as_ref()
-                        .is_some_and(|o| o.as_str() == "http://www.w3.org/2002/07/owl#AsymmetricProperty") => {
-                            let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
-                            let ax = AsymmetricPropertyAxiom::new(s.clone());
-                            let _ = ontology.add_axiom(Axiom::AsymmetricProperty(ax));
                     }
                     // rdfs:subClassOf
                     "http://www.w3.org/2000/01/rdf-schema#subClassOf" => {
@@ -395,8 +427,8 @@ impl RdfXmlParser {
 
         if let Err(e) = res {
             return Err(crate::error::OwlError::ParseError(format!(
-                "rio-xml parse error: {}",
-                e
+                "{}: {}",
+                ERR_RIO_XML_PARSE, e
             )));
         }
 
@@ -429,7 +461,7 @@ impl RdfXmlParser {
             if c == '<' {
                 if let Some(element) = self.parse_element(&mut chars)? {
                     // Look for RDF root element - could be "rdf:RDF" or just "RDF" depending on namespace handling
-                    if element.name == "rdf:RDF" || element.name == "RDF" {
+                    if element.name == RDF_RDF || element.name == "RDF" {
                         document.root = Some(Box::new(element));
                         root_found = true;
                         break;
@@ -909,12 +941,12 @@ impl RdfXmlParser {
         if let Some(root) = &document.root {
             // Process RDF root attributes
             for (key, value) in &root.attributes {
-                if key == "xml:base" {
+                if key == XMLNS_XML {
                     self.base_iri = Some(IRI::new(value)?);
                 } else if let Some(prefix) = key.strip_prefix("xmlns:") {
                     self.namespaces
                         .insert(prefix.to_string(), value.to_string());
-                } else if key == "xmlns" {
+                } else if key == XMLNS {
                     self.namespaces.insert("".to_string(), value.to_string());
                 }
             }
@@ -938,19 +970,21 @@ impl RdfXmlParser {
         let element_name = element.name.trim_start_matches('<');
 
         match element_name {
-            "owl:Ontology" => self.process_ontology_element(ontology, element),
-            "owl:Class" => self.process_class_element(ontology, element),
-            "owl:ObjectProperty" => self.process_object_property_element(ontology, element),
-            "owl:DatatypeProperty" => self.process_data_property_element(ontology, element),
-            "owl:NamedIndividual" => self.process_named_individual_element(ontology, element),
-            "owl:Restriction" => self.process_restriction_element(ontology, element),
-            "rdf:Description" => self.process_description_element(ontology, element),
-            "rdfs:subClassOf" => self.process_subclass_element(ontology, element),
-            "owl:equivalentClass" => self.process_equivalent_class_element(ontology, element),
-            "owl:disjointWith" => self.process_disjoint_class_element(ontology, element),
+            s if s == OWL_ONTOLOGY => self.process_ontology_element(ontology, element),
+            s if s == OWL_CLASS => self.process_class_element(ontology, element),
+            s if s == OWL_OBJECT_PROPERTY => self.process_object_property_element(ontology, element),
+            s if s == OWL_DATATYPE_PROPERTY => self.process_data_property_element(ontology, element),
+            s if s == OWL_NAMED_INDIVIDUAL => self.process_named_individual_element(ontology, element),
+            s if s == OWL_RESTRICTION => self.process_restriction_element(ontology, element),
+            s if s == RDF_DESCRIPTION => self.process_description_element(ontology, element),
+            s if s == RDFS_SUBCLASSOF => self.process_subclass_element(ontology, element),
+            s if s == OWL_EQUIVALENT_CLASS => self.process_equivalent_class_element(ontology, element),
+            s if s == OWL_DISJOINT_WITH => self.process_disjoint_class_element(ontology, element),
+            s if s == RDFS_DOMAIN => self.process_domain_range_element(ontology, element),
+            s if s == RDFS_RANGE => self.process_domain_range_element(ontology, element),
             "rdfs:subPropertyOf" => self.process_subproperty_element(ontology, element),
             "owl:equivalentProperty" => self.process_equivalent_property_element(ontology, element),
-            "rdf:type" => self.process_type_element(ontology, element),
+            s if s == RDF_TYPE => self.process_type_element(ontology, element),
             "owl:intersectionOf" => self.process_intersection_element(ontology, element),
             "owl:unionOf" => self.process_union_element(ontology, element),
             "owl:complementOf" => self.process_complement_element(ontology, element),
@@ -971,15 +1005,15 @@ impl RdfXmlParser {
         ontology: &mut Ontology,
         element: &XmlElement,
     ) -> OwlResult<()> {
-        if let Some(about) = element.attributes.get("rdf:about") {
+        if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = self.resolve_iri(about)?;
             ontology.set_iri(iri);
         }
 
         // Process imports
         for child in &element.children {
-            if child.name == "owl:imports" {
-                if let Some(resource) = child.attributes.get("rdf:resource") {
+            if child.name == OWL_IMPORTS {
+                if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
                     let import_iri = self.resolve_iri(resource)?;
                     ontology.add_import(import_iri);
                 }
@@ -995,7 +1029,7 @@ impl RdfXmlParser {
         ontology: &mut Ontology,
         element: &XmlElement,
     ) -> OwlResult<()> {
-        if let Some(about) = element.attributes.get("rdf:about") {
+        if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let class_iri = self.resolve_iri(about)?;
             let class = Class::new(class_iri.clone());
             let _class_iri_str = class_iri.to_string();
@@ -1007,7 +1041,7 @@ impl RdfXmlParser {
             let mut resource_info = ResourceInfo {
                 iri: Some(class_iri),
                 blank_node_id: None,
-                element_type: "owl:Class".to_string(),
+                element_type: OWL_CLASS.to_string(),
                 properties: HashMap::new(),
                 class_expressions: Vec::new(),
             };
@@ -1297,6 +1331,7 @@ impl RdfXmlParser {
     }
 
     /// Process disjoint property relationship
+    #[allow(dead_code)]
     fn process_disjoint_property_element(
         &mut self,
         ontology: &mut Ontology,
@@ -1309,6 +1344,17 @@ impl RdfXmlParser {
             let axiom = DisjointObjectPropertiesAxiom::new(vec![subject, object]);
             ontology.add_axiom(Axiom::DisjointObjectProperties(axiom))?;
         }
+        Ok(())
+    }
+
+    /// Process domain/range relationship (optimized for both domain and range)
+    fn process_domain_range_element(
+        &mut self,
+        _ontology: &mut Ontology,
+        _element: &XmlElement,
+    ) -> OwlResult<()> {
+        // Domain and range are handled in the streaming parser
+        // In non-streaming mode, they would be processed here
         Ok(())
     }
 
@@ -1552,8 +1598,8 @@ impl RdfXmlParser {
                 // Unknown characteristic, ignore in non-strict mode
                 if self.config.strict_validation {
                     return Err(crate::error::OwlError::ParseError(format!(
-                        "Unknown property characteristic: {}",
-                        char_iri
+                        "{}: {}",
+                        ERR_UNKNOWN_PROPERTY_CHAR, char_iri
                     )));
                 }
             }
@@ -1660,6 +1706,7 @@ impl RdfXmlParser {
     }
 
     /// Parse XML attributes (legacy method for backward compatibility)
+    #[allow(dead_code)]
     fn parse_attributes(&mut self, attr_content: &str, element: &mut XmlElement) {
         let attr_parts: Vec<&str> = attr_content.split_whitespace().collect();
         for part in attr_parts {
@@ -1676,7 +1723,7 @@ impl RdfXmlParser {
                     if let Some(prefix) = key.strip_prefix("xmlns:") {
                         self.namespaces
                             .insert(prefix.to_string(), clean_value.to_string());
-                    } else if key == "xmlns" {
+                    } else if key == XMLNS {
                         self.namespaces
                             .insert("".to_string(), clean_value.to_string());
                     }
@@ -1702,7 +1749,7 @@ impl RdfXmlParser {
                 && ontology.imports().is_empty()
             {
                 return Err(crate::error::OwlError::ValidationError(
-                    "Ontology contains no entities or imports".to_string(),
+                    ERR_EMPTY_ONTOLOGY.to_string(),
                 ));
             }
         }
@@ -1728,8 +1775,8 @@ impl OntologyParser for RdfXmlParser {
             let metadata = fs::metadata(path)?;
             if metadata.len() > self.config.max_file_size as u64 {
                 return Err(crate::error::OwlError::ParseError(format!(
-                    "File size exceeds maximum allowed size: {} bytes",
-                    self.config.max_file_size
+                    "{}: {} bytes",
+                    ERR_FILE_TOO_LARGE, self.config.max_file_size
                 )));
             }
         }
@@ -1762,6 +1809,7 @@ struct XmlDocument {
 
 /// XML declaration information
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct XmlDeclaration {
     version: String,
     encoding: Option<String>,
@@ -1770,6 +1818,7 @@ struct XmlDeclaration {
 
 /// XML element with full content and structure
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct XmlElement {
     name: String,
     namespace: Option<String>,
@@ -1781,6 +1830,7 @@ struct XmlElement {
 
 /// Resource information for tracking RDF subjects
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ResourceInfo {
     iri: Option<IRI>,
     blank_node_id: Option<String>,
@@ -1791,6 +1841,7 @@ struct ResourceInfo {
 
 /// Property information for resources
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ResourceProperty {
     property_iri: IRI,
     value: ResourceValue,
@@ -1798,6 +1849,7 @@ struct ResourceProperty {
 
 /// Property values in RDF/XML
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum ResourceValue {
     Resource(IRI),
     BlankNode(String),

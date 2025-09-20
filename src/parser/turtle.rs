@@ -1,20 +1,41 @@
 //! Turtle/TTL format parser for OWL2 ontologies
 //!
 //! Implements parsing of the Terse RDF Triple Language format.
+#![allow(dead_code)]
 
 use crate::axioms::*;
 use crate::entities::*;
-use crate::error::OwlResult;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{OntologyParser, ParserConfig};
-use std::collections::HashMap;
+use crate::parser::{OntologyParser, ParserConfig, ParserArenaBuilder, ParserArenaTrait};
+use hashbrown::HashMap;
+use smallvec::SmallVec;
 use std::path::Path;
+
+/// Static string constants to avoid allocations
+static PREFIX_OWL: &str = "owl";
+static PREFIX_RDF: &str = "rdf";
+static PREFIX_RDFS: &str = "rdfs";
+static PREFIX_XSD: &str = "xsd";
+
+static NS_OWL: &str = "http://www.w3.org/2002/07/owl#";
+static NS_RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+static NS_RDFS: &str = "http://www.w3.org/2000/01/rdf-schema#";
+static NS_XSD: &str = "http://www.w3.org/2001/XMLSchema#";
+
+static ERR_EMPTY_ONTOLOGY: &str = "Ontology contains no entities or imports";
+static ERR_EXPECTED_DOT: &str = "Expected '.' at end of statement";
+static ERR_MALFORMED_PREFIX: &str = "Malformed @prefix: missing trailing ':'";
+static ERR_MALFORMED_PREFIX_NS: &str = "Malformed @prefix: namespace must be <...>";
+static ERR_MALFORMED_PREFIX_DECL: &str = "Malformed @prefix declaration";
 
 /// Turtle format parser
 pub struct TurtleParser {
     config: ParserConfig,
     prefixes: HashMap<String, String>,
+    /// Arena allocator for efficient string and object allocation
+    arena: Option<Box<dyn ParserArenaTrait>>,
 }
 
 impl TurtleParser {
@@ -31,28 +52,53 @@ impl TurtleParser {
         }
 
         // Add standard OWL/RDF prefixes by default for robustness
-        prefixes
-            .entry("owl".to_string())
-            .or_insert_with(|| "http://www.w3.org/2002/07/owl#".to_string());
-        prefixes
-            .entry("rdf".to_string())
-            .or_insert_with(|| "http://www.w3.org/1999/02/22-rdf-syntax-ns#".to_string());
-        prefixes
-            .entry("rdfs".to_string())
-            .or_insert_with(|| "http://www.w3.org/2000/01/rdf-schema#".to_string());
-        prefixes
-            .entry("xsd".to_string())
-            .or_insert_with(|| "http://www.w3.org/2001/XMLSchema#".to_string());
+        prefixes.insert(PREFIX_OWL.to_string(), NS_OWL.to_string());
+        prefixes.insert(PREFIX_RDF.to_string(), NS_RDF.to_string());
+        prefixes.insert(PREFIX_RDFS.to_string(), NS_RDFS.to_string());
+        prefixes.insert(PREFIX_XSD.to_string(), NS_XSD.to_string());
 
-        TurtleParser { config, prefixes }
+        // Initialize arena allocator if enabled
+        let arena = if config.use_arena_allocation {
+            Some(ParserArenaBuilder::new()
+                .with_capacity(config.arena_capacity)
+                .build())
+        } else {
+            None
+        };
+
+        TurtleParser { config, prefixes, arena }
+    }
+
+    /// Get a reference to the arena allocator
+    fn arena(&self) -> Option<&dyn ParserArenaTrait> {
+        self.arena.as_deref()
+    }
+
+    /// Allocate a string in the arena if available, otherwise return the original
+    fn alloc_string<'a>(&'a self, s: &'a str) -> &'a str {
+        if let Some(arena) = self.arena() {
+            arena.arena().alloc_str(s)
+        } else {
+            s
+        }
+    }
+
+    /// Allocate a string in the arena if available, otherwise clone
+    fn alloc_string_clone(&self, s: &str) -> String {
+        if let Some(arena) = self.arena() {
+            arena.arena().alloc_str(s).to_string()
+        } else {
+            s.to_string()
+        }
     }
 
     /// Parse Turtle content and build an ontology
     fn parse_content(&mut self, content: &str) -> OwlResult<Ontology> {
+        // Comprehensive input validation
+        self.validate_parser_input(content)?;
+
         if self.config.strict_validation && content.trim().is_empty() {
-            return Err(crate::error::OwlError::ValidationError(
-                "Ontology contains no entities or imports".to_string(),
-            ));
+            return Err(OwlError::ValidationError(ERR_EMPTY_ONTOLOGY.to_string()));
         }
         let mut ontology = Ontology::new();
 
@@ -80,9 +126,7 @@ impl TurtleParser {
             if self.config.strict_validation
                 && !(stmt.ends_with('.') || stmt.ends_with(';') || stmt.ends_with(','))
             {
-                return Err(crate::error::OwlError::ParseError(
-                    "Expected '.' at end of statement".to_string(),
-                ));
+                return Err(crate::error::OwlError::ParseError(ERR_EXPECTED_DOT.to_string()));
             }
 
             // Parse triples (simplified)
@@ -110,29 +154,26 @@ impl TurtleParser {
 
             // Validate prefix token ends with ':'
             if !prefix_token.ends_with(':') {
-                return Err(crate::error::OwlError::ParseError(
-                    "Malformed @prefix: missing trailing ':'".to_string(),
-                ));
+                return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX.to_string()));
             }
             let prefix = prefix_token.trim_end_matches(':');
 
             // Namespace must be enclosed in <>
             if !(ns_token.starts_with('<') && ns_token.ends_with('>')) {
-                return Err(crate::error::OwlError::ParseError(
-                    "Malformed @prefix: namespace must be <...>".to_string(),
-                ));
+                return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_NS.to_string()));
             }
             let namespace = ns_token.trim_matches('<').trim_matches('>');
-            return Ok((prefix.to_string(), namespace.to_string()));
+
+            // Use arena allocation for prefix and namespace strings
+            let prefix_str = self.alloc_string_clone(prefix);
+            let namespace_str = self.alloc_string_clone(namespace);
+
+            return Ok((prefix_str, namespace_str));
         }
         if self.config.strict_validation {
-            return Err(crate::error::OwlError::ParseError(
-                "Malformed @prefix declaration".to_string(),
-            ));
+            return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()));
         }
-        Err(crate::error::OwlError::ParseError(
-            "Malformed @prefix declaration".to_string(),
-        ))
+        Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()))
     }
 
     /// Parse a Turtle triple with support for complex constructs
@@ -146,7 +187,7 @@ impl TurtleParser {
 
         let subject = self.parse_subject(&tokens[0])?;
         let predicate = self.parse_predicate(&tokens[1])?;
-        let (object, remaining_tokens) = self.parse_object(&tokens[2..])?;
+        let (object, _remaining_tokens) = self.parse_object(&tokens[2..])?;
 
         Some((subject, predicate, object))
     }
@@ -169,7 +210,8 @@ impl TurtleParser {
                 '[' if !in_quotes => {
                     if bracket_depth == 0 {
                         if !current.trim().is_empty() {
-                            tokens.push(current.trim().to_string());
+                            let token = self.alloc_string_clone(current.trim());
+                            tokens.push(token);
                             current.clear();
                         }
                         in_blank_node = true;
@@ -181,7 +223,8 @@ impl TurtleParser {
                     bracket_depth -= 1;
                     current.push(c);
                     if bracket_depth == 0 {
-                        tokens.push(current.clone());
+                        let token = self.alloc_string_clone(&current);
+                        tokens.push(token);
                         current.clear();
                         in_blank_node = false;
                     }
@@ -196,7 +239,8 @@ impl TurtleParser {
                 }
                 ' ' | '\t' if !in_quotes && bracket_depth == 0 => {
                     if !current.trim().is_empty() {
-                        tokens.push(current.trim().to_string());
+                        let token = self.alloc_string_clone(current.trim());
+                        tokens.push(token);
                         current.clear();
                     }
                 }
@@ -207,7 +251,8 @@ impl TurtleParser {
         }
 
         if !current.trim().is_empty() {
-            tokens.push(current.trim().to_string());
+            let token = self.alloc_string_clone(current.trim());
+            tokens.push(token);
         }
 
         tokens
@@ -285,7 +330,7 @@ impl TurtleParser {
     }
 
     /// Parse blank node structure [ ... ]
-    fn parse_blank_node_structure(&self, content: &str) -> Option<(NestedObject, usize)> {
+    fn parse_blank_node_structure(&self, _content: &str) -> Option<(NestedObject, usize)> {
         // For now, return a simple placeholder
         // In a full implementation, this would parse the nested structure
         let nested_object = NestedObject {
@@ -592,12 +637,12 @@ impl TurtleParser {
                 // Handle intersectionOf, unionOf, oneOf
                 if !nested.list_items.is_empty() {
                     // Default to intersection for collections
-                    let classes: Vec<ClassExpression> = nested
+                    let classes: SmallVec<[Box<ClassExpression>; 4]> = nested
                         .list_items
                         .iter()
                         .filter_map(|item| {
                             if let ObjectValue::IRI(iri) = item {
-                                Some(ClassExpression::Class(Class::new(iri.clone())))
+                                Some(Box::new(ClassExpression::Class(Class::new(iri.clone()))))
                             } else {
                                 None
                             }
@@ -709,6 +754,226 @@ impl OntologyParser for TurtleParser {
 impl Default for TurtleParser {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl TurtleParser {
+    /// Comprehensive parser input validation
+    fn validate_parser_input(&self, content: &str) -> OwlResult<()> {
+        // Size validation
+        self.validate_input_size(content)?;
+        // Security validation
+        self.validate_malformed_content(content)?;
+        // Structure validation
+        self.validate_turtle_structure(content)?;
+        Ok(())
+    }
+
+    /// Validate input size constraints
+    fn validate_input_size(&self, content: &str) -> OwlResult<()> {
+        const MAX_FILE_SIZE: usize = 50 * 1024 * 1024; // 50MB limit
+        const MAX_LINE_LENGTH: usize = 65536; // 64KB per line
+
+        if content.len() > MAX_FILE_SIZE {
+            return Err(OwlError::ResourceLimitExceeded {
+                resource_type: "file_size".to_string(),
+                limit: MAX_FILE_SIZE,
+                message: format!("Input size {} exceeds maximum allowed size {}", content.len(), MAX_FILE_SIZE),
+            });
+        }
+
+        // Check for extremely long lines that could indicate parsing issues
+        for (line_num, line) in content.lines().enumerate() {
+            if line.len() > MAX_LINE_LENGTH {
+                return Err(OwlError::ParseError(format!(
+                    "Line {} exceeds maximum length of {} characters",
+                    line_num + 1,
+                    MAX_LINE_LENGTH
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate for potentially malicious content
+    fn validate_malformed_content(&self, content: &str) -> OwlResult<()> {
+        let content_lower = content.to_lowercase();
+
+        // Check for injection attempts
+        let suspicious_patterns = [
+            "<script>",
+            "javascript:",
+            "vbscript:",
+            "data:text/html",
+            "file:///",
+            "ftp://",
+            "telnet:",
+            "gopher:",
+            "<?xml",
+            "<!ENTITY",
+            "SYSTEM",
+            "PUBLIC",
+        ];
+
+        for pattern in &suspicious_patterns {
+            if content_lower.contains(pattern) {
+                return Err(OwlError::ParseError(format!(
+                    "Potentially unsafe content pattern detected: '{}'",
+                    pattern
+                )));
+            }
+        }
+
+        // Check for excessive nesting depth
+        let max_brace_depth = self.calculate_max_brace_depth(content);
+        if max_brace_depth > 100 {
+            return Err(OwlError::ParseError(format!(
+                "Excessive nesting depth detected: {}",
+                max_brace_depth
+            )));
+        }
+
+        // Check for excessive quote levels
+        let max_quote_depth = self.calculate_max_quote_depth(content);
+        if max_quote_depth > 50 {
+            return Err(OwlError::ParseError(format!(
+                "Excessive quote nesting detected: {}",
+                max_quote_depth
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Validate basic Turtle structure
+    fn validate_turtle_structure(&self, content: &str) -> OwlResult<()> {
+        let mut line_count = 0;
+        let mut statement_count = 0;
+        let mut prefix_count = 0;
+
+        for line in content.lines() {
+            line_count += 1;
+            let trimmed = line.trim();
+
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+
+            // Count different types of statements
+            if trimmed.starts_with("@prefix") {
+                prefix_count += 1;
+            } else if trimmed.contains('<') && trimmed.contains('>') {
+                statement_count += 1;
+            }
+
+            // Basic syntax validation
+            if line_count == 1 && trimmed.starts_with('<') {
+                // First line should typically be a base or prefix declaration
+                continue;
+            }
+
+            // Check for unbalanced brackets
+            if !self.validate_balanced_brackets(trimmed) {
+                return Err(OwlError::ParseError(format!(
+                    "Unbalanced brackets in line {}: {}",
+                    line_count,
+                    trimmed
+                )));
+            }
+        }
+
+        // Validate reasonable content ratios
+        if line_count > 0 && statement_count == 0 && prefix_count == 0 {
+            return Err(OwlError::ParseError(
+                "No valid Turtle statements found".to_string()
+            ));
+        }
+
+        // Check for excessive prefix declarations
+        if prefix_count > 1000 {
+            return Err(OwlError::ParseError(format!(
+                "Excessive number of prefix declarations: {}",
+                prefix_count
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Calculate maximum brace nesting depth
+    fn calculate_max_brace_depth(&self, content: &str) -> usize {
+        let mut max_depth = 0;
+        let mut current_depth: usize = 0;
+        for c in content.chars() {
+            match c {
+                '[' | '{' | '(' => {
+                    current_depth += 1;
+                    max_depth = max_depth.max(current_depth);
+                }
+                ']' | '}' | ')' => {
+                    current_depth = current_depth.saturating_sub(1);
+                }
+                _ => {}
+            }
+        }
+        max_depth
+    }
+
+    /// Calculate maximum quote nesting depth
+    fn calculate_max_quote_depth(&self, content: &str) -> usize {
+        let mut max_depth = 0;
+        let mut current_depth: usize = 0;
+        let mut in_string = false;
+        let mut escape_next = false;
+        for c in content.chars() {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+            match c {
+                '\\' => escape_next = true,
+                '"' => {
+                    if in_string {
+                        current_depth = current_depth.saturating_sub(1);
+                        in_string = false;
+                    } else {
+                        current_depth += 1;
+                        max_depth = max_depth.max(current_depth);
+                        in_string = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        max_depth
+    }
+
+    /// Validate balanced brackets
+    fn validate_balanced_brackets(&self, line: &str) -> bool {
+        let mut stack = Vec::new();
+        for c in line.chars() {
+            match c {
+                '[' | '{' | '(' => stack.push(c),
+                ']' => {
+                    if stack.pop() != Some('[') {
+                        return false;
+                    }
+                }
+                '}' => {
+                    if stack.pop() != Some('{') {
+                        return false;
+                    }
+                }
+                ')' => {
+                    if stack.pop() != Some('(') {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        stack.is_empty()
     }
 }
 

@@ -566,6 +566,7 @@ mod tests {
             strict_validation: false,
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
+            ..Default::default()
         };
 
         let parser = OwlXmlParser::with_config(config);

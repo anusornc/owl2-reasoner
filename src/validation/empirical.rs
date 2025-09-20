@@ -8,6 +8,7 @@ use crate::entities::{Class, ObjectProperty};
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
+use crate::reasoning::simple::CacheStats;
 use crate::profiles::*;
 use crate::reasoning::SimpleReasoner;
 use crate::validation::memory_profiler::EntitySizeCalculator;
@@ -473,7 +474,7 @@ impl EmpiricalValidator {
     /// Calculate cache hit rate from reasoner
     fn calculate_cache_hit_rate(&self, reasoner: &SimpleReasoner) -> Option<f64> {
         // Use real cache statistics from the reasoner
-        let stats = reasoner.get_cache_stats();
+        let stats = reasoner.get_cache_stats().unwrap_or_else(|_| CacheStats::new());
         if stats.total_requests > 0 {
             Some(stats.hit_rate())
         } else {

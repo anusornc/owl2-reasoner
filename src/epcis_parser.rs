@@ -219,13 +219,17 @@ impl EPCISDocumentParser {
 
     /// Add a simple event to ontology
     fn add_simple_event(&self, ontology: &mut Ontology, event: &EPCISSimpleEvent) -> OwlResult<()> {
-        // Add event as individual
-        let event_individual = NamedIndividual::new(&event.event_id[..]);
+        // Add event as individual with a proper IRI
+        let event_iri = format!("http://example.org/epcis/events/{}", event.event_id);
+        let event_individual = NamedIndividual::new(event_iri);
         ontology.add_named_individual(event_individual)?;
 
         // Add EPC individuals
         for epc in &event.epcs {
-            let epc_individual = NamedIndividual::new(&epc[..]);
+            let epc_individual = NamedIndividual::new(format!(
+                "http://example.org/epcis/epcs/{}",
+                epc
+            ));
             ontology.add_named_individual(epc_individual)?;
         }
 

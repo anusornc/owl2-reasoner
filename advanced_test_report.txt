@@ -3,23 +3,26 @@
 
 📊 Overall Statistics:
   Total Tests: 21
-  Passed: 18 (85.7%)
-  Failed: 3
-  Execution Time: 12.660208ms
+  Passed: 15 (71.4%)
+  Failed: 6
+  Execution Time: 12.541166ms
 
 🔬 Reasoning Metrics:
   Consistency Checks: 21
-  Satisfiability Checks: 33
+  Satisfiability Checks: 27
   Classification Operations: 0
   Advanced Reasoning Used: true
-  Average Reasoning Time: 45.355µs
+  Average Reasoning Time: 102.591µs
 
 📈 Performance by Reasoning Mode:
-  Simple: 6/7 passed (85.7%), avg time: 70.904µs
-  AdvancedTableaux: 6/7 passed (85.7%), avg time: 33.273µs
-  Hybrid: 6/7 passed (85.7%), avg time: 31.886µs
+  Simple: 5/7 passed (71.4%), avg time: 168.708µs
+  Hybrid: 5/7 passed (71.4%), avg time: 63.916µs
+  AdvancedTableaux: 5/7 passed (71.4%), avg time: 75.148µs
 
-❌ Failed Tests (3):
+❌ Failed Tests (6):
+  - test_suite/complex_expressions.ttl (Simple): Parse error: Unbalanced brackets in line 12: :Adult owl:equivalentClass [
+  - test_suite/complex_expressions.ttl (AdvancedTableaux): Parse error: Unbalanced brackets in line 12: :Adult owl:equivalentClass [
+  - test_suite/complex_expressions.ttl (Hybrid): Parse error: Unbalanced brackets in line 12: :Adult owl:equivalentClass [
   - test_suite/inconsistent_test.ofn (Simple): Parse error: Unknown prefix: ObjectSomeValuesFrom(
   - test_suite/inconsistent_test.ofn (AdvancedTableaux): Parse error: Unknown prefix: ObjectSomeValuesFrom(
   - test_suite/inconsistent_test.ofn (Hybrid): Parse error: Unknown prefix: ObjectSomeValuesFrom(

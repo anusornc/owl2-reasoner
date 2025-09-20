@@ -492,12 +492,12 @@ impl OwlFunctionalSyntaxParser {
     fn parse_object_property_domain(
         &self,
         content: &str,
-        ontology: &mut Ontology,
+        _ontology: &mut Ontology,
     ) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
-            let prop_iri = self.resolve_iri(parts[0])?;
-            let domain_iri = self.resolve_iri(parts[1])?;
+            let _prop_iri = self.resolve_iri(parts[0])?;
+            let _domain_iri = self.resolve_iri(parts[1])?;
 
             // For now, skip ObjectPropertyDomain as it's not directly supported
             // TODO: Implement using SubClassOf with restrictions
@@ -506,11 +506,11 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse ObjectPropertyRange axiom
-    fn parse_object_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_object_property_range(&self, content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
-            let prop_iri = self.resolve_iri(parts[0])?;
-            let range_iri = self.resolve_iri(parts[1])?;
+            let _prop_iri = self.resolve_iri(parts[0])?;
+            let _range_iri = self.resolve_iri(parts[1])?;
 
             // For now, skip ObjectPropertyRange as it's not directly supported
             // TODO: Implement using SubClassOf with restrictions
@@ -664,14 +664,14 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse DataPropertyDomain axiom
-    fn parse_data_property_domain(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_data_property_domain(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
         // For now, skip DataPropertyDomain as it's not directly supported
         // TODO: Implement using proper restrictions
         Ok(())
     }
 
     /// Parse DataPropertyRange axiom
-    fn parse_data_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_data_property_range(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
         // For now, skip DataPropertyRange as it's not directly supported
         // TODO: Implement using proper restrictions
         Ok(())
@@ -710,8 +710,8 @@ impl OwlFunctionalSyntaxParser {
     /// Parse DataPropertyAssertion axiom
     fn parse_data_property_assertion(
         &self,
-        content: &str,
-        ontology: &mut Ontology,
+        _content: &str,
+        _ontology: &mut Ontology,
     ) -> OwlResult<()> {
         // For now, skip data property assertions as they need literal handling
         // TODO: Implement proper literal parsing
@@ -721,8 +721,8 @@ impl OwlFunctionalSyntaxParser {
     /// Parse NegativeObjectPropertyAssertion axiom
     fn parse_negative_object_property_assertion(
         &self,
-        content: &str,
-        ontology: &mut Ontology,
+        _content: &str,
+        _ontology: &mut Ontology,
     ) -> OwlResult<()> {
         // TODO: Implement negative object property assertion
         Ok(())
@@ -731,8 +731,8 @@ impl OwlFunctionalSyntaxParser {
     /// Parse NegativeDataPropertyAssertion axiom
     fn parse_negative_data_property_assertion(
         &self,
-        content: &str,
-        ontology: &mut Ontology,
+        _content: &str,
+        _ontology: &mut Ontology,
     ) -> OwlResult<()> {
         // TODO: Implement negative data property assertion
         Ok(())
@@ -759,7 +759,7 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse HasKey axiom
-    fn parse_has_key(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_has_key(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
         // TODO: Implement HasKey axiom
         Ok(())
     }
@@ -941,6 +941,7 @@ Declaration(Class(:Person))
             strict_validation: false,
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
+            ..Default::default()
         };
 
         let parser = OwlFunctionalSyntaxParser::with_config(config);

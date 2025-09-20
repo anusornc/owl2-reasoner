@@ -2,7 +2,7 @@
 
 use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 /// Common RDF/OWL vocabulary terms
 pub static RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";

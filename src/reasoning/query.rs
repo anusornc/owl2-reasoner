@@ -3,12 +3,13 @@
 //! Provides SPARQL-like query capabilities for OWL2 ontologies with reasoning support.
 
 use crate::axioms::*;
-use crate::error::OwlResult;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::Reasoner;
 
-use std::collections::{HashMap, HashSet};
+use hashbrown::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Query engine for OWL2 ontologies
@@ -198,7 +199,7 @@ impl QueryEngine {
                     if let QueryPattern::BasicGraphPattern(triples) = pattern.as_ref() {
                         triples
                     } else {
-                        return Err(crate::error::OwlError::QueryError(
+                        return Err(OwlError::QueryError(
                             "Filter pattern can only be applied to basic graph patterns"
                                 .to_string(),
                         ));
@@ -307,12 +308,18 @@ impl QueryEngine {
         triple: &TriplePattern,
         axiom: &crate::axioms::ClassAssertionAxiom,
     ) -> Option<QueryBinding> {
-        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                context: format!("Failed to create rdf:type IRI: {}", e),
+            })
+            .expect("Failed to create rdf:type IRI");
 
-        let subject_match = self.match_term(
-            &triple.subject,
-            &PatternTerm::IRI(axiom.individual().clone()),
-        );
+        let individual_iri = axiom.individual();
+        // Clone once and reuse
+        let individual_term = PatternTerm::IRI(individual_iri.clone());
+
+        let subject_match = self.match_term(&triple.subject, &individual_term);
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
         let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
 
@@ -321,11 +328,7 @@ impl QueryEngine {
                 variables: HashMap::new(),
             };
 
-            self.add_binding(
-                &mut binding,
-                &triple.subject,
-                &PatternTerm::IRI(axiom.individual().clone()),
-            );
+            self.add_binding(&mut binding, &triple.subject, &individual_term);
             self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
 
             Some(binding)
@@ -340,12 +343,16 @@ impl QueryEngine {
         triple: &TriplePattern,
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> Option<QueryBinding> {
-        let subject_match =
-            self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
-        let predicate_match = self.match_term(
-            &triple.predicate,
-            &PatternTerm::IRI(axiom.property().clone()),
-        );
+        let subject_iri = axiom.subject();
+        let property_iri = axiom.property();
+        let _object_iri = axiom.object();
+
+        // Clone once and reuse terms
+        let subject_term = PatternTerm::IRI(subject_iri.clone());
+        let property_term = PatternTerm::IRI(property_iri.clone());
+
+        let subject_match = self.match_term(&triple.subject, &subject_term);
+        let predicate_match = self.match_term(&triple.predicate, &property_term);
         let object_match =
             self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
 
@@ -354,16 +361,8 @@ impl QueryEngine {
                 variables: HashMap::new(),
             };
 
-            self.add_binding(
-                &mut binding,
-                &triple.subject,
-                &PatternTerm::IRI(axiom.subject().clone()),
-            );
-            self.add_binding(
-                &mut binding,
-                &triple.predicate,
-                &PatternTerm::IRI(axiom.property().clone()),
-            );
+            self.add_binding(&mut binding, &triple.subject, &subject_term);
+            self.add_binding(&mut binding, &triple.predicate, &property_term);
             self.add_binding(
                 &mut binding,
                 &triple.object,
@@ -455,7 +454,12 @@ impl QueryEngine {
         axiom: &crate::axioms::ClassAssertionAxiom,
     ) -> Option<QueryBinding> {
         // Try to match: individual rdf:type class
-        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                context: format!("Failed to create rdf:type IRI: {}", e),
+            })
+            .expect("Failed to create rdf:type IRI");
 
         let subject_match = self.match_term(
             &triple.subject,
@@ -544,35 +548,30 @@ impl QueryEngine {
             return None;
         };
 
-        let rdfs_subclassof = IRI::new("http://www.w3.org/2000/01/rdf-schema#subClassOf").unwrap();
+        let rdfs_subclassof = IRI::new("http://www.w3.org/2000/01/rdf-schema#subClassOf")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/2000/01/rdf-schema#subClassOf".to_string(),
+                context: format!("Failed to create rdfs:subClassOf IRI: {}", e),
+            })
+            .ok()?;
 
-        let subject_match = self.match_term(&triple.subject, &PatternTerm::IRI(sub_iri.clone()));
-        let predicate_match = self.match_term(
-            &triple.predicate,
-            &PatternTerm::IRI(rdfs_subclassof.clone()),
-        );
-        let object_match = self.match_term(&triple.object, &PatternTerm::IRI(super_iri.clone()));
+        // Clone once and reuse terms
+        let sub_term = PatternTerm::IRI(sub_iri.clone());
+        let super_term = PatternTerm::IRI(super_iri.clone());
+        let subclass_term = PatternTerm::IRI(rdfs_subclassof.clone());
+
+        let subject_match = self.match_term(&triple.subject, &sub_term);
+        let predicate_match = self.match_term(&triple.predicate, &subclass_term);
+        let object_match = self.match_term(&triple.object, &super_term);
 
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
                 variables: HashMap::new(),
             };
 
-            self.add_binding(
-                &mut binding,
-                &triple.subject,
-                &PatternTerm::IRI(sub_iri.clone()),
-            );
-            self.add_binding(
-                &mut binding,
-                &triple.predicate,
-                &PatternTerm::IRI(rdfs_subclassof.clone()),
-            );
-            self.add_binding(
-                &mut binding,
-                &triple.object,
-                &PatternTerm::IRI(super_iri.clone()),
-            );
+            self.add_binding(&mut binding, &triple.subject, &sub_term);
+            self.add_binding(&mut binding, &triple.predicate, &subclass_term);
+            self.add_binding(&mut binding, &triple.object, &super_term);
 
             Some(binding)
         } else {
@@ -869,31 +868,42 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add test data
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let john_iri = IRI::new("http://example.org/john").unwrap();
+        let person_iri = IRI::new("http://example.org/Person")
+            .expect("Failed to create Person IRI for testing");
+        let john_iri = IRI::new("http://example.org/john")
+            .expect("Failed to create john IRI for testing");
 
         let person_class = Class::new(person_iri.clone());
         let john_individual = NamedIndividual::new(john_iri.clone());
 
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_named_individual(john_individual).unwrap();
+        ontology.add_class(person_class.clone())
+            .expect("Failed to add Person class");
+        ontology.add_named_individual(john_individual)
+            .expect("Failed to add john individual");
 
         // Add class assertion
         let class_assertion =
             ClassAssertionAxiom::new(john_iri.clone(), ClassExpression::Class(person_class));
-        ontology.add_class_assertion(class_assertion).unwrap();
+        ontology.add_class_assertion(class_assertion)
+            .expect("Failed to add class assertion");
 
         let mut engine = QueryEngine::new(ontology);
 
         // Create query: ?x rdf:type Person
-        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+            .map_err(|e| OwlError::IriParseError {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                context: format!("Failed to create rdf:type IRI: {}", e),
+            })
+            .expect("Failed to create rdf:type IRI");
         let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
             subject: PatternTerm::Variable("?x".to_string()),
             predicate: PatternTerm::IRI(type_iri),
             object: PatternTerm::IRI(person_iri),
         }]);
 
-        let result = engine.execute_query(&pattern).unwrap();
+        let result = engine.execute_query(&pattern)
+            .expect("Failed to execute query");
 
         assert_eq!(result.bindings.len(), 1);
         assert_eq!(result.variables, vec!["?x"]);
@@ -915,7 +925,8 @@ mod tests {
                 let mut vars = HashMap::new();
                 vars.insert(
                     "?x".to_string(),
-                    QueryValue::IRI(IRI::new("http://example.org/test").unwrap()),
+                    QueryValue::IRI(IRI::new("http://example.org/test")
+                        .expect("Failed to create test IRI")),
                 );
                 vars
             },
@@ -923,7 +934,8 @@ mod tests {
 
         let expression = FilterExpression::Equals {
             left: PatternTerm::Variable("?x".to_string()),
-            right: PatternTerm::IRI(IRI::new("http://example.org/test").unwrap()),
+            right: PatternTerm::IRI(IRI::new("http://example.org/test")
+                .expect("Failed to create test IRI")),
         };
 
         assert!(engine.evaluate_filter_expression(&binding, &expression));

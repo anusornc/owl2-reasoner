@@ -6,12 +6,14 @@
 //! - OWL/XML
 //! - N-Triples
 
+pub mod arena;
 pub mod common;
 pub mod owl_functional;
 pub mod owl_xml;
 pub mod rdf_xml;
 pub mod turtle;
 
+pub use arena::*;
 pub use common::*;
 pub use owl_functional::*;
 pub use owl_xml::*;
@@ -92,6 +94,7 @@ impl ParserFactory {
 
 /// N-Triples parser implementing W3C N-Triples specification
 pub struct NtriplesParser {
+    #[allow(dead_code)]
     config: ParserConfig,
 }
 
@@ -513,6 +516,12 @@ pub struct ParserConfig {
     pub resolve_base_iri: bool,
     /// Custom prefix mappings
     pub prefixes: std::collections::HashMap<String, String>,
+    /// Whether to use arena allocation for parsing
+    pub use_arena_allocation: bool,
+    /// Initial arena capacity in bytes (if arena allocation is enabled)
+    pub arena_capacity: usize,
+    /// Maximum arena size in bytes (if arena allocation is enabled)
+    pub max_arena_size: usize,
 }
 
 impl Default for ParserConfig {
@@ -523,6 +532,12 @@ impl Default for ParserConfig {
             strict_validation: true,
             resolve_base_iri: false,
             prefixes: std::collections::HashMap::new(),
+            // Enable arena allocation by default for better performance
+            use_arena_allocation: true,
+            // Start with 1MB arena capacity
+            arena_capacity: 1024 * 1024,
+            // Maximum arena size of 10MB
+            max_arena_size: 10 * 1024 * 1024,
         }
     }
 }

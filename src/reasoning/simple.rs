@@ -2,13 +2,13 @@
 //!
 //! Provides basic reasoning capabilities for OWL2 ontologies
 
-use crate::error::OwlResult;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::profiles::{
     Owl2Profile, Owl2ProfileValidator, ProfileValidationResult, ProfileValidator,
 };
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
@@ -114,14 +114,26 @@ impl SimpleReasoner {
     }
 
     /// Get cache statistics
-    pub fn get_cache_stats(&self) -> CacheStats {
-        self.cache_stats.read().unwrap().clone()
+    pub fn get_cache_stats(&self) -> Result<CacheStats, OwlError> {
+        let stats = self.cache_stats.read()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire read lock for cache stats: {}", e),
+            })?;
+        Ok(stats.clone())
     }
 
     /// Reset cache statistics
-    pub fn reset_cache_stats(&self) {
-        let mut stats = self.cache_stats.write().unwrap();
+    pub fn reset_cache_stats(&self) -> Result<(), OwlError> {
+        let mut stats = self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?;
         *stats = CacheStats::new();
+        Ok(())
     }
 
     /// Warm up caches by pre-computing common queries
@@ -259,14 +271,24 @@ impl SimpleReasoner {
             if let Some(entry) = cache.as_ref() {
                 if let Some(result) = entry.get() {
                     // Cache hit
-                    self.cache_stats.write().unwrap().record_hit();
+                    self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_hit();
                     return Ok(*result);
                 }
             }
         }
 
         // Cache miss
-        self.cache_stats.write().unwrap().record_miss();
+        self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_miss();
 
         // Compute result
         let result = self.compute_consistency()?;
@@ -341,14 +363,24 @@ impl SimpleReasoner {
             if let Some(entry) = cache.get(class_iri) {
                 if let Some(result) = entry.get() {
                     // Cache hit
-                    self.cache_stats.write().unwrap().record_hit();
+                    self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_hit();
                     return Ok(*result);
                 }
             }
         }
 
         // Cache miss
-        self.cache_stats.write().unwrap().record_miss();
+        self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_miss();
 
         // Compute result
         let result = self.compute_satisfiability(class_iri)?;
@@ -407,14 +439,24 @@ impl SimpleReasoner {
             if let Some(entry) = cache.get(&key) {
                 if let Some(result) = entry.get() {
                     // Cache hit
-                    self.cache_stats.write().unwrap().record_hit();
+                    self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_hit();
                     return Ok(*result);
                 }
             }
         }
 
         // Cache miss
-        self.cache_stats.write().unwrap().record_miss();
+        self.cache_stats.write()
+            .map_err(|e| OwlError::LockError {
+                lock_type: "cache_stats".to_string(),
+                timeout_ms: 0,
+                message: format!("Failed to acquire write lock for cache stats: {}", e),
+            })?.record_miss();
 
         // Compute result
         let result = self.compute_subclass_of(sub, sup)?;

@@ -52,6 +52,8 @@
 //! - [`reasoning`] - Reasoning algorithms and inference
 //! - [`parser`] - Multi-format parsing and serialization
 //! - [`iri`] - IRI management with caching
+//! - [`cache`] - Configurable caching system with eviction strategies
+//! - [`memory`] - Memory leak prevention and monitoring system
 //! - [`error`] - Comprehensive error handling
 //!
 //! ## Performance
@@ -111,6 +113,12 @@ pub mod epcis_parser;
 /// EPCIS test data generator for different scales
 pub mod epcis_test_generator;
 
+/// Configurable caching system with eviction strategies
+pub mod cache;
+
+/// Memory leak prevention and monitoring system
+pub mod memory;
+
 pub mod test_suite_advanced;
 /// OWL2 Test Suite integration for W3C compliance validation
 pub mod test_suite_simple;
@@ -121,12 +129,14 @@ pub mod tests;
 
 // Re-export common types for convenience
 pub use axioms::*;
+pub use cache::*;
 pub use entities::*;
 pub use epcis::*;
 pub use epcis_parser::{EPCISDocumentParser, EPCISDocumentWriter, EPCISParserConfig};
 pub use epcis_test_generator::*;
 pub use error::{OwlError, OwlResult};
 pub use iri::{IRI, IRIRef};
+pub use memory::*;
 pub use ontology::*;
 pub use parser::*;
 pub use profiles::*;

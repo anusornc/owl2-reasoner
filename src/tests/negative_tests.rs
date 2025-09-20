@@ -407,15 +407,12 @@ ex:Class5 a owl:Class .
 
     #[test]
     fn test_concurrent_parser_access() {
-        use std::sync::Arc;
         use std::thread;
 
-        let parser = Arc::new(TurtleParser::new());
         let mut handles = vec![];
 
-        // Test concurrent access to the same parser
+        // Test concurrent parsing using independent parser instances per thread
         for i in 0..10 {
-            let parser_clone = Arc::clone(&parser);
             let handle = thread::spawn(move || {
                 let content = format!(
                     "@prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
@@ -423,7 +420,8 @@ ex:Class5 a owl:Class .
                      ex:Class{} a owl:Class .\n",
                     i
                 );
-                parser_clone.parse_str(&content)
+                let parser = TurtleParser::new();
+                parser.parse_str(&content)
             });
             handles.push(handle);
         }

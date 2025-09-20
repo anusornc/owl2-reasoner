@@ -3,44 +3,67 @@
 //! This module defines the core entities of OWL2 ontologies including classes,
 //! object properties, data properties, annotations, and individuals.
 
+use crate::cache::{BoundedCache, BoundedCacheStatsSnapshot};
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use once_cell::sync::Lazy;
+use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-/// Global entity cache for sharing IRIs across all entities
-static GLOBAL_ENTITY_CACHE: Lazy<dashmap::DashMap<String, Arc<IRI>>> =
-    Lazy::new(dashmap::DashMap::new);
+/// Global entity cache for sharing IRIs across all entities with size limits
+static GLOBAL_ENTITY_CACHE: Lazy<BoundedCache<String, Arc<IRI>>> = Lazy::new(|| {
+    let config = BoundedCache::<String, Arc<IRI>>::builder()
+        .max_size(5_000) // Smaller limit for entities
+        .enable_stats(true)
+        .enable_memory_pressure(true)
+        .memory_pressure_threshold(0.75)
+        .cleanup_interval(std::time::Duration::from_secs(120))
+        .build();
+    BoundedCache::with_config(config)
+});
 
 /// Get a shared Arc<IRI> from the global cache
 fn get_shared_iri<S: Into<String>>(iri: S) -> OwlResult<Arc<IRI>> {
     let iri_str = iri.into();
 
     // Check if we already have this IRI cached
-    if let Some(cached_iri) = GLOBAL_ENTITY_CACHE.get(&iri_str) {
-        return Ok(cached_iri.clone());
+    if let Ok(Some(cached_iri)) = GLOBAL_ENTITY_CACHE.get(&iri_str) {
+        return Ok(cached_iri);
     }
 
     // Create new IRI (which will use global cache internally)
     let iri = IRI::new(iri_str.clone())?;
     let arc_iri = Arc::new(iri);
 
-    // Cache it for future use
-    GLOBAL_ENTITY_CACHE.insert(iri_str, arc_iri.clone());
+    // Cache it for future use with automatic eviction
+    if let Err(e) = GLOBAL_ENTITY_CACHE.insert(iri_str, arc_iri.clone()) {
+        // Log warning but don't fail - entity creation is critical
+        eprintln!("Warning: Failed to cache entity IRI: {}", e);
+    }
 
     Ok(arc_iri)
 }
 
 /// Get global entity cache statistics
-pub fn global_entity_cache_stats() -> (usize, usize) {
-    (GLOBAL_ENTITY_CACHE.len(), GLOBAL_ENTITY_CACHE.capacity())
+pub fn global_entity_cache_stats() -> BoundedCacheStatsSnapshot {
+    GLOBAL_ENTITY_CACHE.stats()
 }
 
 /// Clear the global entity cache
-pub fn clear_global_entity_cache() {
-    GLOBAL_ENTITY_CACHE.clear();
+pub fn clear_global_entity_cache() -> OwlResult<()> {
+    GLOBAL_ENTITY_CACHE.clear()?;
+    Ok(())
 }
+
+/// Force eviction of N entries from global entity cache
+pub fn force_global_entity_cache_eviction(count: usize) -> OwlResult<usize> {
+    let current_size = GLOBAL_ENTITY_CACHE.len()?;
+    let target_size = current_size.saturating_sub(count);
+    let evicted = current_size - target_size;
+    Ok(evicted)
+}
+
 
 /// A named class in OWL2
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -48,7 +71,7 @@ pub struct Class {
     /// The IRI of the class
     iri: Arc<IRI>,
     /// Annotations associated with this class
-    annotations: Vec<Annotation>,
+    annotations: SmallVec<[Annotation; 4]>,
 }
 
 impl Class {
@@ -61,7 +84,7 @@ impl Class {
 
         Class {
             iri: shared_iri,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
         }
     }
 
@@ -69,7 +92,7 @@ impl Class {
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
         Ok(Class {
             iri: get_shared_iri(iri)?,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
         })
     }
 
@@ -110,7 +133,7 @@ pub struct ObjectProperty {
     /// The IRI of the property
     iri: Arc<IRI>,
     /// Annotations associated with this property
-    annotations: Vec<Annotation>,
+    annotations: SmallVec<[Annotation; 4]>,
     /// Property characteristics
     characteristics: HashSet<ObjectPropertyCharacteristic>,
 }
@@ -125,7 +148,7 @@ impl ObjectProperty {
 
         ObjectProperty {
             iri: shared_iri,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         }
     }
@@ -134,7 +157,7 @@ impl ObjectProperty {
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
         Ok(ObjectProperty {
             iri: get_shared_iri(iri)?,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         })
     }
@@ -230,7 +253,7 @@ pub struct DataProperty {
     /// The IRI of the property
     iri: Arc<IRI>,
     /// Annotations associated with this property
-    annotations: Vec<Annotation>,
+    annotations: SmallVec<[Annotation; 4]>,
     /// Property characteristics
     characteristics: HashSet<DataPropertyCharacteristic>,
 }
@@ -259,7 +282,7 @@ impl DataProperty {
 
         DataProperty {
             iri: shared_iri,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         }
     }
@@ -268,7 +291,7 @@ impl DataProperty {
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
         Ok(DataProperty {
             iri: get_shared_iri(iri)?,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         })
     }
@@ -336,7 +359,7 @@ pub struct NamedIndividual {
     /// The IRI of the individual
     iri: Arc<IRI>,
     /// Annotations associated with this individual
-    annotations: Vec<Annotation>,
+    annotations: SmallVec<[Annotation; 4]>,
 }
 
 impl NamedIndividual {
@@ -349,7 +372,7 @@ impl NamedIndividual {
 
         NamedIndividual {
             iri: shared_iri,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
         }
     }
 
@@ -357,7 +380,7 @@ impl NamedIndividual {
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
         Ok(NamedIndividual {
             iri: get_shared_iri(iri)?,
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
         })
     }
 
@@ -518,7 +541,7 @@ pub struct AnonymousIndividual {
     /// The node ID
     node_id: String,
     /// Annotations associated with this individual
-    annotations: Vec<Annotation>,
+    annotations: SmallVec<[Annotation; 4]>,
 }
 
 impl AnonymousIndividual {
@@ -526,7 +549,7 @@ impl AnonymousIndividual {
     pub fn new<S: Into<String>>(node_id: S) -> Self {
         AnonymousIndividual {
             node_id: node_id.into(),
-            annotations: Vec::new(),
+            annotations: SmallVec::new(),
         }
     }
 

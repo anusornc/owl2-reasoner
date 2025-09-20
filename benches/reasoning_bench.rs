@@ -1,6 +1,6 @@
 //! Reasoning performance benchmarks
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::Class;
 use owl2_reasoner::iri::IRI;
@@ -8,6 +8,7 @@ use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::{
     OwlReasoner, ReasoningConfig, SimpleReasoner, tableaux::ReasoningConfig as TableauxConfig,
 };
+use owl2_reasoner::Reasoner;
 
 /// Benchmark consistency checking performance across different reasoning modes
 pub fn bench_consistency_checking(c: &mut Criterion) {
@@ -42,7 +43,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
             use_advanced_reasoning: true,
             tableaux_config,
         };
-        let mut advanced_reasoner = OwlReasoner::with_config(ontology.clone(), advanced_config);
+        // Use advanced reasoning configuration during each iteration
         group.bench_with_input(
             BenchmarkId::new("advanced_tableaux_consistency", size),
             size,
@@ -69,7 +70,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
                 timeout: Some(60000),
             },
         };
-        let mut hybrid_reasoner = OwlReasoner::with_config(ontology.clone(), hybrid_config);
+        // Hybrid reasoning configuration
         group.bench_with_input(
             BenchmarkId::new("hybrid_consistency", size),
             size,
@@ -98,7 +99,7 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
 
         // Test satisfiability of the first class with SimpleReasoner
         let simple_reasoner = SimpleReasoner::new(ontology.clone());
-        if let Some(first_class) = simple_reasoner.ontology().classes().first() {
+        if let Some(first_class) = simple_reasoner.ontology.classes().iter().next() {
             group.bench_with_input(
                 BenchmarkId::new("simple_satisfiability", size),
                 size,
@@ -124,8 +125,7 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
             use_advanced_reasoning: true,
             tableaux_config,
         };
-        let mut advanced_reasoner = OwlReasoner::with_config(ontology.clone(), advanced_config);
-        if let Some(first_class) = advanced_reasoner.ontology().classes().first() {
+        if let Some(first_class) = ontology.classes().iter().next() {
             group.bench_with_input(
                 BenchmarkId::new("advanced_tableaux_satisfiability", size),
                 size,
@@ -207,26 +207,18 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
 
         // Simple Reasoner
         let simple_reasoner = SimpleReasoner::new(ontology.clone());
-        if let Some((first_class, second_class)) = simple_reasoner
-            .ontology()
-            .classes()
-            .iter()
-            .take(2)
-            .collect::<Vec<_>>()
-            .split_first()
-        {
-            if let Some(second_class) = second_class.first() {
-                group.bench_with_input(BenchmarkId::new("simple_subclass", size), size, |b, _| {
-                    b.iter(|| {
-                        let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
-                        let result = reasoner.is_subclass_of(
-                            black_box(&first_class.iri()),
-                            black_box(&second_class.iri()),
-                        );
-                        black_box(result);
-                    })
-                });
-            }
+        let mut iter = simple_reasoner.ontology.classes().iter();
+        if let (Some(first_class), Some(second_class)) = (iter.next(), iter.next()) {
+            group.bench_with_input(BenchmarkId::new("simple_subclass", size), size, |b, _| {
+                b.iter(|| {
+                    let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
+                    let result = reasoner.is_subclass_of(
+                        black_box(&first_class.iri()),
+                        black_box(&second_class.iri()),
+                    );
+                    black_box(result);
+                })
+            });
         }
 
         // Advanced Tableaux Reasoner
@@ -241,34 +233,25 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
             use_advanced_reasoning: true,
             tableaux_config,
         };
-        let mut advanced_reasoner = OwlReasoner::with_config(ontology.clone(), advanced_config);
-        if let Some((first_class, second_class)) = advanced_reasoner
-            .ontology()
-            .classes()
-            .iter()
-            .take(2)
-            .collect::<Vec<_>>()
-            .split_first()
-        {
-            if let Some(second_class) = second_class.first() {
-                group.bench_with_input(
-                    BenchmarkId::new("advanced_tableaux_subclass", size),
-                    size,
-                    |b, _| {
-                        b.iter(|| {
-                            let mut reasoner = OwlReasoner::with_config(
-                                black_box(ontology.clone()),
-                                black_box(advanced_config.clone()),
-                            );
-                            let result = reasoner.is_subclass_of(
-                                black_box(&first_class.iri()),
-                                black_box(&second_class.iri()),
-                            );
-                            black_box(result);
-                        })
-                    },
-                );
-            }
+        let mut iter2 = ontology.classes().iter();
+        if let (Some(first_class), Some(second_class)) = (iter2.next(), iter2.next()) {
+            group.bench_with_input(
+                BenchmarkId::new("advanced_tableaux_subclass", size),
+                size,
+                |b, _| {
+                    b.iter(|| {
+                        let mut reasoner = OwlReasoner::with_config(
+                            black_box(ontology.clone()),
+                            black_box(advanced_config.clone()),
+                        );
+                        let result = reasoner.is_subclass_of(
+                            black_box(&first_class.iri()),
+                            black_box(&second_class.iri()),
+                        );
+                        black_box(result);
+                    })
+                },
+            );
         }
     }
 
@@ -399,3 +382,4 @@ fn create_large_hierarchy_ontology(size: usize) -> Ontology {
 
     ontology
 }
+#![allow(unused_imports, unused_must_use, unused_variables, unused_mut)]

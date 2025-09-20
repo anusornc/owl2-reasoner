@@ -1,13 +1,7 @@
-//! Benchmark modules for OWL2 Reasoner
+//! Aggregator bench placeholder. This target intentionally runs no benchmarks.
+use criterion::{criterion_group, criterion_main, Criterion};
 
-pub mod memory_bench;
-pub mod parser_bench;
-pub mod query_bench;
-pub mod reasoning_bench;
-pub mod scalability_bench;
+fn noop(_c: &mut Criterion) {}
 
-pub use memory_bench::*;
-pub use parser_bench::*;
-pub use query_bench::*;
-pub use reasoning_bench::*;
-pub use scalability_bench::*;
+criterion_group!(benches, noop);
+criterion_main!(benches);

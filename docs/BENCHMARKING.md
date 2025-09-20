@@ -45,6 +45,12 @@ cargo bench consistency_checking
 
 # Run with custom configuration
 cargo bench -- --sample-size 100 --measurement-time 10
+
+# Build benches without executing (sanity check only)
+cargo bench --no-run
+
+# Build a specific bench target without running
+cargo bench --no-run --bench parser_bench
 ```
 
 ### 2. External Benchmarking System (`benchmarking/`)

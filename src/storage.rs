@@ -5,7 +5,7 @@
 
 use crate::error::{OwlError, OwlResult};
 use crate::ontology::Ontology;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 /// Trait for ontology storage backends
 pub trait StorageBackend {
