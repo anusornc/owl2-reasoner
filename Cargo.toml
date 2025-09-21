@@ -122,8 +122,5 @@ path = "examples/cache_usage.rs"
 name = "epcis_validation_suite"
 path = "examples/advanced/epcis_validation_suite.rs"
 
-[[example]]
-name = "real_world_simulation"
-path = "examples/advanced/real_world_simulation.rs"
 
  
