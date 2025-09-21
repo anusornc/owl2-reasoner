@@ -482,11 +482,62 @@ impl OwlFunctionalSyntaxParser {
                 cardinality,
                 Box::new(property),
             ))
+        } else if expr_str.starts_with("ObjectOneOf(") {
+            let content = &expr_str["ObjectOneOf(".len()..expr_str.len() - 1];
+            let individuals = self.parse_individual_list(content)?;
+            Ok(ClassExpression::ObjectOneOf(SmallVec::from_vec(individuals)))
         } else {
             // Simple named class
             let class_iri = self.resolve_iri(expr_str)?;
             let class = Class::new(class_iri);
             Ok(ClassExpression::Class(class))
+        }
+    }
+
+    /// Parse a list of individuals for ObjectOneOf
+    fn parse_individual_list(&mut self, content: &str) -> OwlResult<Vec<crate::entities::Individual>> {
+        let mut individuals = Vec::new();
+        let mut current = String::new();
+        let mut paren_depth = 0;
+
+        for ch in content.chars() {
+            match ch {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                ' ' if paren_depth == 0 => {
+                    if !current.is_empty() {
+                        individuals.push(self.parse_individual(&current)?);
+                        current.clear();
+                    }
+                }
+                _ => current.push(ch),
+            }
+        }
+
+        // Add the last individual if there's one remaining
+        if !current.is_empty() {
+            individuals.push(self.parse_individual(&current)?);
+        }
+
+        Ok(individuals)
+    }
+
+    /// Parse a single individual (named or anonymous)
+    fn parse_individual(&mut self, individual_str: &str) -> OwlResult<crate::entities::Individual> {
+        let trimmed = individual_str.trim();
+
+        // Check if it's an anonymous individual (starts with _)
+        if trimmed.starts_with('_') {
+            // For now, treat as named individual with the ID
+            // In a full implementation, you'd create AnonymousIndividual
+            let iri = self.resolve_iri(trimmed)?;
+            let named_individual = NamedIndividual::new(iri);
+            Ok(crate::entities::Individual::Named(named_individual))
+        } else {
+            // Named individual
+            let iri = self.resolve_iri(trimmed)?;
+            let named_individual = NamedIndividual::new(iri);
+            Ok(crate::entities::Individual::Named(named_individual))
         }
     }
 
