@@ -198,11 +198,24 @@ impl RdfXmlParser {
             // Map common triples to ontology structures
             let subj_iri = match t.subject {
                 Subject::NamedNode(nn) => IRI::new(nn.iri).ok(),
+                Subject::BlankNode(bn) => {
+                    // Create anonymous individual for blank node subject
+                    let anon_individual = AnonymousIndividual::new(bn.id);
+                    let _ = ontology.add_anonymous_individual(anon_individual.clone());
+                    // Store blank node ID for later reference in property assertions
+                    Some(IRI::new(format!("_:{}", bn.id)).unwrap())
+                }
                 _ => None,
             };
             let pred_iri = IRI::new(t.predicate.iri).ok();
             let obj_iri = match t.object {
                 Term::NamedNode(nn) => IRI::new(nn.iri).ok(),
+                Term::BlankNode(bn) => {
+                    // Create anonymous individual for blank node object
+                    let anon_individual = AnonymousIndividual::new(bn.id);
+                    let _ = ontology.add_anonymous_individual(anon_individual.clone());
+                    Some(IRI::new(format!("_:{}", bn.id)).unwrap())
+                }
                 Term::Literal(_) => None,
                 _ => None,
             };
@@ -396,9 +409,33 @@ impl RdfXmlParser {
                                     let subj = s.clone();
                                     let pred = ObjectProperty::new(p.clone());
                                     let obj = o.clone();
-                                    let ax =
-                                        PropertyAssertionAxiom::new(subj, pred.iri().clone(), obj);
-                                    let _ = ontology.add_axiom(Axiom::PropertyAssertion(ax));
+
+                                    // Check if object is a blank node (temporary IRI)
+                                    if obj.as_str().starts_with("_:") {
+                                        // Extract blank node ID from temporary IRI
+                                        let node_id = &obj.as_str()[2..];
+                                        let anon_individual = AnonymousIndividual::new(node_id);
+                                        let _ = ontology.add_anonymous_individual(anon_individual.clone());
+
+                                        // Create property assertion with anonymous individual
+                                        let assertion = PropertyAssertionAxiom::new_with_anonymous(
+                                            subj,
+                                            pred.iri().clone(),
+                                            anon_individual,
+                                        );
+                                        let _ = ontology.add_axiom(Axiom::PropertyAssertion(assertion));
+                                    } else {
+                                        // Regular named individual - create individuals first
+                                        let subj_individual = NamedIndividual::new(subj.clone());
+                                        let _ = ontology.add_named_individual(subj_individual);
+
+                                        let obj_individual = NamedIndividual::new(obj.clone());
+                                        let _ = ontology.add_named_individual(obj_individual);
+
+                                        let ax =
+                                            PropertyAssertionAxiom::new(subj, pred.iri().clone(), obj);
+                                        let _ = ontology.add_axiom(Axiom::PropertyAssertion(ax));
+                                    }
                                 }
                             }
                             Term::Literal(lit) => {
@@ -419,6 +456,18 @@ impl RdfXmlParser {
                                 };
                                 let ax = DataPropertyAssertionAxiom::new(s.clone(), p.clone(), value);
                                 let _ = ontology.add_axiom(Axiom::DataPropertyAssertion(ax));
+                            }
+                            Term::BlankNode(bn) => {
+                                // Handle object property assertion with blank node object
+                                let anon_individual = AnonymousIndividual::new(bn.id);
+                                let _ = ontology.add_anonymous_individual(anon_individual.clone());
+
+                                let assertion = PropertyAssertionAxiom::new_with_anonymous(
+                                    s.clone(),
+                                    p.clone(),
+                                    anon_individual,
+                                );
+                                let _ = ontology.add_axiom(Axiom::PropertyAssertion(assertion));
                             }
                             _ => {}
                         }
@@ -976,6 +1025,7 @@ impl RdfXmlParser {
     ) -> OwlResult<()> {
         // Trim leading '<' from element name if present
         let element_name = element.name.trim_start_matches('<');
+        println!("Debug: Processing element: '{}'", element_name);
 
         match element_name {
             s if s == OWL_ONTOLOGY => self.process_ontology_element(ontology, element),
@@ -1207,9 +1257,15 @@ impl RdfXmlParser {
         ontology: &mut Ontology,
         element: &XmlElement,
     ) -> OwlResult<()> {
+        println!("Debug: Processing description element: {:?}", element.name);
         let subject = self.get_element_subject(element);
+        println!("Debug: Subject: {:?}", subject);
 
         if let Some(subject_iri) = subject {
+            // Create named individual by default for rdf:Description with rdf:about
+            let individual = NamedIndividual::new(subject_iri.clone());
+            ontology.add_named_individual(individual)?;
+
             // Process as individual if it has rdf:type statements
             for child in &element.children {
                 if child.name.trim_start_matches('<') == "rdf:type" {
@@ -1233,13 +1289,9 @@ impl RdfXmlParser {
                         } else if type_iri.as_str()
                             == "http://www.w3.org/2002/07/owl#NamedIndividual"
                         {
-                            let individual = NamedIndividual::new(subject_iri.clone());
-                            ontology.add_named_individual(individual)?;
+                            // Individual already created above
                         } else {
-                            // Generic individual with type
-                            let individual = NamedIndividual::new(subject_iri.clone());
-                            ontology.add_named_individual(individual)?;
-
+                            // Generic individual with type - individual already created above
                             // Add class assertion
                             let class = Class::new(type_iri);
                             let axiom = ClassAssertionAxiom::new(subject_iri.clone(), class.into());
@@ -1536,10 +1588,21 @@ impl RdfXmlParser {
         let property_iri = self.resolve_qname(&element.name)?;
 
         if let Some(resource) = element.attributes.get("rdf:resource") {
-            // Object property
+            // Object property with named individual
             let object_iri = self.resolve_iri(resource)?;
             let axiom =
                 PropertyAssertionAxiom::new(individual_iri.clone(), property_iri, object_iri);
+            ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
+        } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
+            // Object property with blank node
+            let anon_individual = AnonymousIndividual::new(node_id);
+            ontology.add_anonymous_individual(anon_individual.clone())?;
+
+            let axiom = PropertyAssertionAxiom::new_with_anonymous(
+                individual_iri.clone(),
+                property_iri,
+                anon_individual,
+            );
             ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
         } else if let Some(_content) = element.attributes.get("rdf:datatype") {
             // Datatype property
@@ -1547,6 +1610,24 @@ impl RdfXmlParser {
         } else if !element.content.is_empty() {
             // Plain literal
             // This would need the literal value
+        } else if !element.children.is_empty() {
+            // Handle nested blank nodes (anonymous individuals)
+            // This is where rdf:Description elements without rdf:about or rdf:resource become blank nodes
+            let anon_individual = AnonymousIndividual::new(format!("anon_{}", self.blank_node_counter));
+            self.blank_node_counter += 1;
+            ontology.add_anonymous_individual(anon_individual.clone())?;
+
+            // Process nested properties
+            for child in &element.children {
+                self.process_individual_property(ontology, individual_iri, child)?;
+            }
+
+            let axiom = PropertyAssertionAxiom::new_with_anonymous(
+                individual_iri.clone(),
+                property_iri,
+                anon_individual,
+            );
+            ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
         }
 
         Ok(())
@@ -1697,6 +1778,8 @@ impl RdfXmlParser {
             let fragment = format!("#{}", id);
             self.resolve_iri(&fragment).ok()
         } else {
+            // For blank nodes, create a temporary IRI for reference
+            // The actual AnonymousIndividual will be created in process_individual_property
             element.attributes.get("rdf:nodeID")
                 .map(|node_id| IRI::new(format!("_:{}", node_id)).unwrap())
         }

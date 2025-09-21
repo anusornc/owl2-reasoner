@@ -102,13 +102,16 @@ impl TurtleParser {
         }
         let mut ontology = Ontology::new();
 
-        // Simple line-based Turtle parser for basic constructs
+        // Process compound statements with semicolon continuation
+        let mut current_subject: Option<IRI> = None;
+
         for raw_line in content.lines() {
             let line = raw_line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue; // Skip empty lines and comments
             }
 
+            
             // Parse prefix declarations
             if line.starts_with("@prefix") {
                 let (prefix, namespace) = self.parse_prefix_declaration(line)?;
@@ -129,11 +132,48 @@ impl TurtleParser {
                 return Err(crate::error::OwlError::ParseError(ERR_EXPECTED_DOT.to_string()));
             }
 
-            // Parse triples (simplified)
-            if let Some((subject, predicate, object)) = self.parse_triple(stmt) {
-                self.process_triple(&mut ontology, subject, predicate, object)?;
+            // Handle compound statements
+            let ends_with_dot = stmt.ends_with('.');
+            let ends_with_semicolon = stmt.ends_with(';');
+            let clean_stmt = stmt.trim_end_matches(['.', ';', ',']);
+
+            // Handle compound statement predicate-object pairs
+            if let Some(ref current_subj) = current_subject {
+                // Try to parse as predicate-object pair for compound statements
+                if let Some((predicate, object)) = self.parse_predicate_object_pair(clean_stmt) {
+                                        self.process_triple(&mut ontology, current_subj.clone(), predicate, object)?;
+
+                    // Reset current subject at end of statement
+                    if ends_with_dot {
+                        current_subject = None;
+                    }
+                    continue;
+                }
+            }
+
+            // Parse complete triple
+            if let Some((subject, predicate, object)) = self.parse_triple(clean_stmt) {
+                
+                // Update current subject for compound statements
+                if current_subject.is_none() || ends_with_dot {
+                    current_subject = Some(subject.clone());
+                }
+
+                // Use current subject for compound statements
+                let actual_subject = if ends_with_semicolon && current_subject.is_some() {
+                                        current_subject.as_ref().unwrap().clone()
+                } else {
+                    subject
+                };
+
+                                self.process_triple(&mut ontology, actual_subject, predicate, object)?;
+
+                // Reset current subject at end of statement
+                if ends_with_dot {
+                    current_subject = None;
+                }
             } else {
-                // Leniently skip lines we can't parse (multi-line constructs), strictness enforced by other checks
+                                // Leniently skip lines we can't parse (multi-line constructs), strictness enforced by other checks
                 continue;
             }
         }
@@ -174,6 +214,20 @@ impl TurtleParser {
             return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()));
         }
         Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()))
+    }
+
+    /// Parse a predicate-object pair for compound statements
+    fn parse_predicate_object_pair(&self, line: &str) -> Option<(IRI, ObjectValue)> {
+        let tokens = self.tokenize_turtle_line(line);
+
+        if tokens.len() < 2 {
+            return None;
+        }
+
+        let predicate = self.parse_predicate(&tokens[0])?;
+        let (object, _remaining_tokens) = self.parse_object(&tokens[1..])?;
+
+        Some((predicate, object))
     }
 
     /// Parse a Turtle triple with support for complex constructs
@@ -330,14 +384,43 @@ impl TurtleParser {
     }
 
     /// Parse blank node structure [ ... ]
-    fn parse_blank_node_structure(&self, _content: &str) -> Option<(NestedObject, usize)> {
-        // For now, return a simple placeholder
-        // In a full implementation, this would parse the nested structure
+    fn parse_blank_node_structure(&self, content: &str) -> Option<(NestedObject, usize)> {
+        // Generate a unique ID for this blank node based on content hash
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        content.hash(&mut hasher);
+        let unique_id = format!("nested_{}", hasher.finish());
+
+        // Parse the content to extract properties
+        let clean_content = content.trim_start_matches('[').trim_end_matches(']').trim();
+        let tokens = self.tokenize_turtle_line(clean_content);
+
+        let mut properties = HashMap::new();
+
+        // Simple parsing for property pairs inside the blank node
+        let mut i = 0;
+        while i < tokens.len() {
+            if let Some(predicate) = self.parse_predicate(&tokens[i]) {
+                if i + 1 < tokens.len() {
+                    if let Some((object, remaining_tokens)) = self.parse_object(&tokens[i + 1..]) {
+                        // Store the property
+                        properties.insert(predicate.to_string(), object);
+                        i += 1; // Move to next token after the object
+                        continue;
+                    }
+                }
+            }
+            i += 1;
+        }
+
         let nested_object = NestedObject {
             object_type: "BlankNode".to_string(),
-            properties: HashMap::new(),
+            properties,
             list_items: Vec::new(),
         };
+
         Some((nested_object, 1))
     }
 
@@ -568,21 +651,43 @@ impl TurtleParser {
                     // Create class assertion
                     let class_assertion = ClassAssertionAxiom::new(
                         subject.clone(),
-                        ClassExpression::Class(Class::new(subject.clone())),
+                        ClassExpression::Class(Class::new(type_iri.clone())),
                     );
                     ontology.add_axiom(Axiom::ClassAssertion(class_assertion))?;
                 }
+                // Handle property declarations
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#Property" => {
+                    // Add as object property (default)
+                    let property = ObjectProperty::new(subject.clone());
+                    ontology.add_object_property(property)?;
+                }
                 // Handle other types as potential named individuals
                 _ => {
-                    // Add as individual and create class assertion
-                    let individual = NamedIndividual::new(subject.clone());
-                    ontology.add_named_individual(individual.clone())?;
+                    // Check if this is a well-known OWL type that should not be treated as individual
+                    if type_iri.as_str().contains("Property") {
+                        // Handle as property declaration
+                        if type_iri.as_str().contains("ObjectProperty") {
+                            let property = ObjectProperty::new(subject.clone());
+                            ontology.add_object_property(property)?;
+                        } else if type_iri.as_str().contains("DataProperty") {
+                            let property = DataProperty::new(subject.clone());
+                            ontology.add_data_property(property)?;
+                        } else {
+                            // Default to object property
+                            let property = ObjectProperty::new(subject.clone());
+                            ontology.add_object_property(property)?;
+                        }
+                    } else {
+                        // Add as individual and create class assertion
+                        let individual = NamedIndividual::new(subject.clone());
+                        ontology.add_named_individual(individual.clone())?;
 
-                    let class_assertion = ClassAssertionAxiom::new(
-                        subject.clone(),
-                        ClassExpression::Class(Class::new(type_iri)),
-                    );
-                    ontology.add_axiom(Axiom::ClassAssertion(class_assertion))?;
+                        let class_assertion = ClassAssertionAxiom::new(
+                            subject.clone(),
+                            ClassExpression::Class(Class::new(type_iri)),
+                        );
+                        ontology.add_axiom(Axiom::ClassAssertion(class_assertion))?;
+                    }
                 }
             }
         }
@@ -618,15 +723,113 @@ impl TurtleParser {
                 // Data property assertion - skip for now as PropertyAssertionAxiom expects IRIs
                 // TODO: Implement proper data property assertion with literal values
             }
-            ObjectValue::BlankNode(_) => {
-                // Handle blank nodes as anonymous individuals if needed
-                // For now, skip blank node object assertions
+            ObjectValue::BlankNode(node_id) => {
+                // Create anonymous individual for blank node
+                let anon_individual = AnonymousIndividual::new(node_id);
+                ontology.add_anonymous_individual(anon_individual.clone())?;
+
+                // Create property assertion with anonymous individual as object
+                let property_assertion = PropertyAssertionAxiom::new_with_anonymous(
+                    subject_individual.iri().clone(),
+                    predicate,
+                    anon_individual,
+                );
+                ontology.add_axiom(Axiom::PropertyAssertion(property_assertion))?;
             }
-            ObjectValue::Nested(_) => {
-                // Complex nested objects - handle based on structure
-                // For now, skip nested object assertions
+            ObjectValue::Nested(nested) => {
+                // Handle RDF collections and other nested structures
+                if nested.object_type == "Collection" || nested.object_type == "RDFList" {
+                    self.process_rdf_collection(ontology, subject_individual.iri(), predicate, &nested)?;
+                } else if nested.object_type == "BlankNode" {
+                    // Create anonymous individual for nested blank node
+                    use std::collections::hash_map::DefaultHasher;
+                    use std::hash::{Hash, Hasher};
+
+                    let mut hasher = DefaultHasher::new();
+                    format!("{:?}", nested).hash(&mut hasher);
+                    let anon_id = format!("nested_{}", hasher.finish());
+                    let anon_individual = AnonymousIndividual::new(anon_id);
+                    ontology.add_anonymous_individual(anon_individual.clone())?;
+
+                    // Create property assertion with anonymous individual
+                    let property_assertion = PropertyAssertionAxiom::new_with_anonymous(
+                        subject_individual.iri().clone(),
+                        predicate,
+                        anon_individual,
+                    );
+                    ontology.add_axiom(Axiom::PropertyAssertion(property_assertion))?;
+
+                    // Also process any properties defined inside the nested blank node
+                    for (prop_str, _obj_str) in &nested.properties {
+                        if let Some(prop_iri) = self.parse_curie_or_iri(prop_str).ok() {
+                            // For each property, create a new property assertion
+                            // This is simplified - in a full implementation, we'd parse the actual objects
+                            if prop_str.contains("name") {
+                                // Create a literal for the name property
+                                let name_literal = Literal::simple("Anonymous Person".to_string());
+                                // Note: This is a data property assertion which needs a different axiom type
+                                // For now, we'll just acknowledge that properties exist
+                            }
+                        }
+                    }
+                } else {
+                    // Handle other nested object types
+                    // For now, skip complex nested structures
+                }
             }
         }
+        Ok(())
+    }
+
+    /// Process RDF collections (rdf:first, rdf:rest, rdf:nil linked lists)
+    fn process_rdf_collection(
+        &self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        predicate: IRI,
+        nested: &NestedObject,
+    ) -> OwlResult<()> {
+        let mut items = Vec::new();
+
+        // Process list items
+        for item in &nested.list_items {
+            match item {
+                ObjectValue::IRI(iri) => {
+                    items.push(CollectionItem::Named(iri.clone()));
+                }
+                ObjectValue::BlankNode(node_id) => {
+                    let anon_individual = AnonymousIndividual::new(node_id);
+                    ontology.add_anonymous_individual(anon_individual.clone())?;
+                    items.push(CollectionItem::Anonymous(anon_individual));
+                }
+                ObjectValue::Literal(lit) => {
+                    items.push(CollectionItem::Literal(lit.clone()));
+                }
+                ObjectValue::Nested(_) => {
+                    // Skip nested collections for now
+                    continue;
+                }
+            }
+        }
+
+        if !items.is_empty() {
+            // Create collection axiom
+            let collection_axiom = CollectionAxiom::new(
+                subject.clone(),
+                predicate,
+                items,
+            );
+
+            // Convert collection to property assertions and add them
+            let assertions = collection_axiom.to_property_assertions();
+            for assertion in assertions {
+                ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+            }
+
+            // Also store the collection axiom for future reference
+            ontology.add_axiom(Axiom::Collection(collection_axiom))?;
+        }
+
         Ok(())
     }
 
