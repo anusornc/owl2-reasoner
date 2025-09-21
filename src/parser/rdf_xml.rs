@@ -2145,13 +2145,9 @@ mod tests {
 
         if let Ok(ontology) = result {
             // Debug: Check what was actually parsed
-            println!("DEBUG: Classes found: {}", ontology.classes().len());
-            println!("DEBUG: Individuals found: {}", ontology.named_individuals().len());
             for cls in ontology.classes() {
-                println!("DEBUG: Class: {}", cls.iri());
             }
             for ind in ontology.named_individuals() {
-                println!("DEBUG: Individual: {}", ind.iri());
             }
 
             // Should have parsed 1 class and 1 individual
