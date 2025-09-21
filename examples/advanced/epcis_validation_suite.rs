@@ -4,8 +4,6 @@
 //! and reasoning capabilities according to GS1 standards and industry requirements.
 
 use owl2_reasoner::*;
-use owl2_reasoner::epcis_test_generator::*;
-use std::collections::HashMap;
 
 fn main() -> OwlResult<()> {
     println!("🔍 EPCIS Compliance and Reasoning Validation Suite");

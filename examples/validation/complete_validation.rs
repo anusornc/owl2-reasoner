@@ -98,7 +98,7 @@ fn main() -> OwlResult<()> {
     reasoner.warm_up_caches()?;
 
     // Measure cache performance
-    reasoner.reset_cache_stats();
+    let _ = reasoner.reset_cache_stats();
     let classes: Vec<_> = reasoner.ontology.classes().iter().cloned().collect();
 
     let cache_start = Instant::now();

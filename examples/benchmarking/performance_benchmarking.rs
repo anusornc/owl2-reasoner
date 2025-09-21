@@ -93,8 +93,8 @@ fn main() -> OwlResult<()> {
     println!("\nBenchmark 5: Cache performance analysis");
 
     // Clear caches to start fresh
-    reasoner.clear_caches();
-    clear_global_iri_cache();
+    let _ = reasoner.clear_caches();
+    let _ = clear_global_iri_cache();
 
     // First access (cache miss)
     let start = Instant::now();
@@ -185,7 +185,7 @@ fn main() -> OwlResult<()> {
 
     // Cache statistics
     println!("\n=== Cache Statistics ===");
-    let cache_stats = reasoner.cache_stats();
+    let cache_stats = reasoner.cache_stats().expect("Should get cache stats");
     for (cache_type, count) in cache_stats {
         println!("✓ {} cache: {} entries", cache_type, count);
     }

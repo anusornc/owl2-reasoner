@@ -173,13 +173,13 @@ impl Owl2ProfileValidator {
 
     /// Clear validation cache
     pub fn clear_cache(&mut self) {
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write().expect("Failed to acquire write lock for cache clearing");
         cache.clear();
     }
 
     /// Get cache statistics
     pub fn cache_stats(&self) -> (usize, usize) {
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read().expect("Failed to acquire read lock for cache statistics");
         (cache.len(), cache.capacity())
     }
 }
@@ -188,7 +188,7 @@ impl ProfileValidator for Owl2ProfileValidator {
     fn validate_profile(&self, profile: Owl2Profile) -> OwlResult<ProfileValidationResult> {
         // Check cache first
         {
-            let cache = self.cache.read().unwrap();
+            let cache = self.cache.read().expect("Failed to acquire read lock for profile validation cache");
             if let Some(cached_result) = cache.get(&profile) {
                 return Ok(cached_result.clone());
             }
@@ -231,7 +231,7 @@ impl ProfileValidator for Owl2ProfileValidator {
 
         // Cache result
         {
-            let mut cache = self.cache.write().unwrap();
+            let mut cache = self.cache.write().expect("Failed to acquire write lock for profile validation cache");
             cache.insert(profile, result.clone());
         }
 

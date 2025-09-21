@@ -116,6 +116,9 @@ pub mod epcis_test_generator;
 /// Configurable caching system with eviction strategies
 pub mod cache;
 
+/// Global cache management with encapsulated synchronization
+pub mod cache_manager;
+
 /// Memory leak prevention and monitoring system
 pub mod memory;
 

@@ -3,11 +3,12 @@
 //! This module provides comprehensive memory management tools including
 //! memory monitoring, leak detection, and automatic cleanup mechanisms.
 
-use crate::iri::{clear_global_iri_cache, global_iri_cache_stats};
-use crate::entities::{clear_global_entity_cache, global_entity_cache_stats};
-use std::sync::atomic::{AtomicU64, Ordering};
+use crate::cache_manager;
+use crate::iri::clear_global_iri_cache;
+use crate::entities::clear_global_entity_cache;
+use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
 
@@ -64,11 +65,14 @@ pub struct MemoryMonitor {
     cleanup_count: AtomicU64,
     last_cleanup: Mutex<Instant>,
     monitor_thread: Option<thread::JoinHandle<()>>,
+    shutdown_flag: Arc<AtomicBool>,
 }
 
 impl MemoryMonitor {
     /// Create a new memory monitor
     pub fn new(config: MemoryMonitorConfig) -> Self {
+        let shutdown_flag = Arc::new(AtomicBool::new(false));
+
         let mut monitor = Self {
             config,
             stats: Mutex::new(MemoryStats {
@@ -82,6 +86,7 @@ impl MemoryMonitor {
             cleanup_count: AtomicU64::new(0),
             last_cleanup: Mutex::new(Instant::now()),
             monitor_thread: None,
+            shutdown_flag: Arc::clone(&shutdown_flag),
         };
 
         monitor.start_monitoring_thread();
@@ -92,9 +97,10 @@ impl MemoryMonitor {
     fn start_monitoring_thread(&mut self) {
         if self.config.auto_cleanup {
             let interval = self.config.cleanup_interval;
+            let shutdown_flag = Arc::clone(&self.shutdown_flag);
 
             let handle = thread::spawn(move || {
-                loop {
+                while !shutdown_flag.load(Ordering::Relaxed) {
                     thread::sleep(interval);
                     let _stats = get_memory_stats(); // Just trigger stats collection
                 }
@@ -106,17 +112,17 @@ impl MemoryMonitor {
 
     /// Get current memory statistics
     pub fn get_stats(&self) -> MemoryStats {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("Failed to acquire lock for memory statistics");
 
         // Update current usage
         stats.total_usage = self.get_current_memory_usage();
         stats.peak_usage = stats.peak_usage.max(stats.total_usage);
 
-        // Update cache sizes
-        let iri_stats = global_iri_cache_stats();
-        let entity_stats = global_entity_cache_stats();
-        stats.iri_cache_size = iri_stats.current_size;
-        stats.entity_cache_size = entity_stats.current_size;
+        // Update cache sizes (now using unified cache)
+        if let Ok(cache_size) = cache_manager::global_cache_manager().get_iri_cache_size() {
+            stats.iri_cache_size = cache_size;
+            stats.entity_cache_size = cache_size; // Same cache now
+        }
 
         // Calculate pressure level
         stats.pressure_level = if self.config.max_memory > 0 && stats.total_usage > 0 {
@@ -156,10 +162,17 @@ impl MemoryMonitor {
                 use libc::{mach_task_self, task_info, mach_task_basic_info,
                           mach_msg_type_number_t};
 
+                // SAFETY: These macOS APIs are system calls and are safe to use
+                // The zeroed() call is safe for mach_task_basic_info
                 let mut info: mach_task_basic_info = std::mem::zeroed();
                 let mut count = (std::mem::size_of::<mach_task_basic_info>() / std::mem::size_of::<i32>())
                     as mach_msg_type_number_t;
 
+                // SAFETY: task_info is a system call that writes to the info struct
+                // The pointer conversions are safe because:
+                // 1. mach_task_basic_info is a plain data structure
+                // 2. We're passing the correct size via count
+                // 3. The constants (4 for MACH_TASK_BASIC_INFO) are system-defined
                 if task_info(
                     mach_task_self(),
                     4, // MACH_TASK_BASIC_INFO
@@ -177,6 +190,10 @@ impl MemoryMonitor {
             unsafe {
                 use winapi::um::psapi::{GetCurrentProcess, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
                 use winapi::um::processthreadsapi::OpenProcess;
+
+                // SAFETY: These Windows APIs are system calls that are safe to use
+                // GetCurrentProcess and OpenProcess return valid process handles
+                // GetProcessMemoryInfo writes to the counters struct safely
                 use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 
                 let process = OpenProcess(PROCESS_QUERY_INFORMATION, 0, GetCurrentProcess());
@@ -189,19 +206,19 @@ impl MemoryMonitor {
             }
         }
 
-        // Fallback: estimate from known structures
-        let iri_stats = global_iri_cache_stats();
-        let entity_stats = global_entity_cache_stats();
+        // Fallback: estimate from known structures (now using unified cache)
+        let cache_size = cache_manager::global_cache_manager()
+            .get_iri_cache_size()
+            .unwrap_or(0); // Default to 0 if we can't get size
 
-        iri_stats.current_size * 200 + // Estimate ~200 bytes per IRI
-        entity_stats.current_size * 150 + // Estimate ~150 bytes per entity
+        cache_size * 200 + // Estimate ~200 bytes per cached IRI (unified cache)
         1024 * 1024 // Base 1MB estimate
     }
 
     /// Check for memory pressure and perform cleanup if needed
     pub fn check_and_cleanup(&self) -> Result<(), String> {
         let stats = self.get_stats();
-        let mut last_cleanup = self.last_cleanup.lock().unwrap();
+        let mut last_cleanup = self.last_cleanup.lock().expect("Failed to acquire lock for cleanup timing");
 
         // Check if we're above pressure threshold
         if stats.pressure_level > self.config.pressure_threshold {
@@ -283,11 +300,19 @@ impl MemoryMonitor {
 
 impl Drop for MemoryMonitor {
     fn drop(&mut self) {
-        // Stop the monitoring thread
+        // Signal the monitoring thread to shutdown
+        self.shutdown_flag.store(true, Ordering::Relaxed);
+
+        // Stop the monitoring thread and wait for it to finish
         if let Some(handle) = self.monitor_thread.take() {
-            // Note: In a real implementation, we'd need proper thread signaling
-            // For now, we'll just detach it
-            handle.thread().unpark();
+            // Give the thread a moment to shutdown gracefully
+            thread::sleep(Duration::from_millis(100));
+
+            // If the thread is still running, we'll just detach it
+            // This prevents the program from hanging on shutdown
+            if !handle.is_finished() {
+                handle.thread().unpark();
+            }
         }
     }
 }

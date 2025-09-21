@@ -3,62 +3,74 @@
 //! This module defines the core entities of OWL2 ontologies including classes,
 //! object properties, data properties, annotations, and individuals.
 
-use crate::cache::{BoundedCache, BoundedCacheStatsSnapshot};
+use crate::cache_manager;
 use crate::error::OwlResult;
 use crate::iri::IRI;
-use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-/// Global entity cache for sharing IRIs across all entities with size limits
-static GLOBAL_ENTITY_CACHE: Lazy<BoundedCache<String, Arc<IRI>>> = Lazy::new(|| {
-    let config = BoundedCache::<String, Arc<IRI>>::builder()
-        .max_size(5_000) // Smaller limit for entities
-        .enable_stats(true)
-        .enable_memory_pressure(true)
-        .memory_pressure_threshold(0.75)
-        .cleanup_interval(std::time::Duration::from_secs(120))
-        .build();
-    BoundedCache::with_config(config)
-});
-
-/// Get a shared Arc<IRI> from the global cache
+/// Get a shared Arc<IRI> from the global cache manager
 fn get_shared_iri<S: Into<String>>(iri: S) -> OwlResult<Arc<IRI>> {
-    let iri_str = iri.into();
-
-    // Check if we already have this IRI cached
-    if let Ok(Some(cached_iri)) = GLOBAL_ENTITY_CACHE.get(&iri_str) {
-        return Ok(cached_iri);
-    }
-
-    // Create new IRI (which will use global cache internally)
-    let iri = IRI::new(iri_str.clone())?;
-    let arc_iri = Arc::new(iri);
-
-    // Cache it for future use with automatic eviction
-    if let Err(e) = GLOBAL_ENTITY_CACHE.insert(iri_str, arc_iri.clone()) {
-        // Log warning but don't fail - entity creation is critical
-        eprintln!("Warning: Failed to cache entity IRI: {}", e);
-    }
-
-    Ok(arc_iri)
+    cache_manager::get_or_create_iri(iri.into())
 }
 
 /// Get global entity cache statistics
-pub fn global_entity_cache_stats() -> BoundedCacheStatsSnapshot {
-    GLOBAL_ENTITY_CACHE.stats()
+pub fn global_entity_cache_stats() -> cache_manager::CacheStatsSnapshot {
+    cache_manager::global_cache_stats()
 }
 
 /// Clear the global entity cache
 pub fn clear_global_entity_cache() -> OwlResult<()> {
-    GLOBAL_ENTITY_CACHE.clear()?;
-    Ok(())
+    cache_manager::clear_global_iri_cache()
+}
+
+/// Common trait for all OWL2 entities
+pub trait Entity {
+    /// Create a new entity with the given IRI (fallback constructor)
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self;
+
+    /// Create a new entity with shared IRI (preferred for memory efficiency)
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self>
+    where
+        Self: Sized;
+
+    /// Get the IRI of this entity
+    fn iri(&self) -> &IRI;
+
+    /// Get the annotations associated with this entity
+    fn annotations(&self) -> &[Annotation];
+
+    /// Get mutable access to annotations
+    fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]>;
+
+    /// Add an annotation to this entity
+    fn add_annotation(&mut self, annotation: Annotation) {
+        self.annotations_mut().push(annotation);
+    }
+
+    /// Create entity from shared IRI (internal helper)
+    fn from_shared_iri(iri: Arc<IRI>) -> Self;
+}
+
+/// Shared entity creation logic to reduce code duplication
+pub fn create_entity_with_fallback<I: Into<IRI> + Clone, E: Entity>(iri: I) -> E {
+    // For backward compatibility, fall back to direct creation if sharing fails
+    let iri_clone = iri.clone();
+    let shared_iri = get_shared_iri(iri.into().as_str())
+        .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+    E::from_shared_iri(shared_iri)
+}
+
+/// Shared entity creation with error handling
+pub fn create_entity_shared<S: Into<String>, E: Entity>(iri: S) -> OwlResult<E> {
+    let shared_iri = get_shared_iri(iri)?;
+    Ok(E::from_shared_iri(shared_iri))
 }
 
 /// Force eviction of N entries from global entity cache
 pub fn force_global_entity_cache_eviction(count: usize) -> OwlResult<usize> {
-    let current_size = GLOBAL_ENTITY_CACHE.len()?;
+    let current_size = cache_manager::global_cache_manager().get_iri_cache_size()?;
     let target_size = current_size.saturating_sub(count);
     let evicted = current_size - target_size;
     Ok(evicted)
@@ -74,41 +86,59 @@ pub struct Class {
     annotations: SmallVec<[Annotation; 4]>,
 }
 
-impl Class {
-    /// Create a new class with the given IRI
-    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
-        // For backward compatibility, fall back to direct creation if sharing fails
-        let iri_clone = iri.clone();
-        let shared_iri =
-            get_shared_iri(iri.into().as_str()).unwrap_or_else(|_| Arc::new(iri_clone.into()));
-
-        Class {
-            iri: shared_iri,
-            annotations: SmallVec::new(),
-        }
+impl Entity for Class {
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        create_entity_with_fallback(iri)
     }
 
-    /// Create a new class with shared IRI (preferred for memory efficiency)
-    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
-        Ok(Class {
-            iri: get_shared_iri(iri)?,
-            annotations: SmallVec::new(),
-        })
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        create_entity_shared(iri)
     }
 
-    /// Get the IRI of this class
-    pub fn iri(&self) -> &IRI {
+    fn iri(&self) -> &IRI {
         &self.iri
     }
 
-    /// Get the annotations for this class
-    pub fn annotations(&self) -> &[Annotation] {
+    fn annotations(&self) -> &[Annotation] {
         &self.annotations
     }
 
-    /// Add an annotation to this class
+    fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]> {
+        &mut self.annotations
+    }
+
+    fn from_shared_iri(iri: Arc<IRI>) -> Self {
+        Class {
+            iri,
+            annotations: SmallVec::new(),
+        }
+    }
+}
+
+impl Class {
+    /// Create a new class with the given IRI (backward compatibility)
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        <Self as Entity>::new(iri)
+    }
+
+    /// Create a new class with shared IRI (backward compatibility)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        <Self as Entity>::new_shared(iri)
+    }
+
+    /// Get the IRI of this class (backward compatibility)
+    pub fn iri(&self) -> &IRI {
+        <Self as Entity>::iri(self)
+    }
+
+    /// Get the annotations for this class (backward compatibility)
+    pub fn annotations(&self) -> &[Annotation] {
+        <Self as Entity>::annotations(self)
+    }
+
+    /// Add an annotation to this class (backward compatibility)
     pub fn add_annotation(&mut self, annotation: Annotation) {
-        self.annotations.push(annotation);
+        <Self as Entity>::add_annotation(self, annotation);
     }
 
     /// Check if this is a built-in OWL class
@@ -138,38 +168,55 @@ pub struct ObjectProperty {
     characteristics: HashSet<ObjectPropertyCharacteristic>,
 }
 
-impl ObjectProperty {
-    /// Create a new object property with the given IRI
-    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
-        // For backward compatibility, fall back to direct creation if sharing fails
-        let iri_clone = iri.clone();
-        let shared_iri =
-            get_shared_iri(iri.into().as_str()).unwrap_or_else(|_| Arc::new(iri_clone.into()));
+impl Entity for ObjectProperty {
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        create_entity_with_fallback(iri)
+    }
 
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        create_entity_shared(iri)
+    }
+
+    fn iri(&self) -> &IRI {
+        &self.iri
+    }
+
+    fn annotations(&self) -> &[Annotation] {
+        &self.annotations
+    }
+
+    fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]> {
+        &mut self.annotations
+    }
+
+    fn from_shared_iri(iri: Arc<IRI>) -> Self {
         ObjectProperty {
-            iri: shared_iri,
+            iri,
             annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         }
     }
+}
 
-    /// Create a new object property with shared IRI (preferred for memory efficiency)
+impl ObjectProperty {
+    /// Create a new object property with the given IRI (backward compatibility)
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        <Self as Entity>::new(iri)
+    }
+
+    /// Create a new object property with shared IRI (backward compatibility)
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
-        Ok(ObjectProperty {
-            iri: get_shared_iri(iri)?,
-            annotations: SmallVec::new(),
-            characteristics: HashSet::new(),
-        })
+        <Self as Entity>::new_shared(iri)
     }
 
-    /// Get the IRI of this property
+    /// Get the IRI of this property (backward compatibility)
     pub fn iri(&self) -> &IRI {
-        &self.iri
+        <Self as Entity>::iri(self)
     }
 
-    /// Get the annotations for this property
+    /// Get the annotations for this property (backward compatibility)
     pub fn annotations(&self) -> &[Annotation] {
-        &self.annotations
+        <Self as Entity>::annotations(self)
     }
 
     /// Get the characteristics of this property
@@ -177,9 +224,9 @@ impl ObjectProperty {
         &self.characteristics
     }
 
-    /// Add an annotation to this property
+    /// Add an annotation to this property (backward compatibility)
     pub fn add_annotation(&mut self, annotation: Annotation) {
-        self.annotations.push(annotation);
+        <Self as Entity>::add_annotation(self, annotation);
     }
 
     /// Add a characteristic to this property
@@ -272,36 +319,53 @@ impl std::hash::Hash for ObjectProperty {
     }
 }
 
-impl DataProperty {
-    /// Create a new data property with the given IRI
-    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
-        // For backward compatibility, fall back to direct creation if sharing fails
-        let iri_clone = iri.clone();
-        let shared_iri =
-            get_shared_iri(iri.into().as_str()).unwrap_or_else(|_| Arc::new(iri_clone.into()));
+impl Entity for DataProperty {
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        create_entity_with_fallback(iri)
+    }
 
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        create_entity_shared(iri)
+    }
+
+    fn iri(&self) -> &IRI {
+        &self.iri
+    }
+
+    fn annotations(&self) -> &[Annotation] {
+        &self.annotations
+    }
+
+    fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]> {
+        &mut self.annotations
+    }
+
+    fn from_shared_iri(iri: Arc<IRI>) -> Self {
         DataProperty {
-            iri: shared_iri,
+            iri,
             annotations: SmallVec::new(),
             characteristics: HashSet::new(),
         }
     }
+}
 
-    /// Create a new data property with shared IRI (preferred for memory efficiency)
+impl DataProperty {
+    /// Create a new data property with the given IRI (backward compatibility)
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        <Self as Entity>::new(iri)
+    }
+
+    /// Create a new data property with shared IRI (backward compatibility)
     pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
-        Ok(DataProperty {
-            iri: get_shared_iri(iri)?,
-            annotations: SmallVec::new(),
-            characteristics: HashSet::new(),
-        })
+        <Self as Entity>::new_shared(iri)
     }
 
-    /// Get the IRI of this property
+    /// Get the IRI of this property (backward compatibility)
     pub fn iri(&self) -> &IRI {
-        &self.iri
+        <Self as Entity>::iri(self)
     }
 
-    /// Get the annotations for this property
+    /// Get the annotations for this property (backward compatibility)
     pub fn annotations(&self) -> &[Annotation] {
         &self.annotations
     }
@@ -362,34 +426,52 @@ pub struct NamedIndividual {
     annotations: SmallVec<[Annotation; 4]>,
 }
 
-impl NamedIndividual {
-    /// Create a new named individual with the given IRI
-    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
-        // For backward compatibility, fall back to direct creation if sharing fails
-        let iri_clone = iri.clone();
-        let shared_iri =
-            get_shared_iri(iri.into().as_str()).unwrap_or_else(|_| Arc::new(iri_clone.into()));
-
-        NamedIndividual {
-            iri: shared_iri,
-            annotations: SmallVec::new(),
-        }
+impl Entity for NamedIndividual {
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        create_entity_with_fallback(iri)
     }
 
-    /// Create a new named individual with shared IRI (preferred for memory efficiency)
-    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
-        Ok(NamedIndividual {
-            iri: get_shared_iri(iri)?,
-            annotations: SmallVec::new(),
-        })
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        create_entity_shared(iri)
     }
 
-    /// Get the IRI of this individual
-    pub fn iri(&self) -> &IRI {
+    fn iri(&self) -> &IRI {
         &self.iri
     }
 
-    /// Get the annotations for this individual
+    fn annotations(&self) -> &[Annotation] {
+        &self.annotations
+    }
+
+    fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]> {
+        &mut self.annotations
+    }
+
+    fn from_shared_iri(iri: Arc<IRI>) -> Self {
+        NamedIndividual {
+            iri,
+            annotations: SmallVec::new(),
+        }
+    }
+}
+
+impl NamedIndividual {
+    /// Create a new named individual with the given IRI (backward compatibility)
+    pub fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        <Self as Entity>::new(iri)
+    }
+
+    /// Create a new named individual with shared IRI (backward compatibility)
+    pub fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        <Self as Entity>::new_shared(iri)
+    }
+
+    /// Get the IRI of this individual (backward compatibility)
+    pub fn iri(&self) -> &IRI {
+        <Self as Entity>::iri(self)
+    }
+
+    /// Get the annotations for this individual (backward compatibility)
     pub fn annotations(&self) -> &[Annotation] {
         &self.annotations
     }

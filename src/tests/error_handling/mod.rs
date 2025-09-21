@@ -185,7 +185,7 @@ mod tests {
         let reasoner = SimpleReasoner::new(ontology);
 
         // Clear cache (should not error)
-        reasoner.clear_caches();
+        reasoner.clear_caches().expect("Should clear caches without error");
 
         // Test consistency checking after cache clear
         let result = reasoner.is_consistent();
@@ -329,8 +329,10 @@ mod tests {
         let stats2 = reasoner.cache_stats();
 
         // Statistics should not cause errors
-        assert!(!stats1.is_empty(), "Cache statistics should be valid");
-        assert!(!stats2.is_empty(), "Cache statistics should be valid");
+        let stats1_map = stats1.expect("Cache stats should be accessible");
+        let stats2_map = stats2.expect("Cache stats should be accessible");
+        assert!(!stats1_map.is_empty(), "Cache statistics should be valid");
+        assert!(!stats2_map.is_empty(), "Cache statistics should be valid");
     }
 
     #[test]

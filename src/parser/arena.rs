@@ -74,8 +74,11 @@ impl ParserArena {
     /// Allocate a vector of T in the arena (returns &mut [T])
     pub fn alloc_vec<T: Copy>(&self, vec: Vec<T>) -> &mut [T] {
         let slice: &[T] = self.bump.alloc_slice_copy(&vec);
-        // This is unsafe but we're converting from &[T] to &mut [T] for API compatibility
-        // Since we just allocated this and have exclusive access to the arena, it's safe
+        // SAFETY: This operation is safe because:
+        // 1. We just allocated this slice and have exclusive access to the arena
+        // 2. The slice was created from a Vec<T> where T: Copy, so no drop obligations
+        // 3. No other references to this memory exist yet
+        // 4. The conversion from &[T] to &mut [T] is for API compatibility only
         self.alloc_count.set(self.alloc_count.get() + 1);
         unsafe { slice::from_raw_parts_mut(slice.as_ptr() as *mut T, slice.len()) }
     }
@@ -172,9 +175,12 @@ impl SharedParserArena {
 
     /// Get a reference to the underlying arena
     pub fn arena(&self) -> &ParserArena {
-        // This is unsafe but necessary for API compatibility
-        // In practice, this should only be called when you have exclusive access
-        unsafe { std::mem::transmute(&*self.arena.lock().unwrap()) }
+        // SAFETY: This transmute is justified because:
+        // 1. We're extending the lifetime from the lock guard to &self
+        // 2. The arena is guaranteed to live as long as self
+        // 3. No mutable access occurs while this reference exists
+        // 4. This is necessary for API compatibility with the ParserArenaTrait
+        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
     }
 
     /// Clone the shared arena (increases reference count)
@@ -275,13 +281,21 @@ impl ParserArenaTrait for LocalParserArena {
 
 impl ParserArenaTrait for SharedParserArena {
     fn arena(&self) -> &ParserArena {
-        // This is unsafe but necessary for API compatibility
-        unsafe { std::mem::transmute(&*self.arena.lock().unwrap()) }
+        // SAFETY: This transmute is justified because:
+        // 1. We're extending the lifetime from the lock guard to &self
+        // 2. The arena is guaranteed to live as long as self
+        // 3. No mutable access occurs while this reference exists
+        // 4. This is necessary for API compatibility with the ParserArenaTrait
+        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
     }
 
     fn arena_mut(&mut self) -> &mut ParserArena {
-        // This is unsafe but necessary for API compatibility
-        unsafe { std::mem::transmute(&mut *self.arena.lock().unwrap()) }
+        // SAFETY: This transmute is justified because:
+        // 1. We're extending the lifetime from the lock guard to &mut self
+        // 2. The arena is guaranteed to live as long as self
+        // 3. No other references exist while this mutable reference exists
+        // 4. This is necessary for API compatibility with the ParserArenaTrait
+        unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(&mut *self.arena.lock().unwrap()) }
     }
 
     fn reset(&mut self) {

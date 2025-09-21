@@ -60,15 +60,15 @@ ex:hasPet a owl:ObjectProperty ;
         assert!(is_consistent, "Ontology should be consistent");
 
         // Step 4: Test reasoner caching functionality
-        let stats = reasoner.cache_stats();
+        let stats = reasoner.cache_stats().expect("Should get cache stats");
         assert!(
             stats.contains_key("consistency"),
             "Should have consistency stats"
         );
 
         // Test cache clearing
-        reasoner.clear_caches();
-        let stats_after = reasoner.cache_stats();
+        reasoner.clear_caches().expect("Should clear caches");
+        let stats_after = reasoner.cache_stats().expect("Should get cache stats after clear");
         assert_eq!(
             stats_after.get("consistency"),
             Some(&0),
@@ -104,15 +104,15 @@ ex:hasFather rdfs:subPropertyOf ex:hasParent .
         assert!(is_consistent, "Ontology should be consistent");
 
         // Test cache functionality
-        let stats = reasoner.cache_stats();
+        let stats = reasoner.cache_stats().expect("Should get cache stats");
         assert!(
             stats.contains_key("consistency"),
             "Should have consistency stats"
         );
 
         // Test cache clearing
-        reasoner.clear_caches();
-        let stats_after = reasoner.cache_stats();
+        reasoner.clear_caches().expect("Should clear caches");
+        let stats_after = reasoner.cache_stats().expect("Should get cache stats after clear");
         assert_eq!(
             stats_after.get("consistency"),
             Some(&0),

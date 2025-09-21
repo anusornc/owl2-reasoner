@@ -5,8 +5,6 @@
 //! in a realistic supply chain scenario.
 
 use owl2_reasoner::*;
-use owl2_reasoner::epcis_test_generator::*;
-use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn main() -> OwlResult<()> {
@@ -509,7 +507,7 @@ fn generate_quality_issues(config: &SimulationConfig, _events: &[EPCISEvent]) ->
 }
 
 /// Generate recall events
-fn generate_recall_events(config: &SimulationConfig, _events: &[EPCISEvent], quality_issues: &[QualityIssue]) -> OwlResult<Vec<RecallEvent>> {
+fn generate_recall_events(_config: &SimulationConfig, _events: &[EPCISEvent], quality_issues: &[QualityIssue]) -> OwlResult<Vec<RecallEvent>> {
     let mut recalls = Vec::new();
     
     // Generate recalls based on quality issues
@@ -536,7 +534,7 @@ fn generate_recall_events(config: &SimulationConfig, _events: &[EPCISEvent], qua
 /// Calculate simulation metrics
 fn calculate_simulation_metrics(
     events: &[EPCISEvent],
-    disruptions: &[DisruptionEvent],
+    _disruptions: &[DisruptionEvent],
     quality_issues: &[QualityIssue],
     recalls: &[RecallEvent],
 ) -> SimulationMetrics {

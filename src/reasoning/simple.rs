@@ -136,6 +136,24 @@ impl SimpleReasoner {
         Ok(())
     }
 
+    /// Helper function to acquire read lock with proper error handling
+    fn read_lock<'a, T>(&self, lock: &'a RwLock<T>, operation: &str) -> OwlResult<std::sync::RwLockReadGuard<'a, T>> {
+        lock.read().map_err(move |e| OwlError::LockError {
+            lock_type: operation.to_string(),
+            timeout_ms: 0,
+            message: format!("Failed to acquire read lock for {}: {}", operation, e),
+        })
+    }
+
+    /// Helper function to acquire write lock with proper error handling
+    fn write_lock<'a, T>(&self, lock: &'a RwLock<T>, operation: &str) -> OwlResult<std::sync::RwLockWriteGuard<'a, T>> {
+        lock.write().map_err(move |e| OwlError::LockError {
+            lock_type: operation.to_string(),
+            timeout_ms: 0,
+            message: format!("Failed to acquire write lock for {}: {}", operation, e),
+        })
+    }
+
     /// Warm up caches by pre-computing common queries
     pub fn warm_up_caches(&self) -> OwlResult<()> {
         let classes: Vec<_> = self.ontology.classes().iter().cloned().collect();
@@ -166,40 +184,90 @@ impl SimpleReasoner {
     }
 
     /// Clear all caches
-    pub fn clear_caches(&self) {
-        let mut consistency = self.consistency_cache.write().unwrap();
+    pub fn clear_caches(&self) -> OwlResult<()> {
+        let mut consistency = self.consistency_cache.write().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "clear_caches_consistency".to_string(),
+                message: format!("Failed to acquire consistency cache write lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         *consistency = None;
 
-        let mut subclass = self.subclass_cache.write().unwrap();
+        let mut subclass = self.subclass_cache.write().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "clear_caches_subclass".to_string(),
+                message: format!("Failed to acquire subclass cache write lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         subclass.clear();
 
-        let mut satisfiability = self.satisfiability_cache.write().unwrap();
+        let mut satisfiability = self.satisfiability_cache.write().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "clear_caches_satisfiability".to_string(),
+                message: format!("Failed to acquire satisfiability cache write lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         satisfiability.clear();
 
-        let mut instances = self.instances_cache.write().unwrap();
+        let mut instances = self.instances_cache.write().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "clear_caches_instances".to_string(),
+                message: format!("Failed to acquire instances cache write lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         instances.clear();
+
+        Ok(())
     }
 
     /// Get cache statistics
-    pub fn cache_stats(&self) -> HashMap<String, usize> {
+    pub fn cache_stats(&self) -> OwlResult<HashMap<String, usize>> {
         let mut stats = HashMap::new();
 
-        let consistency = self.consistency_cache.read().unwrap();
+        let consistency = self.consistency_cache.read().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "cache_stats_consistency".to_string(),
+                message: format!("Failed to acquire consistency cache read lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         stats.insert(
             "consistency".to_string(),
             consistency.as_ref().map_or(0, |_| 1),
         );
 
-        let subclass = self.subclass_cache.read().unwrap();
+        let subclass = self.subclass_cache.read().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "cache_stats_subclass".to_string(),
+                message: format!("Failed to acquire subclass cache read lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         stats.insert("subclass".to_string(), subclass.len());
 
-        let satisfiability = self.satisfiability_cache.read().unwrap();
+        let satisfiability = self.satisfiability_cache.read().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "cache_stats_satisfiability".to_string(),
+                message: format!("Failed to acquire satisfiability cache read lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         stats.insert("satisfiability".to_string(), satisfiability.len());
 
-        let instances = self.instances_cache.read().unwrap();
+        let instances = self.instances_cache.read().map_err(|e| {
+            OwlError::LockError {
+                lock_type: "cache_stats_instances".to_string(),
+                message: format!("Failed to acquire instances cache read lock: {}", e),
+                timeout_ms: 0,
+            }
+        })?;
         stats.insert("instances".to_string(), instances.len());
 
-        stats
+        Ok(stats)
     }
 
     // ===== OWL2 Profile Validation Methods =====
@@ -267,7 +335,7 @@ impl SimpleReasoner {
     pub fn is_consistent(&self) -> OwlResult<bool> {
         // Check cache first
         {
-            let cache = self.consistency_cache.read().unwrap();
+            let cache = self.read_lock(&self.consistency_cache, "consistency_cache")?;
             if let Some(entry) = cache.as_ref() {
                 if let Some(result) = entry.get() {
                     // Cache hit
@@ -294,7 +362,7 @@ impl SimpleReasoner {
         let result = self.compute_consistency()?;
 
         // Cache result (1 hour TTL for consistency - increased for better hit rate)
-        let mut cache = self.consistency_cache.write().unwrap();
+        let mut cache = self.write_lock(&self.consistency_cache, "consistency_cache")?;
         *cache = Some(CacheEntry::new(result, Duration::from_secs(3600)));
 
         Ok(result)
@@ -359,7 +427,7 @@ impl SimpleReasoner {
     pub fn is_class_satisfiable(&self, class_iri: &IRI) -> OwlResult<bool> {
         // Check cache first
         {
-            let cache = self.satisfiability_cache.read().unwrap();
+            let cache = self.read_lock(&self.satisfiability_cache, "satisfiability_cache")?;
             if let Some(entry) = cache.get(class_iri) {
                 if let Some(result) = entry.get() {
                     // Cache hit
@@ -386,7 +454,7 @@ impl SimpleReasoner {
         let result = self.compute_satisfiability(class_iri)?;
 
         // Cache result (20 minute TTL for satisfiability - increased for better hit rate)
-        let mut cache = self.satisfiability_cache.write().unwrap();
+        let mut cache = self.write_lock(&self.satisfiability_cache, "satisfiability_cache")?;
         cache.insert(
             class_iri.clone(),
             CacheEntry::new(result, Duration::from_secs(1200)),
@@ -435,7 +503,7 @@ impl SimpleReasoner {
 
         // Check cache first
         {
-            let cache = self.subclass_cache.read().unwrap();
+            let cache = self.read_lock(&self.subclass_cache, "subclass_cache")?;
             if let Some(entry) = cache.get(&key) {
                 if let Some(result) = entry.get() {
                     // Cache hit
@@ -462,7 +530,7 @@ impl SimpleReasoner {
         let result = self.compute_subclass_of(sub, sup)?;
 
         // Cache result (30 minute TTL for subclass relationships - increased for better hit rate)
-        let mut cache = self.subclass_cache.write().unwrap();
+        let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
         cache.insert(key, CacheEntry::new(result, Duration::from_secs(1800)));
 
         Ok(result)
@@ -481,7 +549,7 @@ impl SimpleReasoner {
     fn compute_subclass_of(&self, sub: &IRI, sup: &IRI) -> OwlResult<bool> {
         // Check cache first for memoization optimization
         {
-            let cache = self.subclass_cache.read().unwrap();
+            let cache = self.read_lock(&self.subclass_cache, "subclass_cache")?;
             if let Some(entry) = cache.get(&(sub.clone(), sup.clone())) {
                 if let Some(result) = entry.get() {
                     return Ok(*result);
@@ -492,7 +560,7 @@ impl SimpleReasoner {
         // Check direct relationship (fast path)
         if sub == sup {
             let result = true;
-            let mut cache = self.subclass_cache.write().unwrap();
+            let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
             cache.insert(
                 (sub.clone(), sup.clone()),
                 CacheEntry::new(result, Duration::from_secs(600)),
@@ -509,7 +577,7 @@ impl SimpleReasoner {
             {
                 if sub_axiom.iri() == sub && sup_axiom.iri() == sup {
                     let result = true;
-                    let mut cache = self.subclass_cache.write().unwrap();
+                    let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
                     cache.insert(
                         (sub.clone(), sup.clone()),
                         CacheEntry::new(result, Duration::from_secs(600)),
@@ -522,7 +590,7 @@ impl SimpleReasoner {
         // Optimized equivalent classes checking
         if self.check_equivalent_classes_optimized(sub, sup) {
             let result = true;
-            let mut cache = self.subclass_cache.write().unwrap();
+            let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
             cache.insert(
                 (sub.clone(), sup.clone()),
                 CacheEntry::new(result, Duration::from_secs(600)),
@@ -534,7 +602,7 @@ impl SimpleReasoner {
         let result = self.bfs_subclass_check_optimized(sub, sup);
 
         // Cache the result for future queries
-        let mut cache = self.subclass_cache.write().unwrap();
+        let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
         cache.insert(
             (sub.clone(), sup.clone()),
             CacheEntry::new(result, Duration::from_secs(600)),
@@ -606,7 +674,7 @@ impl SimpleReasoner {
     pub fn get_instances(&self, class_iri: &IRI) -> OwlResult<Vec<IRI>> {
         // Check cache first
         {
-            let cache = self.instances_cache.read().unwrap();
+            let cache = self.read_lock(&self.instances_cache, "instances_cache")?;
             if let Some(entry) = cache.get(class_iri) {
                 if let Some(result) = entry.get() {
                     return Ok(result.clone());
@@ -618,7 +686,7 @@ impl SimpleReasoner {
         let result = self.compute_instances(class_iri)?;
 
         // Cache result (30 second TTL for instances - they might change frequently)
-        let mut cache = self.instances_cache.write().unwrap();
+        let mut cache = self.write_lock(&self.instances_cache, "instances_cache")?;
         cache.insert(
             class_iri.clone(),
             CacheEntry::new(result.clone(), Duration::from_secs(30)),
