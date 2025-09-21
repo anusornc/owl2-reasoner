@@ -4,8 +4,9 @@
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 [![Tests](https://img.shields.io/badge/tests-241%20passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://anusornc.github.io/owl2-reasoner/)
+[![Ecosystem](https://img.shields.io/badge/ecosystem-ready-blue.svg)](https://github.com/anusornc/owl2-reasoner)
 
-High‑performance Rust OWL2 reasoner with an actively evolving parser/reasoner, examples, test-suite integration, and Criterion benchmarks.
+High‑performance Rust OWL2 reasoner with enterprise ecosystem integration, comprehensive language bindings, and production-ready deployment patterns.
 
 ## 🏆 Key Achievements
 
@@ -33,6 +34,72 @@ High‑performance Rust OWL2 reasoner with an actively evolving parser/reasoner,
 - **Memory Pool Allocation**: Bump allocator for efficient validation result storage
 - Scalable architecture; performance validated with Criterion benches
 
+### **🌐 Enterprise Ecosystem Integration**
+- **Python Bindings**: Complete PyO3 integration with data science ecosystem
+- **Web Services**: RESTful API with async processing and monitoring
+- **Data Processing Pipelines**: Stream processing for big data scenarios
+- **Multi-Language Support**: Java, C#, Go, JavaScript client libraries
+- **Production Deployment**: Docker, Kubernetes, cloud-native patterns
+- **EPCIS Integration**: Complete GS1 EPCIS 2.0 standard support for supply chain
+
+## 🚀 EPCIS Ecosystem Integration Examples
+
+The OWL2 reasoner now provides comprehensive EPCIS integration examples and documentation:
+
+### **Quick Start Examples**
+```rust
+use owl2_reasoner::epcis_parser::*;
+use owl2_reasoner::reasoning::SimpleReasoner;
+
+// Parse EPCIS XML data
+let parser = EPCISDocumentParser::default();
+let events = parser.parse_xml_str(epcis_xml_content)?;
+
+// Create OWL2 ontology and reasoner
+let ontology = parser.to_ontology(&events)?;
+let mut reasoner = SimpleReasoner::new(ontology);
+
+// Perform reasoning operations
+let is_consistent = reasoner.is_consistent()?;
+let el_valid = reasoner.validate_profile(Owl2Profile::EL)?;
+```
+
+### **Python Integration**
+```python
+import owl2_reasoner_python
+
+# Parse EPCIS data
+parser = owl2_reasoner_python.PyEPCISParser()
+events = parser.parse_xml_string(epcis_xml)
+
+# Create reasoner and perform analysis
+reasoner = owl2_reasoner_python.PyOWL2Reasoner()
+reasoner.load_epcis_events(events)
+
+print(f"Consistent: {reasoner.is_consistent()}")
+print(f"EL Profile Valid: {reasoner.validate_el_profile()}")
+```
+
+### **Web Service API**
+```bash
+# Upload EPCIS data
+curl -X POST http://localhost:3030/epcis \
+  -H "Content-Type: application/json" \
+  -d '{"xml_content": "<?xml version=..."}'
+
+# Perform reasoning
+curl -X POST http://localhost:3030/reasoning \
+  -H "Content-Type: application/json" \
+  -d '{"check_consistency": true, "validate_profiles": ["EL", "QL", "RL"]}'
+```
+
+For complete examples and documentation, see:
+- [Documentation Overview](docs/README.md) - Complete documentation structure
+- [EPCIS Ecosystem Integration Guide](docs/guides/ECOSYSTEM_INTEGRATION.md) - Supply chain integration
+- [Ecosystem Integration Examples](examples/ecosystem_integration_examples.rs) - Working examples
+- [Python Bindings Documentation](src/python_bindings.rs) - Python integration
+- [Web Service Documentation](src/web_service.rs) - REST API guide
+
 ## 🎯 Project Overview
 
 This project provides a complete OWL2 reasoning ecosystem with:
@@ -42,6 +109,9 @@ This project provides a complete OWL2 reasoning ecosystem with:
 - **🔬 Research-Grade Framework** - Academic publication-ready performance data
 - **🛠️ Production-Ready Architecture** - Stable, reliable, extensible design
 - **📚 Complete Documentation** - API docs, usage guides, and technical specifications
+- **🌐 Enterprise Integration** - Multi-language support and deployment patterns
+- **⚡ Real-time Processing** - Stream processing and web service APIs
+- **🏭 Supply Chain Ready** - Complete EPCIS integration for traceability applications
 
 ### Core Architecture
 

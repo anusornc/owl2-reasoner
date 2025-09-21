@@ -85,7 +85,7 @@ fn bench_cache_operations(c: &mut Criterion) {
 
     for size in [10, 50, 100].iter() {
         let ontology = create_hierarchy_ontology(*size);
-        let mut reasoner = SimpleReasoner::new(ontology);
+        let reasoner = SimpleReasoner::new(ontology);
 
         group.bench_with_input(BenchmarkId::new("cache_clear", size), size, |b, _| {
             b.iter(|| {

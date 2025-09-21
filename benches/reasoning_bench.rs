@@ -1,6 +1,6 @@
 //! Reasoning performance benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::Class;
 use owl2_reasoner::iri::IRI;
@@ -24,7 +24,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
+                    let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_consistent();
                     black_box(result);
                 })
@@ -105,7 +105,7 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
                 size,
                 |b, _| {
                     b.iter(|| {
-                        let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
+                        let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                         let result = reasoner.is_class_satisfiable(black_box(&first_class.iri()));
                         black_box(result);
                     })
@@ -151,8 +151,8 @@ pub fn bench_cache_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_operations");
 
     for size in [10, 50, 100, 500].iter() {
-        let mut ontology = create_hierarchy_ontology(*size);
-        let mut reasoner = SimpleReasoner::new(ontology);
+        let ontology = create_hierarchy_ontology(*size);
+        let reasoner = SimpleReasoner::new(ontology);
 
         group.bench_with_input(BenchmarkId::new("cache_clear", size), size, |b, _| {
             b.iter(|| {
@@ -211,7 +211,7 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
         if let (Some(first_class), Some(second_class)) = (iter.next(), iter.next()) {
             group.bench_with_input(BenchmarkId::new("simple_subclass", size), size, |b, _| {
                 b.iter(|| {
-                    let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
+                    let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_subclass_of(
                         black_box(&first_class.iri()),
                         black_box(&second_class.iri()),
@@ -316,7 +316,7 @@ pub fn bench_large_scale_ontologies(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut reasoner = SimpleReasoner::new(black_box(ontology.clone()));
+                    let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_consistent();
                     black_box(result);
                 })
