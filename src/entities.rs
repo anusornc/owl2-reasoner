@@ -3,6 +3,7 @@
 //! This module defines the core entities of OWL2 ontologies including classes,
 //! object properties, data properties, annotations, and individuals.
 
+use crate::axioms;
 use crate::cache_manager;
 use crate::error::OwlResult;
 use crate::iri::IRI;
@@ -45,7 +46,7 @@ pub trait Entity {
     fn annotations_mut(&mut self) -> &mut SmallVec<[Annotation; 4]>;
 
     /// Add an annotation to this entity
-    fn add_annotation(&mut self, annotation: Annotation) {
+    fn add_annotation(&mut self, annotation: axioms::Annotation) {
         self.annotations_mut().push(annotation);
     }
 
@@ -99,7 +100,7 @@ impl Entity for Class {
         &self.iri
     }
 
-    fn annotations(&self) -> &[Annotation] {
+    fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
@@ -132,12 +133,12 @@ impl Class {
     }
 
     /// Get the annotations for this class (backward compatibility)
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         <Self as Entity>::annotations(self)
     }
 
     /// Add an annotation to this class (backward compatibility)
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         <Self as Entity>::add_annotation(self, annotation);
     }
 
@@ -163,7 +164,7 @@ pub struct ObjectProperty {
     /// The IRI of the property
     iri: Arc<IRI>,
     /// Annotations associated with this property
-    annotations: SmallVec<[Annotation; 4]>,
+    annotations: SmallVec<[axioms::Annotation; 4]>,
     /// Property characteristics
     characteristics: HashSet<ObjectPropertyCharacteristic>,
 }
@@ -181,7 +182,7 @@ impl Entity for ObjectProperty {
         &self.iri
     }
 
-    fn annotations(&self) -> &[Annotation] {
+    fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
@@ -215,7 +216,7 @@ impl ObjectProperty {
     }
 
     /// Get the annotations for this property (backward compatibility)
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         <Self as Entity>::annotations(self)
     }
 
@@ -225,7 +226,7 @@ impl ObjectProperty {
     }
 
     /// Add an annotation to this property (backward compatibility)
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         <Self as Entity>::add_annotation(self, annotation);
     }
 
@@ -300,7 +301,7 @@ pub struct DataProperty {
     /// The IRI of the property
     iri: Arc<IRI>,
     /// Annotations associated with this property
-    annotations: SmallVec<[Annotation; 4]>,
+    annotations: SmallVec<[axioms::Annotation; 4]>,
     /// Property characteristics
     characteristics: HashSet<DataPropertyCharacteristic>,
 }
@@ -332,7 +333,7 @@ impl Entity for DataProperty {
         &self.iri
     }
 
-    fn annotations(&self) -> &[Annotation] {
+    fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
@@ -366,7 +367,7 @@ impl DataProperty {
     }
 
     /// Get the annotations for this property (backward compatibility)
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
@@ -376,7 +377,7 @@ impl DataProperty {
     }
 
     /// Add an annotation to this property
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         self.annotations.push(annotation);
     }
 
@@ -410,6 +411,51 @@ impl std::hash::Hash for DataProperty {
     }
 }
 
+/// A annotation property in OWL2
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AnnotationProperty {
+    /// The IRI of the property
+    iri: Arc<IRI>,
+    /// Annotations associated with this property
+    annotations: SmallVec<[axioms::Annotation; 4]>,
+}
+
+impl Entity for AnnotationProperty {
+    fn new<I: Into<IRI> + Clone>(iri: I) -> Self {
+        create_entity_with_fallback(iri)
+    }
+
+    fn new_shared<S: Into<String>>(iri: S) -> OwlResult<Self> {
+        create_entity_shared(iri)
+    }
+
+    fn iri(&self) -> &IRI {
+        &self.iri
+    }
+
+    fn annotations(&self) -> &[axioms::Annotation] {
+        &self.annotations
+    }
+
+    fn annotations_mut(&mut self) -> &mut SmallVec<[axioms::Annotation; 4]> {
+        &mut self.annotations
+    }
+
+    fn add_annotation(&mut self, annotation: axioms::Annotation) {
+        if self.annotations.len() < 4 {
+            self.annotations.push(annotation);
+        }
+    }
+
+    fn from_shared_iri(iri: Arc<IRI>) -> Self {
+        Self {
+            iri,
+            annotations: SmallVec::new(),
+        }
+    }
+}
+
+
 /// Characteristics of data properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DataPropertyCharacteristic {
@@ -439,7 +485,7 @@ impl Entity for NamedIndividual {
         &self.iri
     }
 
-    fn annotations(&self) -> &[Annotation] {
+    fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
@@ -472,12 +518,12 @@ impl NamedIndividual {
     }
 
     /// Get the annotations for this individual (backward compatibility)
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
     /// Add an annotation to this individual
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         self.annotations.push(annotation);
     }
 }
@@ -641,12 +687,12 @@ impl AnonymousIndividual {
     }
 
     /// Get the annotations for this individual
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         &self.annotations
     }
 
     /// Add an annotation to this individual
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         self.annotations.push(annotation);
     }
 }
@@ -690,7 +736,7 @@ impl Individual {
     }
 
     /// Get the annotations for this individual
-    pub fn annotations(&self) -> &[Annotation] {
+    pub fn annotations(&self) -> &[axioms::Annotation] {
         match self {
             Individual::Named(named) => named.annotations(),
             Individual::Anonymous(anonymous) => anonymous.annotations(),
@@ -698,7 +744,7 @@ impl Individual {
     }
 
     /// Add an annotation to this individual
-    pub fn add_annotation(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: axioms::Annotation) {
         match self {
             Individual::Named(named) => named.add_annotation(annotation),
             Individual::Anonymous(anonymous) => anonymous.add_annotation(annotation),

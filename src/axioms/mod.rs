@@ -6,7 +6,7 @@
 pub mod class_expressions;
 pub mod property_expressions;
 
-pub use crate::entities::ObjectProperty;
+pub use crate::entities::{ObjectProperty, Annotation};
 pub use class_expressions::*;
 pub use property_expressions::*;
 
@@ -41,12 +41,22 @@ pub enum AxiomType {
     DifferentIndividuals,
     HasKey,
     AnnotationAssertion,
+    SubAnnotationPropertyOf,
+    AnnotationPropertyDomain,
+    AnnotationPropertyRange,
     ObjectMinQualifiedCardinality,
     ObjectMaxQualifiedCardinality,
     ObjectExactQualifiedCardinality,
     DataMinQualifiedCardinality,
     DataMaxQualifiedCardinality,
     DataExactQualifiedCardinality,
+    ObjectPropertyDomain,
+    ObjectPropertyRange,
+    DataPropertyDomain,
+    DataPropertyRange,
+    NegativeObjectPropertyAssertion,
+    NegativeDataPropertyAssertion,
+    Import,
 }
 
 /// OWL2 Axiom types
@@ -104,6 +114,12 @@ pub enum Axiom {
     HasKey(HasKeyAxiom),
     /// Annotation assertion axiom: ⊤ ⊑ ∃r.{@a}
     AnnotationAssertion(AnnotationAssertionAxiom),
+    /// Sub-annotation property axiom: P ⊑ Q
+    SubAnnotationPropertyOf(SubAnnotationPropertyOfAxiom),
+    /// Annotation property domain axiom: ∀P.C ⊑ D
+    AnnotationPropertyDomain(AnnotationPropertyDomainAxiom),
+    /// Annotation property range axiom: ∀P.C ⊑ D
+    AnnotationPropertyRange(AnnotationPropertyRangeAxiom),
     /// Object minimum qualified cardinality: ⊤ ⊑ ≥n R.C
     ObjectMinQualifiedCardinality(ObjectMinQualifiedCardinalityAxiom),
     /// Object maximum qualified cardinality: ⊤ ⊑ ≤n R.C
@@ -116,6 +132,20 @@ pub enum Axiom {
     DataMaxQualifiedCardinality(DataMaxQualifiedCardinalityAxiom),
     /// Data exact qualified cardinality: ⊤ ⊑ =n R.D
     DataExactQualifiedCardinality(DataExactQualifiedCardinalityAxiom),
+    /// Object property domain: ∀P.C ⊑ D
+    ObjectPropertyDomain(ObjectPropertyDomainAxiom),
+    /// Object property range: ∀P.D ⊑ C
+    ObjectPropertyRange(ObjectPropertyRangeAxiom),
+    /// Data property domain: ∀Q.C ⊑ D
+    DataPropertyDomain(DataPropertyDomainAxiom),
+    /// Data property range: ∃Q.l ⊑ D
+    DataPropertyRange(DataPropertyRangeAxiom),
+    /// Negative object property assertion: (a, b) ∉ P
+    NegativeObjectPropertyAssertion(NegativeObjectPropertyAssertionAxiom),
+    /// Negative data property assertion: (a, l) ∉ Q
+    NegativeDataPropertyAssertion(NegativeDataPropertyAssertionAxiom),
+    /// Import declaration: imports ontology with given IRI
+    Import(ImportAxiom),
 }
 
 impl Axiom {
@@ -148,12 +178,22 @@ impl Axiom {
             Axiom::DifferentIndividuals(_) => AxiomType::DifferentIndividuals,
             Axiom::HasKey(_) => AxiomType::HasKey,
             Axiom::AnnotationAssertion(_) => AxiomType::AnnotationAssertion,
+            Axiom::SubAnnotationPropertyOf(_) => AxiomType::SubAnnotationPropertyOf,
+            Axiom::AnnotationPropertyDomain(_) => AxiomType::AnnotationPropertyDomain,
+            Axiom::AnnotationPropertyRange(_) => AxiomType::AnnotationPropertyRange,
             Axiom::ObjectMinQualifiedCardinality(_) => AxiomType::ObjectMinQualifiedCardinality,
             Axiom::ObjectMaxQualifiedCardinality(_) => AxiomType::ObjectMaxQualifiedCardinality,
             Axiom::ObjectExactQualifiedCardinality(_) => AxiomType::ObjectExactQualifiedCardinality,
             Axiom::DataMinQualifiedCardinality(_) => AxiomType::DataMinQualifiedCardinality,
             Axiom::DataMaxQualifiedCardinality(_) => AxiomType::DataMaxQualifiedCardinality,
             Axiom::DataExactQualifiedCardinality(_) => AxiomType::DataExactQualifiedCardinality,
+            Axiom::ObjectPropertyDomain(_) => AxiomType::ObjectPropertyDomain,
+            Axiom::ObjectPropertyRange(_) => AxiomType::ObjectPropertyRange,
+            Axiom::DataPropertyDomain(_) => AxiomType::DataPropertyDomain,
+            Axiom::DataPropertyRange(_) => AxiomType::DataPropertyRange,
+            Axiom::NegativeObjectPropertyAssertion(_) => AxiomType::NegativeObjectPropertyAssertion,
+            Axiom::NegativeDataPropertyAssertion(_) => AxiomType::NegativeDataPropertyAssertion,
+            Axiom::Import(_) => AxiomType::Import,
         }
     }
 
@@ -758,6 +798,82 @@ impl AnnotationAssertionAxiom {
     }
 }
 
+/// Sub-annotation property axiom: P ⊑ Q
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubAnnotationPropertyOfAxiom {
+    sub_property: IRI,
+    super_property: IRI,
+}
+
+impl SubAnnotationPropertyOfAxiom {
+    /// Create a new sub-annotation property axiom
+    pub fn new(sub_property: IRI, super_property: IRI) -> Self {
+        SubAnnotationPropertyOfAxiom {
+            sub_property,
+            super_property,
+        }
+    }
+
+    /// Get the sub-property
+    pub fn sub_property(&self) -> &IRI {
+        &self.sub_property
+    }
+
+    /// Get the super-property
+    pub fn super_property(&self) -> &IRI {
+        &self.super_property
+    }
+}
+
+/// Annotation property domain axiom: ∀P.C ⊑ D
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnnotationPropertyDomainAxiom {
+    property: IRI,
+    domain: IRI,
+}
+
+impl AnnotationPropertyDomainAxiom {
+    /// Create a new annotation property domain axiom
+    pub fn new(property: IRI, domain: IRI) -> Self {
+        AnnotationPropertyDomainAxiom { property, domain }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the domain
+    pub fn domain(&self) -> &IRI {
+        &self.domain
+    }
+}
+
+/// Annotation property range axiom: ∀P.C ⊑ D
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnnotationPropertyRangeAxiom {
+    property: IRI,
+    range: IRI,
+}
+
+impl AnnotationPropertyRangeAxiom {
+    /// Create a new annotation property range axiom
+    pub fn new(property: IRI, range: IRI) -> Self {
+        AnnotationPropertyRangeAxiom { property, range }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the range
+    pub fn range(&self) -> &IRI {
+        &self.range
+    }
+}
+
+
 /// Object minimum qualified cardinality axiom: ⊤ ⊑ ≥n R.C
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObjectMinQualifiedCardinalityAxiom {
@@ -971,6 +1087,188 @@ impl DataExactQualifiedCardinalityAxiom {
     /// Get the filler datatype IRI
     pub fn filler(&self) -> &IRI {
         &self.filler
+    }
+}
+
+/// Object property domain axiom: ∀P.C ⊑ D
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectPropertyDomainAxiom {
+    property: IRI,
+    domain: class_expressions::ClassExpression,
+}
+
+impl ObjectPropertyDomainAxiom {
+    /// Create a new object property domain axiom
+    pub fn new(property: IRI, domain: class_expressions::ClassExpression) -> Self {
+        ObjectPropertyDomainAxiom { property, domain }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the domain class expression
+    pub fn domain(&self) -> &class_expressions::ClassExpression {
+        &self.domain
+    }
+}
+
+/// Object property range axiom: ∀P.D ⊑ C
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectPropertyRangeAxiom {
+    property: IRI,
+    range: class_expressions::ClassExpression,
+}
+
+impl ObjectPropertyRangeAxiom {
+    /// Create a new object property range axiom
+    pub fn new(property: IRI, range: class_expressions::ClassExpression) -> Self {
+        ObjectPropertyRangeAxiom { property, range }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the range class expression
+    pub fn range(&self) -> &class_expressions::ClassExpression {
+        &self.range
+    }
+}
+
+/// Data property domain axiom: ∀Q.C ⊑ D
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataPropertyDomainAxiom {
+    property: IRI,
+    domain: class_expressions::ClassExpression,
+}
+
+impl DataPropertyDomainAxiom {
+    /// Create a new data property domain axiom
+    pub fn new(property: IRI, domain: class_expressions::ClassExpression) -> Self {
+        DataPropertyDomainAxiom { property, domain }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the domain class expression
+    pub fn domain(&self) -> &class_expressions::ClassExpression {
+        &self.domain
+    }
+}
+
+/// Data property range axiom: ∃Q.l ⊑ D
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataPropertyRangeAxiom {
+    property: IRI,
+    range: IRI,
+}
+
+impl DataPropertyRangeAxiom {
+    /// Create a new data property range axiom
+    pub fn new(property: IRI, range: IRI) -> Self {
+        DataPropertyRangeAxiom { property, range }
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the range datatype
+    pub fn range(&self) -> &IRI {
+        &self.range
+    }
+}
+
+/// Negative object property assertion axiom: (a, b) ∉ P
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NegativeObjectPropertyAssertionAxiom {
+    subject: IRI,
+    property: IRI,
+    object: IRI,
+}
+
+impl NegativeObjectPropertyAssertionAxiom {
+    /// Create a new negative object property assertion axiom
+    pub fn new(subject: IRI, property: IRI, object: IRI) -> Self {
+        NegativeObjectPropertyAssertionAxiom {
+            subject,
+            property,
+            object,
+        }
+    }
+
+    /// Get the subject individual
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the object individual
+    pub fn object(&self) -> &IRI {
+        &self.object
+    }
+}
+
+/// Negative data property assertion axiom: (a, l) ∉ Q
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NegativeDataPropertyAssertionAxiom {
+    subject: IRI,
+    property: IRI,
+    value: crate::entities::Literal,
+}
+
+impl NegativeDataPropertyAssertionAxiom {
+    /// Create a new negative data property assertion axiom
+    pub fn new(subject: IRI, property: IRI, value: crate::entities::Literal) -> Self {
+        NegativeDataPropertyAssertionAxiom {
+            subject,
+            property,
+            value,
+        }
+    }
+
+    /// Get the subject individual
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the negated literal value
+    pub fn value(&self) -> &crate::entities::Literal {
+        &self.value
+    }
+}
+
+/// Import axiom: imports ontology with given IRI
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportAxiom {
+    imported_ontology: IRI,
+}
+
+impl ImportAxiom {
+    /// Create a new import axiom
+    pub fn new(imported_ontology: IRI) -> Self {
+        ImportAxiom { imported_ontology }
+    }
+
+    /// Get the imported ontology IRI
+    pub fn imported_ontology(&self) -> &IRI {
+        &self.imported_ontology
     }
 }
 

@@ -152,6 +152,10 @@ pub struct Ontology {
     data_properties: HashSet<Arc<DataProperty>>,
     /// All named individuals in the ontology
     named_individuals: HashSet<Arc<NamedIndividual>>,
+    /// All anonymous individuals in the ontology
+    anonymous_individuals: HashSet<Arc<AnonymousIndividual>>,
+    /// All annotation properties in the ontology
+    annotation_properties: HashSet<Arc<AnnotationProperty>>,
     /// All axioms in the ontology
     axioms: Vec<Arc<axioms::Axiom>>,
 
@@ -180,6 +184,9 @@ pub struct Ontology {
     different_individuals_axioms: Vec<Arc<axioms::DifferentIndividualsAxiom>>,
     has_key_axioms: Vec<Arc<axioms::HasKeyAxiom>>,
     annotation_assertion_axioms: Vec<Arc<axioms::AnnotationAssertionAxiom>>,
+    sub_annotation_property_axioms: Vec<Arc<axioms::SubAnnotationPropertyOfAxiom>>,
+    annotation_property_domain_axioms: Vec<Arc<axioms::AnnotationPropertyDomainAxiom>>,
+    annotation_property_range_axioms: Vec<Arc<axioms::AnnotationPropertyRangeAxiom>>,
     sub_property_chain_axioms: Vec<Arc<axioms::SubPropertyChainOfAxiom>>,
     inverse_object_properties_axioms: Vec<Arc<axioms::InverseObjectPropertiesAxiom>>,
     object_min_qualified_cardinality_axioms: Vec<Arc<axioms::ObjectMinQualifiedCardinalityAxiom>>,
@@ -189,6 +196,12 @@ pub struct Ontology {
     data_min_qualified_cardinality_axioms: Vec<Arc<axioms::DataMinQualifiedCardinalityAxiom>>,
     data_max_qualified_cardinality_axioms: Vec<Arc<axioms::DataMaxQualifiedCardinalityAxiom>>,
     data_exact_qualified_cardinality_axioms: Vec<Arc<axioms::DataExactQualifiedCardinalityAxiom>>,
+    object_property_domain_axioms: Vec<Arc<axioms::ObjectPropertyDomainAxiom>>,
+    object_property_range_axioms: Vec<Arc<axioms::ObjectPropertyRangeAxiom>>,
+    data_property_domain_axioms: Vec<Arc<axioms::DataPropertyDomainAxiom>>,
+    data_property_range_axioms: Vec<Arc<axioms::DataPropertyRangeAxiom>>,
+    negative_object_property_assertion_axioms: Vec<Arc<axioms::NegativeObjectPropertyAssertionAxiom>>,
+    negative_data_property_assertion_axioms: Vec<Arc<axioms::NegativeDataPropertyAssertionAxiom>>,
 
     // Performance indexes
     class_instances: HashMap<IRI, Vec<IRI>>,
@@ -231,6 +244,8 @@ impl Ontology {
             object_properties: HashSet::new(),
             data_properties: HashSet::new(),
             named_individuals: HashSet::new(),
+            anonymous_individuals: HashSet::new(),
+            annotation_properties: HashSet::new(),
             axioms: Vec::new(),
             subclass_axioms: Vec::new(),
             equivalent_classes_axioms: Vec::new(),
@@ -256,6 +271,9 @@ impl Ontology {
             different_individuals_axioms: Vec::new(),
             has_key_axioms: Vec::new(),
             annotation_assertion_axioms: Vec::new(),
+            sub_annotation_property_axioms: Vec::new(),
+            annotation_property_domain_axioms: Vec::new(),
+            annotation_property_range_axioms: Vec::new(),
             sub_property_chain_axioms: Vec::new(),
             inverse_object_properties_axioms: Vec::new(),
             object_min_qualified_cardinality_axioms: Vec::new(),
@@ -264,6 +282,12 @@ impl Ontology {
             data_min_qualified_cardinality_axioms: Vec::new(),
             data_max_qualified_cardinality_axioms: Vec::new(),
             data_exact_qualified_cardinality_axioms: Vec::new(),
+            object_property_domain_axioms: Vec::new(),
+            object_property_range_axioms: Vec::new(),
+            data_property_domain_axioms: Vec::new(),
+            data_property_range_axioms: Vec::new(),
+            negative_object_property_assertion_axioms: Vec::new(),
+            negative_data_property_assertion_axioms: Vec::new(),
             class_instances: HashMap::new(),
             property_domains: HashMap::new(),
             property_ranges: HashMap::new(),
@@ -370,9 +394,33 @@ impl Ontology {
         Ok(())
     }
 
+    /// Add an anonymous individual to the ontology
+    pub fn add_anonymous_individual(&mut self, individual: AnonymousIndividual) -> OwlResult<()> {
+        let individual_arc = Arc::new(individual);
+        self.anonymous_individuals.insert(individual_arc);
+        Ok(())
+    }
+
+    /// Add an annotation property to the ontology
+    pub fn add_annotation_property(&mut self, property: AnnotationProperty) -> OwlResult<()> {
+        let property_arc = Arc::new(property);
+        self.annotation_properties.insert(property_arc);
+        Ok(())
+    }
+
     /// Get all named individuals in the ontology
     pub fn named_individuals(&self) -> &HashSet<Arc<NamedIndividual>> {
         &self.named_individuals
+    }
+
+    /// Get all anonymous individuals in the ontology
+    pub fn anonymous_individuals(&self) -> &HashSet<Arc<AnonymousIndividual>> {
+        &self.anonymous_individuals
+    }
+
+    /// Get all annotation properties in the ontology
+    pub fn annotation_properties(&self) -> &HashSet<Arc<AnnotationProperty>> {
+        &self.annotation_properties
     }
 
     /// Add an axiom to the ontology
@@ -543,6 +591,55 @@ impl Ontology {
                 let data_exact_qualified_cardinality_arc = Arc::new(axiom.clone());
                 self.data_exact_qualified_cardinality_axioms
                     .push(data_exact_qualified_cardinality_arc);
+            }
+            axioms::Axiom::ObjectPropertyDomain(axiom) => {
+                let object_property_domain_arc = Arc::new(axiom.clone());
+                self.object_property_domain_axioms
+                    .push(object_property_domain_arc);
+            }
+            axioms::Axiom::ObjectPropertyRange(axiom) => {
+                let object_property_range_arc = Arc::new(axiom.clone());
+                self.object_property_range_axioms
+                    .push(object_property_range_arc);
+            }
+            axioms::Axiom::DataPropertyDomain(axiom) => {
+                let data_property_domain_arc = Arc::new(axiom.clone());
+                self.data_property_domain_axioms
+                    .push(data_property_domain_arc);
+            }
+            axioms::Axiom::DataPropertyRange(axiom) => {
+                let data_property_range_arc = Arc::new(axiom.clone());
+                self.data_property_range_axioms
+                    .push(data_property_range_arc);
+            }
+            axioms::Axiom::NegativeObjectPropertyAssertion(axiom) => {
+                let negative_object_property_assertion_arc = Arc::new(axiom.clone());
+                self.negative_object_property_assertion_axioms
+                    .push(negative_object_property_assertion_arc);
+            }
+            axioms::Axiom::NegativeDataPropertyAssertion(axiom) => {
+                let negative_data_property_assertion_arc = Arc::new(axiom.clone());
+                self.negative_data_property_assertion_axioms
+                    .push(negative_data_property_assertion_arc);
+            }
+            axioms::Axiom::SubAnnotationPropertyOf(axiom) => {
+                let sub_annotation_property_arc = Arc::new(axiom.clone());
+                self.sub_annotation_property_axioms
+                    .push(sub_annotation_property_arc);
+            }
+            axioms::Axiom::AnnotationPropertyDomain(axiom) => {
+                let annotation_property_domain_arc = Arc::new(axiom.clone());
+                self.annotation_property_domain_axioms
+                    .push(annotation_property_domain_arc);
+            }
+            axioms::Axiom::AnnotationPropertyRange(axiom) => {
+                let annotation_property_range_arc = Arc::new(axiom.clone());
+                self.annotation_property_range_axioms
+                    .push(annotation_property_range_arc);
+            }
+            axioms::Axiom::Import(axiom) => {
+                // Add import to the ontology's import set
+                self.imports.insert(Arc::new(axiom.imported_ontology().clone()));
             }
         }
 

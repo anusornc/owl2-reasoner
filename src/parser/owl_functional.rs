@@ -4,12 +4,15 @@
 
 use crate::axioms::*;
 use crate::entities::*;
-use crate::error::OwlResult;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::parser::{OntologyParser, ParserConfig};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::path::Path;
+
+type ParserError = OwlError;
 
 /// OWL Functional Syntax parser
 pub struct OwlFunctionalSyntaxParser {
@@ -168,13 +171,28 @@ impl OwlFunctionalSyntaxParser {
             let iri = self.resolve_iri(iri_str)?;
             let individual = NamedIndividual::new(iri);
             ontology.add_named_individual(individual)?;
+        } else if content.starts_with("AnonymousIndividual(") {
+            let node_id_str = &content[19..content.len() - 1];
+            // Clean up the node ID by removing unwanted characters
+            let node_id = node_id_str.trim()
+                .trim_start_matches('(')
+                .trim_start_matches('"')
+                .trim_end_matches('"')
+                .trim_end_matches(')');
+            let individual = AnonymousIndividual::new(node_id);
+            ontology.add_anonymous_individual(individual)?;
+        } else if content.starts_with("AnnotationProperty(") {
+            let iri_str = &content[19..content.len() - 1];
+            let iri = self.resolve_iri(iri_str)?;
+            let prop = AnnotationProperty::new(iri);
+            ontology.add_annotation_property(prop)?;
         }
 
         Ok(())
     }
 
     /// Parse axioms
-    fn parse_axioms(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_axioms(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
         for line in content.lines() {
             let line = line.trim();
 
@@ -306,6 +324,28 @@ impl OwlFunctionalSyntaxParser {
                 let axiom_content = &line[open + 1..line.len() - 1];
                 self.parse_different_individuals(axiom_content, ontology)?;
             }
+            // Annotation axioms
+            else if line.starts_with("AnnotationAssertion(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_annotation_assertion(axiom_content, ontology)?;
+            } else if line.starts_with("SubAnnotationPropertyOf(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_sub_annotation_property_of(axiom_content, ontology)?;
+            } else if line.starts_with("AnnotationPropertyDomain(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_annotation_property_domain(axiom_content, ontology)?;
+            } else if line.starts_with("AnnotationPropertyRange(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_annotation_property_range(axiom_content, ontology)?;
+            } else if line.starts_with("Import(") && line.ends_with(")") {
+                let open = line.find('(').unwrap();
+                let axiom_content = &line[open + 1..line.len() - 1];
+                self.parse_import(axiom_content, ontology)?;
+            }
             // Other axioms
             else if line.starts_with("HasKey(") && line.ends_with(")") {
                 let axiom_content = &line[8..line.len() - 1];
@@ -330,20 +370,271 @@ impl OwlFunctionalSyntaxParser {
         Ok(())
     }
 
-    /// Parse SubClassOf axiom
-    fn parse_subclass_of(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    /// Parse a class expression from OWL Functional Syntax
+    fn parse_class_expression(&mut self, expr_str: &str) -> OwlResult<crate::axioms::class_expressions::ClassExpression> {
+        use crate::axioms::class_expressions::ClassExpression;
+
+        // Handle complex class expressions
+        if expr_str.starts_with("ObjectIntersectionOf(") {
+            let content = &expr_str["ObjectIntersectionOf(".len()..expr_str.len() - 1];
+            let operands = self.parse_class_expression_list(content)?;
+            Ok(ClassExpression::ObjectIntersectionOf(SmallVec::from_vec(
+                operands.into_iter().map(Box::new).collect()
+            )))
+        } else if expr_str.starts_with("ObjectUnionOf(") {
+            let content = &expr_str["ObjectUnionOf(".len()..expr_str.len() - 1];
+            let operands = self.parse_class_expression_list(content)?;
+            Ok(ClassExpression::ObjectUnionOf(SmallVec::from_vec(
+                operands.into_iter().map(Box::new).collect()
+            )))
+        } else if expr_str.starts_with("ObjectComplementOf(") {
+            let content = &expr_str["ObjectComplementOf(".len()..expr_str.len() - 1];
+            let operand = Box::new(self.parse_class_expression(content)?);
+            Ok(ClassExpression::ObjectComplementOf(operand))
+        } else if expr_str.starts_with("ObjectSomeValuesFrom(") {
+            let content = &expr_str["ObjectSomeValuesFrom(".len()..expr_str.len() - 1];
+            let (property, filler) = self.parse_property_restriction_with_expression(content)?;
+            Ok(ClassExpression::ObjectSomeValuesFrom(
+                Box::new(property),
+                Box::new(filler),
+            ))
+        } else if expr_str.starts_with("ObjectAllValuesFrom(") {
+            let content = &expr_str["ObjectAllValuesFrom(".len()..expr_str.len() - 1];
+            let (property, filler) = self.parse_property_restriction_with_expression(content)?;
+            Ok(ClassExpression::ObjectAllValuesFrom(
+                Box::new(property),
+                Box::new(filler),
+            ))
+        } else if expr_str.starts_with("ObjectHasValue(") {
+            let content = &expr_str["ObjectHasValue(".len()..expr_str.len() - 1];
+            let (property, individual) = self.parse_object_has_value_with_expression(content)?;
+            Ok(ClassExpression::ObjectHasValue(
+                Box::new(property),
+                individual,
+            ))
+        } else if expr_str.starts_with("ObjectHasSelf(") {
+            let content = &expr_str["ObjectHasSelf(".len()..expr_str.len() - 1];
+            let property = self.parse_object_property_expression(content)?;
+            Ok(ClassExpression::ObjectHasSelf(
+                Box::new(property)
+            ))
+        } else if expr_str.starts_with("ObjectMinCardinality(") {
+            let content = &expr_str["ObjectMinCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            Ok(ClassExpression::ObjectMinCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        } else if expr_str.starts_with("ObjectMaxCardinality(") {
+            let content = &expr_str["ObjectMaxCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            Ok(ClassExpression::ObjectMaxCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        } else if expr_str.starts_with("ObjectExactCardinality(") {
+            let content = &expr_str["ObjectExactCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            Ok(ClassExpression::ObjectExactCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        // Handle data range expressions
+        } else if expr_str.starts_with("DataSomeValuesFrom(") {
+            let content = &expr_str["DataSomeValuesFrom(".len()..expr_str.len() - 1];
+            let (property, range) = self.parse_data_property_restriction(content)?;
+            Ok(ClassExpression::DataSomeValuesFrom(
+                Box::new(property),
+                Box::new(range),
+            ))
+        } else if expr_str.starts_with("DataAllValuesFrom(") {
+            let content = &expr_str["DataAllValuesFrom(".len()..expr_str.len() - 1];
+            let (property, range) = self.parse_data_property_restriction(content)?;
+            Ok(ClassExpression::DataAllValuesFrom(
+                Box::new(property),
+                Box::new(range),
+            ))
+        } else if expr_str.starts_with("DataHasValue(") {
+            let content = &expr_str["DataHasValue(".len()..expr_str.len() - 1];
+            let (property, literal) = self.parse_data_has_value(content)?;
+            Ok(ClassExpression::DataHasValue(
+                Box::new(property),
+                literal,
+            ))
+        } else if expr_str.starts_with("DataMinCardinality(") {
+            let content = &expr_str["DataMinCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_data_cardinality_restriction(content)?;
+            Ok(ClassExpression::DataMinCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        } else if expr_str.starts_with("DataMaxCardinality(") {
+            let content = &expr_str["DataMaxCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_data_cardinality_restriction(content)?;
+            Ok(ClassExpression::DataMaxCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        } else if expr_str.starts_with("DataExactCardinality(") {
+            let content = &expr_str["DataExactCardinality(".len()..expr_str.len() - 1];
+            let (cardinality, property) = self.parse_data_cardinality_restriction(content)?;
+            Ok(ClassExpression::DataExactCardinality(
+                cardinality,
+                Box::new(property),
+            ))
+        } else {
+            // Simple named class
+            let class_iri = self.resolve_iri(expr_str)?;
+            let class = Class::new(class_iri);
+            Ok(ClassExpression::Class(class))
+        }
+    }
+
+    /// Parse an object property expression (handle inverse properties)
+    fn parse_object_property_expression(&self, expr_str: &str) -> OwlResult<crate::axioms::property_expressions::ObjectPropertyExpression> {
+        
+        if expr_str.starts_with("ObjectInverseOf(") {
+            let inverse_content = &expr_str["ObjectInverseOf(".len()..expr_str.len() - 1];
+            let base_property = Box::new(self.parse_object_property_expression(inverse_content)?);
+            Ok(ObjectPropertyExpression::ObjectInverseOf(base_property))
+        } else {
+            // Simple named property
+            let property_iri = self.resolve_iri(expr_str)?;
+            let property = crate::entities::ObjectProperty::new(property_iri);
+            Ok(ObjectPropertyExpression::ObjectProperty(property))
+        }
+    }
+
+    /// Parse a property restriction with property expression support
+    fn parse_property_restriction_with_expression(&mut self, content: &str) -> OwlResult<(crate::axioms::property_expressions::ObjectPropertyExpression, crate::axioms::class_expressions::ClassExpression)> {
+        // Find the split between property and filler expressions
+        let mut paren_count = 0;
+        let mut split_pos = None;
+
+        for (i, ch) in content.chars().enumerate() {
+            if ch == '(' {
+                paren_count += 1;
+            } else if ch == ')' {
+                paren_count -= 1;
+            } else if ch == ' ' && paren_count == 0 {
+                split_pos = Some(i);
+                break;
+            }
+        }
+
+        if let Some(pos) = split_pos {
+            let property_expr = &content[..pos];
+            let filler_expr = &content[pos + 1..];
+
+            let property = self.parse_object_property_expression(property_expr)?;
+            let filler = self.parse_class_expression(filler_expr)?;
+
+            Ok((property, filler))
+        } else {
+            Err(crate::error::OwlError::ParseError(
+                format!("Invalid property restriction format: {}", content)
+            ))
+        }
+    }
+
+    /// Parse ObjectHasValue expression with property expression support
+    fn parse_object_has_value_with_expression(&self, content: &str) -> OwlResult<(crate::axioms::property_expressions::ObjectPropertyExpression, crate::entities::Individual)> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
-            let sub_class_iri = self.resolve_iri(parts[0])?;
-            let super_class_iri = self.resolve_iri(parts[1])?;
+            let property_expr = parts[0];
+            let individual_iri = self.resolve_iri(parts[1])?;
 
-            let sub_class = Class::new(sub_class_iri);
-            let super_class = Class::new(super_class_iri);
+            let property = self.parse_object_property_expression(property_expr)?;
+            let individual = crate::entities::NamedIndividual::new(individual_iri);
+            Ok((property, crate::entities::Individual::Named(individual)))
+        } else {
+            Err(crate::error::OwlError::ParseError(
+                format!("Invalid ObjectHasValue format: {}", content)
+            ))
+        }
+    }
 
-            let subclass_axiom = SubClassOfAxiom::new(
-                crate::axioms::class_expressions::ClassExpression::Class(sub_class),
-                crate::axioms::class_expressions::ClassExpression::Class(super_class),
-            );
+    /// Parse cardinality restriction with property expression support
+    fn parse_cardinality_restriction_with_expression(&self, content: &str) -> OwlResult<(u32, crate::axioms::property_expressions::ObjectPropertyExpression)> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let cardinality_str = parts[0];
+            let property_expr = parts[1];
+
+            // Parse cardinality as u32
+            let cardinality = cardinality_str.parse::<u32>().map_err(|_| {
+                crate::error::OwlError::ParseError(
+                    format!("Invalid cardinality number: {}", cardinality_str)
+                )
+            })?;
+
+            let property = self.parse_object_property_expression(property_expr)?;
+            Ok((cardinality, property))
+        } else {
+            Err(crate::error::OwlError::ParseError(
+                format!("Invalid cardinality restriction format: {}", content)
+            ))
+        }
+    }
+
+    /// Parse a list of class expressions
+    fn parse_class_expression_list(&mut self, content: &str) -> OwlResult<Vec<crate::axioms::class_expressions::ClassExpression>> {
+        let mut expressions = Vec::new();
+        let mut current_expr = String::new();
+        let mut paren_count = 0;
+
+        for ch in content.chars() {
+            if ch == '(' {
+                paren_count += 1;
+                current_expr.push(ch);
+            } else if ch == ')' {
+                paren_count -= 1;
+                current_expr.push(ch);
+                if paren_count == 0 && !current_expr.trim().is_empty() {
+                    expressions.push(self.parse_class_expression(current_expr.trim())?);
+                    current_expr.clear();
+                }
+            } else if ch == ' ' && paren_count == 0 && !current_expr.trim().is_empty() {
+                expressions.push(self.parse_class_expression(current_expr.trim())?);
+                current_expr.clear();
+            } else {
+                current_expr.push(ch);
+            }
+        }
+
+        // Add the last expression if there's one
+        if !current_expr.trim().is_empty() {
+            expressions.push(self.parse_class_expression(current_expr.trim())?);
+        }
+
+        Ok(expressions)
+    }
+
+    /// Parse SubClassOf axiom
+    fn parse_subclass_of(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // Find the split between subclass and superclass expressions
+        let mut paren_count = 0;
+        let mut split_pos = None;
+
+        for (i, ch) in content.chars().enumerate() {
+            if ch == '(' {
+                paren_count += 1;
+            } else if ch == ')' {
+                paren_count -= 1;
+            } else if ch == ' ' && paren_count == 0 {
+                split_pos = Some(i);
+                break;
+            }
+        }
+
+        if let Some(pos) = split_pos {
+            let sub_expr = &content[..pos];
+            let super_expr = &content[pos + 1..];
+
+            let sub_class = self.parse_class_expression(sub_expr)?;
+            let super_class = self.parse_class_expression(super_expr)?;
+
+            let subclass_axiom = SubClassOfAxiom::new(sub_class, super_class);
             ontology.add_subclass_axiom(subclass_axiom)?;
         }
         Ok(())
@@ -404,23 +695,39 @@ impl OwlFunctionalSyntaxParser {
         }
     }
 
+    /// Extract IRI from a ClassExpression, returning error if it's not a simple class
+    fn extract_iri_from_class_expression(&self, expr: &ClassExpression) -> OwlResult<IRI> {
+        match expr {
+            ClassExpression::Class(class) => Ok(class.iri().clone()),
+            _ => Err(crate::error::OwlError::ParseError(
+                format!("Expected simple class, found complex expression: {:?}", expr)
+            ))
+        }
+    }
+
     /// Parse EquivalentClasses axiom
-    fn parse_equivalent_classes(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
-        let class_iris = self.parse_iri_list(content)?;
-        if class_iris.len() >= 2 {
-            let classes: Vec<IRI> = class_iris;
-            let equiv_axiom = EquivalentClassesAxiom::new(classes);
+    fn parse_equivalent_classes(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let class_expressions = self.parse_class_expression_list(content)?;
+        if class_expressions.len() >= 2 {
+            let mut class_iris = Vec::new();
+            for expr in class_expressions {
+                class_iris.push(self.extract_iri_from_class_expression(&expr)?);
+            }
+            let equiv_axiom = EquivalentClassesAxiom::new(class_iris);
             ontology.add_axiom(Axiom::EquivalentClasses(equiv_axiom))?;
         }
         Ok(())
     }
 
     /// Parse DisjointClasses axiom
-    fn parse_disjoint_classes(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
-        let class_iris = self.parse_iri_list(content)?;
-        if class_iris.len() >= 2 {
-            let classes: Vec<IRI> = class_iris;
-            let disjoint_axiom = DisjointClassesAxiom::new(classes);
+    fn parse_disjoint_classes(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let class_expressions = self.parse_class_expression_list(content)?;
+        if class_expressions.len() >= 2 {
+            let mut class_iris = Vec::new();
+            for expr in class_expressions {
+                class_iris.push(self.extract_iri_from_class_expression(&expr)?);
+            }
+            let disjoint_axiom = DisjointClassesAxiom::new(class_iris);
             ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
         }
         Ok(())
@@ -492,28 +799,34 @@ impl OwlFunctionalSyntaxParser {
     fn parse_object_property_domain(
         &self,
         content: &str,
-        _ontology: &mut Ontology,
+        ontology: &mut Ontology,
     ) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
-            let _prop_iri = self.resolve_iri(parts[0])?;
-            let _domain_iri = self.resolve_iri(parts[1])?;
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let domain_iri = self.resolve_iri(parts[1])?;
 
-            // For now, skip ObjectPropertyDomain as it's not directly supported
-            // TODO: Implement using SubClassOf with restrictions
+            let domain_axiom = ObjectPropertyDomainAxiom::new(
+                prop_iri.clone(),
+                ClassExpression::Class(Class::new(domain_iri.clone())),
+            );
+            ontology.add_axiom(Axiom::ObjectPropertyDomain(domain_axiom))?;
         }
         Ok(())
     }
 
     /// Parse ObjectPropertyRange axiom
-    fn parse_object_property_range(&self, content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_object_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
-            let _prop_iri = self.resolve_iri(parts[0])?;
-            let _range_iri = self.resolve_iri(parts[1])?;
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let range_iri = self.resolve_iri(parts[1])?;
 
-            // For now, skip ObjectPropertyRange as it's not directly supported
-            // TODO: Implement using SubClassOf with restrictions
+            let range_axiom = ObjectPropertyRangeAxiom::new(
+                prop_iri.clone(),
+                ClassExpression::Class(Class::new(range_iri.clone())),
+            );
+            ontology.add_axiom(Axiom::ObjectPropertyRange(range_axiom))?;
         }
         Ok(())
     }
@@ -664,16 +977,31 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse DataPropertyDomain axiom
-    fn parse_data_property_domain(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
-        // For now, skip DataPropertyDomain as it's not directly supported
-        // TODO: Implement using proper restrictions
+    fn parse_data_property_domain(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let domain_iri = self.resolve_iri(parts[1])?;
+
+            let domain_axiom = DataPropertyDomainAxiom::new(
+                prop_iri.clone(),
+                ClassExpression::Class(Class::new(domain_iri.clone())),
+            );
+            ontology.add_axiom(Axiom::DataPropertyDomain(domain_axiom))?;
+        }
         Ok(())
     }
 
     /// Parse DataPropertyRange axiom
-    fn parse_data_property_range(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
-        // For now, skip DataPropertyRange as it's not directly supported
-        // TODO: Implement using proper restrictions
+    fn parse_data_property_range(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let range_iri = self.resolve_iri(parts[1])?;
+
+            let range_axiom = DataPropertyRangeAxiom::new(prop_iri.clone(), range_iri.clone());
+            ontology.add_axiom(Axiom::DataPropertyRange(range_axiom))?;
+        }
         Ok(())
     }
 
@@ -721,20 +1049,57 @@ impl OwlFunctionalSyntaxParser {
     /// Parse NegativeObjectPropertyAssertion axiom
     fn parse_negative_object_property_assertion(
         &self,
-        _content: &str,
-        _ontology: &mut Ontology,
+        content: &str,
+        ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        // TODO: Implement negative object property assertion
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 3 {
+            let subject_iri = self.resolve_iri(parts[0])?;
+            let prop_iri = self.resolve_iri(parts[1])?;
+            let object_iri = self.resolve_iri(parts[2])?;
+
+            let neg_assertion = NegativeObjectPropertyAssertionAxiom::new(
+                subject_iri.clone(),
+                prop_iri.clone(),
+                object_iri.clone(),
+            );
+            ontology.add_axiom(Axiom::NegativeObjectPropertyAssertion(neg_assertion))?;
+        }
         Ok(())
     }
 
     /// Parse NegativeDataPropertyAssertion axiom
     fn parse_negative_data_property_assertion(
         &self,
-        _content: &str,
-        _ontology: &mut Ontology,
+        content: &str,
+        ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        // TODO: Implement negative data property assertion
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 3 {
+            let subject_iri = self.resolve_iri(parts[0])?;
+            let prop_iri = self.resolve_iri(parts[1])?;
+
+            // Basic literal parsing - handle quoted strings and typed literals
+            let literal_value = if parts[2].starts_with('"') && parts[2].ends_with('"') {
+                // Simple string literal
+                parts[2].trim_matches('"').to_string()
+            } else if parts.len() >= 4 && parts[2].starts_with('"') && parts[3].starts_with("^^") {
+                // Typed literal
+                parts[2].trim_matches('"').to_string()
+            } else {
+                // Treat as simple string
+                parts[2].to_string()
+            };
+
+            let literal = Literal::simple(literal_value);
+
+            let neg_assertion = NegativeDataPropertyAssertionAxiom::new(
+                subject_iri.clone(),
+                prop_iri.clone(),
+                literal,
+            );
+            ontology.add_axiom(Axiom::NegativeDataPropertyAssertion(neg_assertion))?;
+        }
         Ok(())
     }
 
@@ -759,8 +1124,58 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse HasKey axiom
-    fn parse_has_key(&self, _content: &str, _ontology: &mut Ontology) -> OwlResult<()> {
-        // TODO: Implement HasKey axiom
+    fn parse_has_key(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // HasKey syntax: HasKey(Class (property1 property2 ...))
+        // Need to extract the class and handle parenthesized property list
+        let trimmed = content.trim();
+        let mut parts = Vec::new();
+        let mut current = String::new();
+        let mut in_parens = false;
+
+        for ch in trimmed.chars() {
+            if ch == '(' {
+                in_parens = true;
+            } else if ch == ')' {
+                in_parens = false;
+                if !current.is_empty() {
+                    parts.push(current.trim().to_string());
+                    current.clear();
+                }
+            } else if ch.is_whitespace() && !in_parens {
+                if !current.is_empty() {
+                    parts.push(current.trim().to_string());
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+
+        if !current.is_empty() {
+            parts.push(current.trim().to_string());
+        }
+
+        if parts.len() >= 2 {
+            let class_iri = self.resolve_iri(&parts[0])?;
+            let mut property_iris = Vec::new();
+
+            // Parse remaining parts as property IRIs
+            for part in &parts[1..] {
+                let clean_part = part.trim_matches(|c| c == '(' || c == ')');
+                if !clean_part.is_empty() {
+                    let prop_iri = self.resolve_iri(clean_part)?;
+                    property_iris.push(prop_iri);
+                }
+            }
+
+            if !property_iris.is_empty() {
+                let has_key_axiom = HasKeyAxiom::new(
+                    ClassExpression::Class(Class::new(class_iri.clone())),
+                    property_iris,
+                );
+                ontology.add_axiom(Axiom::HasKey(has_key_axiom))?;
+            }
+        }
         Ok(())
     }
 
@@ -789,6 +1204,405 @@ impl OwlFunctionalSyntaxParser {
                 "Ontology contains no entities or imports".to_string(),
             ));
         }
+        Ok(())
+    }
+
+    /// Parse a data property restriction for DataSomeValuesFrom and DataAllValuesFrom
+    fn parse_data_property_restriction(
+        &mut self,
+        content: &str,
+    ) -> Result<(DataPropertyExpression, DataRange), ParserError> {
+        let trimmed = content.trim();
+        let space_pos = trimmed.find(' ').ok_or_else(|| {
+            ParserError::ParseError("Expected space between property and data range".to_string())
+        })?;
+
+        let property_str = &trimmed[..space_pos];
+        let range_str = &trimmed[space_pos + 1..];
+
+        let property = self.parse_data_property_expression(property_str)?;
+        let range = self.parse_data_range(range_str)?;
+
+        Ok((property, range))
+    }
+
+    /// Parse DataHasValue restriction
+    fn parse_data_has_value(
+        &mut self,
+        content: &str,
+    ) -> Result<(DataPropertyExpression, Literal), ParserError> {
+        let trimmed = content.trim();
+        let space_pos = trimmed.find(' ').ok_or_else(|| {
+            ParserError::ParseError("Expected space between property and value".to_string())
+        })?;
+
+        let property_str = &trimmed[..space_pos];
+        let value_str = &trimmed[space_pos + 1..];
+
+        let property = self.parse_data_property_expression(property_str)?;
+        let literal = self.parse_literal(value_str)?;
+
+        Ok((property, literal))
+    }
+
+    /// Parse data cardinality restriction
+    fn parse_data_cardinality_restriction(
+        &mut self,
+        content: &str,
+    ) -> Result<(u32, DataPropertyExpression), ParserError> {
+        let trimmed = content.trim();
+        let space_pos = trimmed.find(' ').ok_or_else(|| {
+            ParserError::ParseError("Expected space between cardinality and property".to_string())
+        })?;
+
+        let cardinality_str = &trimmed[..space_pos];
+        let property_str = &trimmed[space_pos + 1..];
+
+        let cardinality = cardinality_str.parse().map_err(|_| {
+            ParserError::ParseError(format!("Invalid cardinality: {}", cardinality_str))
+        })?;
+
+        let property = self.parse_data_property_expression(property_str)?;
+
+        Ok((cardinality, property))
+    }
+
+    /// Parse data property expression
+    fn parse_data_property_expression(
+        &mut self,
+        input: &str,
+    ) -> Result<DataPropertyExpression, ParserError> {
+        let trimmed = input.trim();
+        // Currently only supports simple named data properties
+        let property_iri = self.resolve_iri(trimmed)?;
+        let property = DataProperty::new(property_iri);
+        Ok(DataPropertyExpression::DataProperty(property))
+    }
+
+    /// Parse data range
+    fn parse_data_range(&mut self, input: &str) -> Result<DataRange, ParserError> {
+        let trimmed = input.trim();
+
+        if trimmed.starts_with("DataIntersectionOf(") {
+            let content = &trimmed["DataIntersectionOf(".len()..trimmed.len() - 1];
+            let ranges = self.parse_data_range_list(content)?;
+            Ok(DataRange::DataIntersectionOf(ranges))
+        } else if trimmed.starts_with("DataUnionOf(") {
+            let content = &trimmed["DataUnionOf(".len()..trimmed.len() - 1];
+            let ranges = self.parse_data_range_list(content)?;
+            Ok(DataRange::DataUnionOf(ranges))
+        } else if trimmed.starts_with("DataComplementOf(") {
+            let content = &trimmed["DataComplementOf(".len()..trimmed.len() - 1];
+            let range = Box::new(self.parse_data_range(content)?);
+            Ok(DataRange::DataComplementOf(range))
+        } else if trimmed.starts_with("DataOneOf(") {
+            let content = &trimmed["DataOneOf(".len()..trimmed.len() - 1];
+            let literals = self.parse_literal_list(content)?;
+            Ok(DataRange::DataOneOf(literals))
+        } else if trimmed.starts_with("DatatypeRestriction(") {
+            let content = &trimmed["DatatypeRestriction(".len()..trimmed.len() - 1];
+            let (datatype_iri, restrictions) = self.parse_datatype_restriction(content)?;
+            Ok(DataRange::DatatypeRestriction(datatype_iri, restrictions))
+        } else {
+            // Simple datatype
+            let datatype_iri = self.resolve_iri(trimmed)?;
+            Ok(DataRange::Datatype(datatype_iri))
+        }
+    }
+
+    /// Parse list of data ranges
+    fn parse_data_range_list(&mut self, input: &str) -> Result<Vec<DataRange>, ParserError> {
+        let mut ranges = Vec::new();
+        let mut current = String::new();
+        let mut paren_count = 0;
+
+        for ch in input.chars() {
+            if ch == '(' {
+                paren_count += 1;
+                current.push(ch);
+            } else if ch == ')' {
+                paren_count -= 1;
+                current.push(ch);
+                if paren_count == 0 {
+                    if !current.trim().is_empty() {
+                        ranges.push(self.parse_data_range(&current)?);
+                    }
+                    current.clear();
+                }
+            } else if ch.is_whitespace() && paren_count == 0 {
+                if !current.trim().is_empty() {
+                    ranges.push(self.parse_data_range(&current)?);
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+
+        if !current.trim().is_empty() {
+            ranges.push(self.parse_data_range(&current)?);
+        }
+
+        Ok(ranges)
+    }
+
+    /// Parse list of literals
+    fn parse_literal_list(&mut self, input: &str) -> Result<Vec<Literal>, ParserError> {
+        let mut literals = Vec::new();
+        let mut current = String::new();
+        let mut in_quotes = false;
+
+        for ch in input.chars() {
+            if ch == '"' {
+                in_quotes = !in_quotes;
+                current.push(ch);
+            } else if ch.is_whitespace() && !in_quotes {
+                if !current.trim().is_empty() {
+                    literals.push(self.parse_literal(&current)?);
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+
+        if !current.trim().is_empty() {
+            literals.push(self.parse_literal(&current)?);
+        }
+
+        Ok(literals)
+    }
+
+    /// Parse datatype restriction
+    fn parse_datatype_restriction(
+        &mut self,
+        input: &str,
+    ) -> Result<(IRI, Vec<FacetRestriction>), ParserError> {
+        let trimmed = input.trim();
+        let space_pos = trimmed.find(' ').ok_or_else(|| {
+            ParserError::ParseError("Expected space between datatype and restrictions".to_string())
+        })?;
+
+        let datatype_str = &trimmed[..space_pos];
+        let restrictions_str = &trimmed[space_pos + 1..];
+
+        let datatype_iri = self.resolve_iri(datatype_str)?;
+        let mut restrictions = Vec::new();
+
+        // Parse restriction facets - for now, we'll support basic patterns
+        let mut current = String::new();
+        let mut paren_count = 0;
+
+        for ch in restrictions_str.chars() {
+            if ch == '(' {
+                paren_count += 1;
+                current.push(ch);
+            } else if ch == ')' {
+                paren_count -= 1;
+                current.push(ch);
+                if paren_count == 0 {
+                    if !current.trim().is_empty() {
+                        // Parse facet restriction like "minInclusive 18"
+                        let facet_parts: Vec<&str> = current.trim().split_whitespace().collect();
+                        if facet_parts.len() >= 2 {
+                            let facet_iri = self.resolve_iri(facet_parts[0])?;
+                            let literal = self.parse_literal(facet_parts[1])?;
+                            restrictions.push(FacetRestriction::new(facet_iri, literal));
+                        }
+                    }
+                    current.clear();
+                }
+            } else if ch.is_whitespace() && paren_count == 0 {
+                if !current.trim().is_empty() {
+                    let facet_parts: Vec<&str> = current.trim().split_whitespace().collect();
+                    if facet_parts.len() >= 2 {
+                        let facet_iri = self.resolve_iri(facet_parts[0])?;
+                        let literal = self.parse_literal(facet_parts[1])?;
+                        restrictions.push(FacetRestriction::new(facet_iri, literal));
+                    }
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+
+        Ok((datatype_iri, restrictions))
+    }
+
+    /// Parse a literal (string, typed, language-tagged)
+    fn parse_literal(&mut self, input: &str) -> Result<Literal, ParserError> {
+        let input = input.trim();
+
+        // Check for typed literal (must check before language-tagged to avoid confusion)
+        if input.starts_with('"') && input.contains("^^") {
+            if let Some(type_pos) = input.find("^^") {
+                let string_part = &input[..type_pos];
+                let type_iri_str = &input[type_pos + 2..].trim();
+
+                // Parse the quoted string
+                if let Some(quote_end) = string_part.rfind('"') {
+                    if let Some(quote_start) = string_part.find('"') {
+                        let content = &string_part[quote_start + 1..quote_end];
+                        let datatype_iri = self.resolve_iri(type_iri_str)?;
+                        return Ok(Literal::typed(content, datatype_iri));
+                    }
+                }
+            }
+        }
+
+        // Check for language-tagged string
+        if input.starts_with('"') && input.contains('@') {
+            if let Some(lang_pos) = input.rfind('@') {
+                let string_part = &input[..lang_pos];
+                let lang_part = &input[lang_pos + 1..];
+
+                // Parse the quoted string
+                if let Some(quote_end) = string_part.rfind('"') {
+                    if let Some(quote_start) = string_part.find('"') {
+                        let content = &string_part[quote_start + 1..quote_end];
+                        return Ok(Literal::lang_tagged(content, lang_part));
+                    }
+                }
+            }
+        }
+
+        // Check for simple string literal
+        if input.starts_with('"') {
+            if let Some(quote_end) = input.rfind('"') {
+                if let Some(quote_start) = input.find('"') {
+                    let content = &input[quote_start + 1..quote_end];
+                    return Ok(Literal::simple(content));
+                }
+            }
+        }
+
+        // Check for boolean literals
+        match input {
+            "true" => return Ok(Literal::typed("true", "http://www.w3.org/2001/XMLSchema#boolean")),
+            "false" => return Ok(Literal::typed("false", "http://www.w3.org/2001/XMLSchema#boolean")),
+            _ => {}
+        }
+
+        // Check for integer literals
+        if let Ok(int_value) = input.parse::<i64>() {
+            return Ok(Literal::typed(int_value.to_string(), "http://www.w3.org/2001/XMLSchema#integer"));
+        }
+
+        // Check for float literals
+        if let Ok(float_value) = input.parse::<f64>() {
+            return Ok(Literal::typed(float_value.to_string(), "http://www.w3.org/2001/XMLSchema#double"));
+        }
+
+        // Try to parse as IRI (could be an individual IRI used as a value)
+        if input.starts_with('<') && input.ends_with('>') {
+            let iri_content = &input[1..input.len() - 1];
+            let _iri = self.resolve_iri(iri_content)?;
+            return Ok(Literal::simple(iri_content));
+        }
+
+        // Try to parse as prefixed name
+        if !input.is_empty() && input.chars().next().unwrap().is_alphabetic() {
+            return self.resolve_iri(input).map(|_iri| Literal::simple(input));
+        }
+
+        Err(ParserError::ParseError(format!("Invalid literal: {}", input)))
+    }
+
+    /// Parse AnnotationAssertion axiom
+    fn parse_annotation_assertion(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        // Parse the annotation property (first token)
+        let mut chars = content.chars();
+        let mut property_str = String::new();
+        while let Some(c) = chars.next() {
+            if c.is_whitespace() {
+                break;
+            }
+            property_str.push(c);
+        }
+
+        // Skip whitespace and parse the subject (second token)
+        while let Some(c) = chars.next() {
+            if !c.is_whitespace() {
+                break;
+            }
+        }
+
+        let mut subject_str = String::new();
+        while let Some(c) = chars.next() {
+            if c.is_whitespace() {
+                break;
+            }
+            subject_str.push(c);
+        }
+
+        // The rest is the annotation value
+        let value_str: String = chars.collect();
+
+        if !property_str.is_empty() && !subject_str.is_empty() && !value_str.is_empty() {
+            let property_iri = self.resolve_iri(&property_str)?;
+            let subject_iri = self.resolve_iri(&subject_str)?;
+
+            // Parse the annotation value (could be IRI or literal)
+            let annotation_value = if value_str.trim().starts_with('"') {
+                // It's a literal
+                crate::entities::AnnotationValue::Literal(self.parse_literal(&value_str)?)
+            } else {
+                // It's an IRI
+                let value_iri = self.resolve_iri(&value_str)?;
+                crate::entities::AnnotationValue::IRI(value_iri)
+            };
+
+            let annotation_assertion = AnnotationAssertionAxiom::new(property_iri, subject_iri, annotation_value);
+            ontology.add_axiom(Axiom::AnnotationAssertion(annotation_assertion))?;
+        }
+        Ok(())
+    }
+
+    /// Parse SubAnnotationPropertyOf axiom
+    fn parse_sub_annotation_property_of(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let sub_prop_iri = self.resolve_iri(parts[0])?;
+            let super_prop_iri = self.resolve_iri(parts[1])?;
+
+            let sub_axiom = SubAnnotationPropertyOfAxiom::new(sub_prop_iri, super_prop_iri);
+            ontology.add_axiom(Axiom::SubAnnotationPropertyOf(sub_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse AnnotationPropertyDomain axiom
+    fn parse_annotation_property_domain(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let domain_iri = self.resolve_iri(parts[1])?;
+
+            let domain_axiom = AnnotationPropertyDomainAxiom::new(prop_iri, domain_iri);
+            ontology.add_axiom(Axiom::AnnotationPropertyDomain(domain_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse AnnotationPropertyRange axiom
+    fn parse_annotation_property_range(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let prop_iri = self.resolve_iri(parts[0])?;
+            let range_iri = self.resolve_iri(parts[1])?;
+
+            let range_axiom = AnnotationPropertyRangeAxiom::new(prop_iri, range_iri);
+            ontology.add_axiom(Axiom::AnnotationPropertyRange(range_axiom))?;
+        }
+        Ok(())
+    }
+
+    /// Parse Import axiom
+    fn parse_import(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+        let iri = self.resolve_iri(content.trim())?;
+        let import_axiom = ImportAxiom::new(iri);
+        ontology.add_axiom(Axiom::Import(import_axiom))?;
         Ok(())
     }
 }
