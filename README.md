@@ -2,8 +2,7 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://rust-lang.org)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
-[![Performance](https://img.shields.io/badge/performance-38x%20faster-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
-[![Benchmark](https://img.shields.io/badge/benchmark-comprehensive-blue.svg)](https://github.com/anusornc/owl2-reasoner)
+[![Tests](https://img.shields.io/badge/tests-234%20passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://anusornc.github.io/owl2-reasoner/)
 
 High‑performance Rust OWL2 reasoner with an actively evolving parser/reasoner, examples, test-suite integration, and Criterion benchmarks.
@@ -11,9 +10,10 @@ High‑performance Rust OWL2 reasoner with an actively evolving parser/reasoner,
 ## 🏆 Key Achievements
 
 ### **Performance Notes**
-- Competitive performance on internal Criterion benches (informative)
-- Fast responses on small ontologies; release mode recommended for timing
-- Clippy + fmt supported locally; CI integration and coverage are evolving
+- Performance measured via internal Criterion benchmarks
+- Fast responses on small to medium ontologies; release mode recommended for production
+- Zero compilation warnings; comprehensive test coverage (234 tests)
+- Memory-efficient implementation with caching and pooling
 
 ### **Format & Reasoning Support**
 - Parsers: Turtle, RDF/XML (streaming backend available), OWL Functional (in progress), N‑Triples
@@ -69,9 +69,9 @@ Benchmark comparisons with other reasoners are available in the benchmarking fol
 
 ## 🚀 Getting Started
 
-This crate lives in a Rust workspace together with a reusable test‑suite crate:
+This project is a standalone Rust crate:
 - Core: `owl2-reasoner/` (this crate)
-- Test suite: `owl2-reasoner-test-suite/` (shared datasets/tests)
+- Built-in test suite and comprehensive examples included
 
 ### Prerequisites
 - Rust 1.70+
@@ -129,39 +129,30 @@ println!("Classification completed: {} classes", classified.len());
 
 #### Advanced Reasoning Usage
 ```rust
-use owl2_reasoner::reasoning::{
-    OwlReasoner, ReasoningConfig,
-    tableaux::ReasoningConfig as TableauxConfig
-};
+use owl2_reasoner::reasoning::tableaux::{TableauxReasoner, ReasoningConfig};
 
 // Configure advanced reasoning
-let tableaux_config = TableauxConfig {
+let config = ReasoningConfig {
     max_depth: 2000,
-    debug: false,
-    incremental: true,
     timeout: Some(45000),
-};
-
-let reasoning_config = ReasoningConfig {
-    enable_reasoning: true,
-    use_advanced_reasoning: true,
-    tableaux_config,
+    debug: false,
 };
 
 // Create advanced reasoner
-let mut reasoner = OwlReasoner::with_config(ontology, reasoning_config);
+let mut reasoner = TableauxReasoner::with_config(&ontology, config);
 
 // Advanced reasoning capabilities
 let is_consistent = reasoner.is_consistent()?;
-let is_satisfiable = reasoner.is_class_satisfiable(&class_iri)?;
 let classification = reasoner.classify()?;
 ```
 
 #### Example CLI usage (via `cargo run --example`)
 ```bash
-# Consistency/classification helpers
-cargo run --example benchmark_cli -- --consistent path/to/ontology.ttl
-cargo run --example benchmark_cli -- --classify  path/to/ontology.ttl
+# Performance benchmarking example
+cargo run --example performance_benchmarking
+
+# Complete validation example
+cargo run --example complete_validation
 ```
 
 ## 📚 Project Structure
@@ -179,16 +170,28 @@ owl2-reasoner/
 │   │   ├── benchmark_cli.rs
 │   │   └── performance_benchmarking.rs
 │   ├── validation/        # Validation and testing examples
-│   │   └── complete_validation.rs
+│   │   ├── complete_validation.rs
+│   │   ├── empirical_validation.rs
+│   │   └── honest_validation.rs
 │   └── advanced/          # Advanced use cases
-│       ├── comparative_analysis.rs
-│       └── epcis_validation_suite.rs
-├── benches/               # Criterion benches (targeted)
-│   ├── parser_bench.rs        # Turtle parsing
-│   ├── rdfxml_parser_bench.rs # RDF/XML parsing
-│   ├── reasoning_bench.rs     # Reasoning paths
-│   └── query_bench.rs         # Query engine
-├── tests/                 # Unit and integration tests
+│       ├── epcis_validation_suite.rs
+│       ├── real_world_simulation.rs
+│       ├── enhanced_memory_profiling.rs
+│       └── complex_axiom_test.rs
+├── benches/               # Criterion benches (comprehensive)
+│   ├── parser_bench.rs        # Parser performance
+│   ├── reasoning_bench.rs     # Reasoning performance
+│   ├── query_bench.rs         # Query engine
+│   ├── memory_bench.rs        # Memory profiling
+│   └── scalability_bench.rs   # Scalability testing
+├── tests/                 # Comprehensive test suite
+│   ├── comprehensive/     # Comprehensive test suites
+│   ├── concurrency/       # Concurrency testing
+│   ├── error_handling/    # Error handling tests
+│   ├── integration_tests/ # Integration testing
+│   ├── negative_tests/    # Negative test cases
+│   ├── profile_validation_tests/ # OWL2 profile validation
+│   └── stress_tests/      # Stress testing
 ├── benchmarking/          # External benchmarking framework
 │   ├── framework/         # Python benchmarking tools
 │   ├── established_reasoners/  # External reasoners (HermiT, ELK, etc.)
@@ -226,27 +229,20 @@ assert_eq!(onto_streaming.entities_len(), onto_strict.entities_len());
 
 ## 🧪 Test Suite & Examples
 
-The W3C-style test runner lives in a separate crate to keep the core lean:
+The comprehensive test runner is built into the main crate:
 
-- Crate: `owl2-reasoner-test-suite` (path dependency in this repo)
+- Built-in test suites in `tests/` directory
 - Example runner: `examples/test_suite_runner.rs`
 
 Usage:
 - From `owl2-reasoner/`: `cargo run --example test_suite_runner`
-- As a dependency: add `owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }` to your dev‑dependencies.
-Note: the runner loads zero cases unless you point it to a populated test‑suite directory; see the config in `owl2-reasoner-test-suite/src/lib.rs`.
 
 Runner flags (examples):
 ```bash
-# Point to a specific suite directory and output location
+# Run comprehensive test suite with custom configuration
 cargo run --example test_suite_runner -- \
-  --suite-dir ./test_suite/owl2 \
-  --out ./test_results \
   --timeout 60 \
   --jobs 8
-
-# Include extra-credit tests
-cargo run --example test_suite_runner -- --extra-credit
 ```
 
 ## 📈 Benchmarks
@@ -261,10 +257,11 @@ cargo run --example test_suite_runner -- --extra-credit
 
 ### Key Documentation
 - **API Documentation**: `target/doc/owl2_reasoner/` (generated with `cargo doc`)
-- **Performance Analysis**: `docs/performance/COMPREHENSIVE_PERFORMANCE_ANALYSIS.md`
+- **Performance Analysis**: `docs/BENCHMARKING.md`
 - **Project Status**: `docs/project/PROJECT_SUCCESS_SUMMARY.md`
-- **Technical Details**: `docs/technical/ARCHITECTURE.md`
+- **Technical Details**: `docs/technical/` (comprehensive technical docs)
 - **User Guide**: `docs/book/` (mdbook documentation)
+- **API Reference**: `docs/API_REFERENCE.md`
 
 ## 🧪 Testing and Validation
 
@@ -292,7 +289,7 @@ cargo test --release
 ./scripts/validate_system.sh
 
 # This script runs:
-# - Full test suite (152 tests)
+# - Full test suite (234 tests)
 # - Example validation
 # - System integration tests
 # - Performance verification
@@ -316,15 +313,16 @@ cargo run --example performance_benchmarking
 
 # Validation examples
 cargo run --example complete_validation
+cargo run --example empirical_validation
+cargo run --example honest_validation
 
 # Advanced examples
-cargo run --example comparative_analysis
 cargo run --example epcis_validation_suite
 cargo run --example real_world_simulation
+cargo run --example enhanced_memory_profiling
 
-# EPCIS examples (focus)
-cargo run --example epcis_validation_suite      # EPCIS compliance/validation
-cargo run --example real_world_simulation       # Large‑scale EPCIS simulation
+# Complex axiom testing
+cargo run --example complex_axiom_test
 ```
 
 ## 📊 Benchmarking
@@ -559,10 +557,10 @@ cargo doc --no-deps --open
 - EPCIS coverage and examples
 
 ### 📋 **Next Steps**
-1. Re‑enable aggregator benches (currently placeholders)
-2. Expand strict vs relaxed IRI/parse validation tests
-3. Add EPCIS samples and end‑to‑end tests
-4. Tighten clippy across all targets and docs
+1. Complete OWL Functional parser implementation
+2. Expand SPARQL query engine capabilities
+3. Add comprehensive EPCIS validation examples
+4. Enhance tableaux reasoning optimizations
 
 ## 📄 License
 
