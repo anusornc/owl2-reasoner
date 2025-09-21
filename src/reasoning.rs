@@ -5,6 +5,7 @@
 
 pub mod classification;
 pub mod consistency;
+pub mod profile_optimized;
 pub mod query;
 pub mod rules;
 pub mod simple;
@@ -12,6 +13,7 @@ pub mod tableaux;
 
 pub use classification::*;
 pub use consistency::*;
+pub use profile_optimized::*;
 pub use query::*;
 pub use rules::*;
 pub use simple::*;
