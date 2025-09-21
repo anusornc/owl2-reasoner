@@ -331,6 +331,11 @@ impl SimpleReasoner {
         self.profile_validator.cache_stats()
     }
 
+    /// Enable or disable advanced profile caching
+    pub fn set_advanced_profile_caching(&mut self, enabled: bool) {
+        self.profile_validator.set_advanced_caching(enabled);
+    }
+
     /// Check if the ontology is consistent (cached)
     pub fn is_consistent(&self) -> OwlResult<bool> {
         // Check cache first

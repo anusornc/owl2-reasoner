@@ -2145,9 +2145,9 @@ mod tests {
 
         if let Ok(ontology) = result {
             // Debug: Check what was actually parsed
-            for cls in ontology.classes() {
+            for _cls in ontology.classes() {
             }
-            for ind in ontology.named_individuals() {
+            for _ind in ontology.named_individuals() {
             }
 
             // Should have parsed 1 class and 1 individual

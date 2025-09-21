@@ -296,6 +296,25 @@ pub struct IRI {
     hash: u64,
 }
 
+impl serde::Serialize for IRI {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for IRI {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        IRI::new(s).map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
 impl IRI {
     /// Create a new IRI from a string with global caching
     pub fn new<S: Into<String>>(iri: S) -> OwlResult<Self> {

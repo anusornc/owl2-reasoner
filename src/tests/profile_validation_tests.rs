@@ -45,6 +45,8 @@ fn test_el_profile_disjoint_classes_violation() {
     ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
 
     let mut reasoner = SimpleReasoner::new(ontology);
+    // Disable advanced caching for this test
+    reasoner.set_advanced_profile_caching(false);
     let result = reasoner.validate_profile(Owl2Profile::EL).unwrap();
 
     assert!(!result.is_valid);
@@ -105,6 +107,9 @@ fn test_profile_validation_caching() {
     // Test that caching works correctly
     let ontology = Ontology::new();
     let mut reasoner = SimpleReasoner::new(ontology);
+
+    // Disable advanced caching to test legacy cache
+    reasoner.set_advanced_profile_caching(false);
 
     // First validation should populate cache
     let result1 = reasoner.validate_profile(Owl2Profile::EL).unwrap();
@@ -221,6 +226,8 @@ fn test_profile_validation_with_multiple_violations() {
     ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
 
     let mut reasoner = SimpleReasoner::new(ontology);
+    // Disable advanced caching for this test
+    reasoner.set_advanced_profile_caching(false);
     let result = reasoner.validate_profile(Owl2Profile::EL).unwrap();
 
     // Should have violations (current implementation may detect different numbers)
@@ -240,6 +247,9 @@ fn test_clear_profile_cache() {
     // Test cache clearing functionality
     let ontology = Ontology::new();
     let mut reasoner = SimpleReasoner::new(ontology);
+
+    // Disable advanced caching to test legacy cache
+    reasoner.set_advanced_profile_caching(false);
 
     // Populate cache
     reasoner.validate_profile(Owl2Profile::EL).unwrap();

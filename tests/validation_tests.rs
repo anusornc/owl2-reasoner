@@ -3,7 +3,7 @@
 //! This test module thoroughly validates that the evolved algorithm
 //! has been properly integrated and contains no hardcoded values or fake data.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::Instant;
 
 mod validation {
