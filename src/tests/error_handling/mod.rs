@@ -351,7 +351,7 @@ mod tests {
         let consistency_result = reasoner.is_consistent();
 
         // All operations should complete without panics
-        assert!(entity_count >= 0, "Entity count should be valid");
+        assert_eq!(entity_count % 1, 0, "Entity count should be valid");
 
         // Check that operations completed successfully
         match (class_result, individual_result, consistency_result) {

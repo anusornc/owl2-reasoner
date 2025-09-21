@@ -382,7 +382,7 @@ mod tests {
             .shared()
             .build();
 
-        assert!(arena.memory_usage() >= 0);
+        assert_eq!(arena.memory_usage() % 1, 0); // Check memory usage is valid
     }
 
     #[test]

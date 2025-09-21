@@ -115,7 +115,7 @@ mod tests {
         assert_eq!(total_iris, num_threads * iris_per_thread);
 
         // Verify IRI cache is working (duplicates should be shared)
-        clear_global_iri_cache();
+        let _ = clear_global_iri_cache();
     }
 
     #[test]
