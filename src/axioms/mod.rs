@@ -6,11 +6,33 @@
 pub mod class_expressions;
 pub mod property_expressions;
 
-pub use crate::entities::{ObjectProperty, Annotation};
+pub use crate::entities::{Annotation, AnonymousIndividual, Literal, ObjectProperty};
 pub use class_expressions::*;
 pub use property_expressions::*;
 
 use crate::iri::IRI;
+use crate::{constants::*, OwlError, OwlResult};
+
+/// Helper function to create IRIs safely with proper error handling
+fn create_iri_safe(iri_str: &str) -> OwlResult<IRI> {
+    IRI::new(iri_str).map_err(|_| OwlError::IriCreationError {
+        iri_str: iri_str.to_string(),
+    })
+}
+
+/// Helper function to create blank node IRIs safely
+fn create_blank_node_iri(node_id: &str) -> OwlResult<IRI> {
+    create_iri_safe(&format!("{}{}", BLANK_NODE_PREFIX, node_id))
+}
+
+/// Object value for property assertions
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PropertyAssertionObject {
+    /// Named individual (IRI)
+    Named(IRI),
+    /// Anonymous individual (blank node)
+    Anonymous(Box<AnonymousIndividual>),
+}
 
 /// OWL2 Axiom type identifiers for indexing and classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,63 +79,66 @@ pub enum AxiomType {
     NegativeObjectPropertyAssertion,
     NegativeDataPropertyAssertion,
     Import,
+    Collection,
+    Container,
+    Reification,
 }
 
 /// OWL2 Axiom types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Axiom {
     /// Subclass axiom: C ⊑ D
-    SubClassOf(SubClassOfAxiom),
+    SubClassOf(Box<SubClassOfAxiom>),
     /// Equivalent classes axiom: C ≡ D
-    EquivalentClasses(EquivalentClassesAxiom),
+    EquivalentClasses(Box<EquivalentClassesAxiom>),
     /// Disjoint classes axiom: C ⊓ D ⊑ ⊥
-    DisjointClasses(DisjointClassesAxiom),
+    DisjointClasses(Box<DisjointClassesAxiom>),
     /// Class assertion: a ∈ C
-    ClassAssertion(ClassAssertionAxiom),
+    ClassAssertion(Box<ClassAssertionAxiom>),
     /// Property assertion: (a, b) ∈ P
-    PropertyAssertion(PropertyAssertionAxiom),
+    PropertyAssertion(Box<PropertyAssertionAxiom>),
     /// Data property assertion: (a, v) ∈ P where v is a literal
-    DataPropertyAssertion(DataPropertyAssertionAxiom),
+    DataPropertyAssertion(Box<DataPropertyAssertionAxiom>),
     /// Subproperty axiom: P ⊑ Q
-    SubObjectProperty(SubObjectPropertyAxiom),
+    SubObjectProperty(Box<SubObjectPropertyAxiom>),
     /// Equivalent properties axiom: P ≡ Q
-    EquivalentObjectProperties(EquivalentObjectPropertiesAxiom),
+    EquivalentObjectProperties(Box<EquivalentObjectPropertiesAxiom>),
     /// Disjoint properties axiom: P ⊓ Q ⊑ ⊥
-    DisjointObjectProperties(DisjointObjectPropertiesAxiom),
+    DisjointObjectProperties(Box<DisjointObjectPropertiesAxiom>),
     /// Functional property axiom: ⊤ ⊑ ≤1P
-    FunctionalProperty(FunctionalPropertyAxiom),
+    FunctionalProperty(Box<FunctionalPropertyAxiom>),
     /// Inverse functional property axiom: ⊤ ⊑ ≤1P⁻
-    InverseFunctionalProperty(InverseFunctionalPropertyAxiom),
+    InverseFunctionalProperty(Box<InverseFunctionalPropertyAxiom>),
     /// Reflexive property axiom: ⊤ ⊑ ∃P.Self
-    ReflexiveProperty(ReflexivePropertyAxiom),
+    ReflexiveProperty(Box<ReflexivePropertyAxiom>),
     /// Irreflexive property axiom: ⊥ ⊑ ∃P.Self
-    IrreflexiveProperty(IrreflexivePropertyAxiom),
+    IrreflexiveProperty(Box<IrreflexivePropertyAxiom>),
     /// Symmetric property axiom: P ≡ P⁻
-    SymmetricProperty(SymmetricPropertyAxiom),
+    SymmetricProperty(Box<SymmetricPropertyAxiom>),
     /// Asymmetric property axiom: P ⊓ P⁻ ⊑ ⊥
-    AsymmetricProperty(AsymmetricPropertyAxiom),
+    AsymmetricProperty(Box<AsymmetricPropertyAxiom>),
     /// Transitive property axiom: P⁺ ⊑ P
-    TransitiveProperty(TransitivePropertyAxiom),
+    TransitiveProperty(Box<TransitivePropertyAxiom>),
     /// Property chain axiom: P₁ ∘ ... ∘ Pₙ ⊑ Q
-    SubPropertyChainOf(SubPropertyChainOfAxiom),
+    SubPropertyChainOf(Box<SubPropertyChainOfAxiom>),
     /// Inverse object properties axiom: P ≡ Q⁻
-    InverseObjectProperties(InverseObjectPropertiesAxiom),
+    InverseObjectProperties(Box<InverseObjectPropertiesAxiom>),
     /// Subdata property axiom: Q ⊑ P
-    SubDataProperty(SubDataPropertyAxiom),
+    SubDataProperty(Box<SubDataPropertyAxiom>),
     /// Equivalent data properties axiom: P ≡ Q
-    EquivalentDataProperties(EquivalentDataPropertiesAxiom),
+    EquivalentDataProperties(Box<EquivalentDataPropertiesAxiom>),
     /// Disjoint data properties axiom: P ⊓ Q ⊑ ⊥
-    DisjointDataProperties(DisjointDataPropertiesAxiom),
+    DisjointDataProperties(Box<DisjointDataPropertiesAxiom>),
     /// Functional data property axiom: ⊤ ⊑ ≤1P
     FunctionalDataProperty(FunctionalDataPropertyAxiom),
     /// Same individual axiom: a = b
-    SameIndividual(SameIndividualAxiom),
+    SameIndividual(Box<SameIndividualAxiom>),
     /// Different individuals axiom: a ≠ b
-    DifferentIndividuals(DifferentIndividualsAxiom),
+    DifferentIndividuals(Box<DifferentIndividualsAxiom>),
     /// Has key axiom: P₁,...,Pₙ ⊑ Key(C)
-    HasKey(HasKeyAxiom),
+    HasKey(Box<HasKeyAxiom>),
     /// Annotation assertion axiom: ⊤ ⊑ ∃r.{@a}
-    AnnotationAssertion(AnnotationAssertionAxiom),
+    AnnotationAssertion(Box<AnnotationAssertionAxiom>),
     /// Sub-annotation property axiom: P ⊑ Q
     SubAnnotationPropertyOf(SubAnnotationPropertyOfAxiom),
     /// Annotation property domain axiom: ∀P.C ⊑ D
@@ -121,86 +146,119 @@ pub enum Axiom {
     /// Annotation property range axiom: ∀P.C ⊑ D
     AnnotationPropertyRange(AnnotationPropertyRangeAxiom),
     /// Object minimum qualified cardinality: ⊤ ⊑ ≥n R.C
-    ObjectMinQualifiedCardinality(ObjectMinQualifiedCardinalityAxiom),
+    ObjectMinQualifiedCardinality(Box<ObjectMinQualifiedCardinalityAxiom>),
     /// Object maximum qualified cardinality: ⊤ ⊑ ≤n R.C
-    ObjectMaxQualifiedCardinality(ObjectMaxQualifiedCardinalityAxiom),
+    ObjectMaxQualifiedCardinality(Box<ObjectMaxQualifiedCardinalityAxiom>),
     /// Object exact qualified cardinality: ⊤ ⊑ =n R.C
-    ObjectExactQualifiedCardinality(ObjectExactQualifiedCardinalityAxiom),
+    ObjectExactQualifiedCardinality(Box<ObjectExactQualifiedCardinalityAxiom>),
     /// Data minimum qualified cardinality: ⊤ ⊑ ≥n R.D
-    DataMinQualifiedCardinality(DataMinQualifiedCardinalityAxiom),
+    DataMinQualifiedCardinality(Box<DataMinQualifiedCardinalityAxiom>),
     /// Data maximum qualified cardinality: ⊤ ⊑ ≤n R.D
-    DataMaxQualifiedCardinality(DataMaxQualifiedCardinalityAxiom),
+    DataMaxQualifiedCardinality(Box<DataMaxQualifiedCardinalityAxiom>),
     /// Data exact qualified cardinality: ⊤ ⊑ =n R.D
-    DataExactQualifiedCardinality(DataExactQualifiedCardinalityAxiom),
+    DataExactQualifiedCardinality(Box<DataExactQualifiedCardinalityAxiom>),
     /// Object property domain: ∀P.C ⊑ D
-    ObjectPropertyDomain(ObjectPropertyDomainAxiom),
+    ObjectPropertyDomain(Box<ObjectPropertyDomainAxiom>),
     /// Object property range: ∀P.D ⊑ C
-    ObjectPropertyRange(ObjectPropertyRangeAxiom),
+    ObjectPropertyRange(Box<ObjectPropertyRangeAxiom>),
     /// Data property domain: ∀Q.C ⊑ D
-    DataPropertyDomain(DataPropertyDomainAxiom),
+    DataPropertyDomain(Box<DataPropertyDomainAxiom>),
     /// Data property range: ∃Q.l ⊑ D
-    DataPropertyRange(DataPropertyRangeAxiom),
+    DataPropertyRange(Box<DataPropertyRangeAxiom>),
     /// Negative object property assertion: (a, b) ∉ P
-    NegativeObjectPropertyAssertion(NegativeObjectPropertyAssertionAxiom),
+    NegativeObjectPropertyAssertion(Box<NegativeObjectPropertyAssertionAxiom>),
     /// Negative data property assertion: (a, l) ∉ Q
-    NegativeDataPropertyAssertion(NegativeDataPropertyAssertionAxiom),
+    NegativeDataPropertyAssertion(Box<NegativeDataPropertyAssertionAxiom>),
     /// Import declaration: imports ontology with given IRI
     Import(ImportAxiom),
+    /// RDF Collection axiom: represents ordered list using rdf:first, rdf:rest, rdf:nil
+    Collection(Box<CollectionAxiom>),
+    /// RDF Container axiom: represents Seq, Bag, or Alt containers
+    Container(Box<ContainerAxiom>),
+    /// RDF Reification axiom: represents statements about statements
+    Reification(Box<ReificationAxiom>),
 }
 
 impl Axiom {
     /// Get the type of this axiom
     pub fn axiom_type(&self) -> AxiomType {
-        match self {
-            Axiom::SubClassOf(_) => AxiomType::SubClassOf,
-            Axiom::EquivalentClasses(_) => AxiomType::EquivalentClasses,
-            Axiom::DisjointClasses(_) => AxiomType::DisjointClasses,
-            Axiom::ClassAssertion(_) => AxiomType::ClassAssertion,
-            Axiom::PropertyAssertion(_) => AxiomType::PropertyAssertion,
-            Axiom::DataPropertyAssertion(_) => AxiomType::DataPropertyAssertion,
-            Axiom::SubObjectProperty(_) => AxiomType::SubObjectProperty,
-            Axiom::EquivalentObjectProperties(_) => AxiomType::EquivalentObjectProperties,
-            Axiom::DisjointObjectProperties(_) => AxiomType::DisjointObjectProperties,
-            Axiom::FunctionalProperty(_) => AxiomType::FunctionalProperty,
-            Axiom::InverseFunctionalProperty(_) => AxiomType::InverseFunctionalProperty,
-            Axiom::ReflexiveProperty(_) => AxiomType::ReflexiveProperty,
-            Axiom::IrreflexiveProperty(_) => AxiomType::IrreflexiveProperty,
-            Axiom::SymmetricProperty(_) => AxiomType::SymmetricProperty,
-            Axiom::AsymmetricProperty(_) => AxiomType::AsymmetricProperty,
-            Axiom::TransitiveProperty(_) => AxiomType::TransitiveProperty,
-            Axiom::SubPropertyChainOf(_) => AxiomType::SubPropertyChainOf,
-            Axiom::InverseObjectProperties(_) => AxiomType::InverseObjectProperties,
-            Axiom::SubDataProperty(_) => AxiomType::SubDataProperty,
-            Axiom::EquivalentDataProperties(_) => AxiomType::EquivalentDataProperties,
-            Axiom::DisjointDataProperties(_) => AxiomType::DisjointDataProperties,
-            Axiom::FunctionalDataProperty(_) => AxiomType::FunctionalDataProperty,
-            Axiom::SameIndividual(_) => AxiomType::SameIndividual,
-            Axiom::DifferentIndividuals(_) => AxiomType::DifferentIndividuals,
-            Axiom::HasKey(_) => AxiomType::HasKey,
-            Axiom::AnnotationAssertion(_) => AxiomType::AnnotationAssertion,
-            Axiom::SubAnnotationPropertyOf(_) => AxiomType::SubAnnotationPropertyOf,
-            Axiom::AnnotationPropertyDomain(_) => AxiomType::AnnotationPropertyDomain,
-            Axiom::AnnotationPropertyRange(_) => AxiomType::AnnotationPropertyRange,
-            Axiom::ObjectMinQualifiedCardinality(_) => AxiomType::ObjectMinQualifiedCardinality,
-            Axiom::ObjectMaxQualifiedCardinality(_) => AxiomType::ObjectMaxQualifiedCardinality,
-            Axiom::ObjectExactQualifiedCardinality(_) => AxiomType::ObjectExactQualifiedCardinality,
-            Axiom::DataMinQualifiedCardinality(_) => AxiomType::DataMinQualifiedCardinality,
-            Axiom::DataMaxQualifiedCardinality(_) => AxiomType::DataMaxQualifiedCardinality,
-            Axiom::DataExactQualifiedCardinality(_) => AxiomType::DataExactQualifiedCardinality,
-            Axiom::ObjectPropertyDomain(_) => AxiomType::ObjectPropertyDomain,
-            Axiom::ObjectPropertyRange(_) => AxiomType::ObjectPropertyRange,
-            Axiom::DataPropertyDomain(_) => AxiomType::DataPropertyDomain,
-            Axiom::DataPropertyRange(_) => AxiomType::DataPropertyRange,
-            Axiom::NegativeObjectPropertyAssertion(_) => AxiomType::NegativeObjectPropertyAssertion,
-            Axiom::NegativeDataPropertyAssertion(_) => AxiomType::NegativeDataPropertyAssertion,
-            Axiom::Import(_) => AxiomType::Import,
+        // Macro to map axiom variants to their corresponding types
+        macro_rules! axiom_type_map {
+            ($($variant:ident => $type:ident),*) => {
+                match self {
+                    $(Axiom::$variant(_) => AxiomType::$type),*
+                }
+            };
+        }
+
+        axiom_type_map! {
+            // Class expression axioms
+            SubClassOf => SubClassOf,
+            EquivalentClasses => EquivalentClasses,
+            DisjointClasses => DisjointClasses,
+            ClassAssertion => ClassAssertion,
+
+            // Property assertion axioms
+            PropertyAssertion => PropertyAssertion,
+            DataPropertyAssertion => DataPropertyAssertion,
+
+            // Object property axioms
+            SubObjectProperty => SubObjectProperty,
+            EquivalentObjectProperties => EquivalentObjectProperties,
+            DisjointObjectProperties => DisjointObjectProperties,
+            FunctionalProperty => FunctionalProperty,
+            InverseFunctionalProperty => InverseFunctionalProperty,
+            ReflexiveProperty => ReflexiveProperty,
+            IrreflexiveProperty => IrreflexiveProperty,
+            SymmetricProperty => SymmetricProperty,
+            AsymmetricProperty => AsymmetricProperty,
+            TransitiveProperty => TransitiveProperty,
+            SubPropertyChainOf => SubPropertyChainOf,
+            InverseObjectProperties => InverseObjectProperties,
+            ObjectPropertyDomain => ObjectPropertyDomain,
+            ObjectPropertyRange => ObjectPropertyRange,
+            NegativeObjectPropertyAssertion => NegativeObjectPropertyAssertion,
+
+            // Data property axioms
+            SubDataProperty => SubDataProperty,
+            EquivalentDataProperties => EquivalentDataProperties,
+            DisjointDataProperties => DisjointDataProperties,
+            FunctionalDataProperty => FunctionalDataProperty,
+            DataPropertyDomain => DataPropertyDomain,
+            DataPropertyRange => DataPropertyRange,
+            NegativeDataPropertyAssertion => NegativeDataPropertyAssertion,
+
+            // Individual axioms
+            SameIndividual => SameIndividual,
+            DifferentIndividuals => DifferentIndividuals,
+
+            // Cardinality axioms
+            HasKey => HasKey,
+            ObjectMinQualifiedCardinality => ObjectMinQualifiedCardinality,
+            ObjectMaxQualifiedCardinality => ObjectMaxQualifiedCardinality,
+            ObjectExactQualifiedCardinality => ObjectExactQualifiedCardinality,
+            DataMinQualifiedCardinality => DataMinQualifiedCardinality,
+            DataMaxQualifiedCardinality => DataMaxQualifiedCardinality,
+            DataExactQualifiedCardinality => DataExactQualifiedCardinality,
+
+            // Annotation axioms
+            AnnotationAssertion => AnnotationAssertion,
+            SubAnnotationPropertyOf => SubAnnotationPropertyOf,
+            AnnotationPropertyDomain => AnnotationPropertyDomain,
+            AnnotationPropertyRange => AnnotationPropertyRange,
+
+            // Special axioms
+            Import => Import,
+            Collection => Collection,
+            Container => Container,
+            Reification => Reification
         }
     }
 
     /// Get the signature IRIs of this axiom (main entities involved)
     pub fn signature(&self) -> Vec<IRI> {
         // Simplified signature extraction - will be enhanced with proper axiom methods
-        vec![] // Placeholder implementation
+        Vec::new() // Placeholder implementation
     }
 }
 
@@ -307,7 +365,7 @@ impl ClassAssertionAxiom {
 pub struct PropertyAssertionAxiom {
     subject: IRI,
     property: IRI,
-    object: IRI,
+    object: PropertyAssertionObject,
 }
 
 /// Data property assertion axiom: (a, v) ∈ P
@@ -345,8 +403,26 @@ impl DataPropertyAssertionAxiom {
 }
 
 impl PropertyAssertionAxiom {
-    /// Create a new property assertion axiom
+    /// Create a new property assertion axiom with named individual (backward compatibility)
     pub fn new(subject: IRI, property: IRI, object: IRI) -> Self {
+        PropertyAssertionAxiom {
+            subject,
+            property,
+            object: PropertyAssertionObject::Named(object),
+        }
+    }
+
+    /// Create a new property assertion axiom with anonymous individual (blank node)
+    pub fn new_with_anonymous(subject: IRI, property: IRI, object: AnonymousIndividual) -> Self {
+        PropertyAssertionAxiom {
+            subject,
+            property,
+            object: PropertyAssertionObject::Anonymous(Box::new(object)),
+        }
+    }
+
+    /// Create a new property assertion axiom with property assertion object
+    pub fn new_with_object(subject: IRI, property: IRI, object: PropertyAssertionObject) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -365,8 +441,24 @@ impl PropertyAssertionAxiom {
     }
 
     /// Get the object
-    pub fn object(&self) -> &IRI {
+    pub fn object(&self) -> &PropertyAssertionObject {
         &self.object
+    }
+
+    /// Get the object as IRI if it's a named individual, returns None for anonymous
+    pub fn object_iri(&self) -> Option<&IRI> {
+        match &self.object {
+            PropertyAssertionObject::Named(iri) => Some(iri),
+            PropertyAssertionObject::Anonymous(_) => None,
+        }
+    }
+
+    /// Get the object as anonymous individual if it's anonymous, returns None for named
+    pub fn object_anonymous(&self) -> Option<&AnonymousIndividual> {
+        match &self.object {
+            PropertyAssertionObject::Named(_) => None,
+            PropertyAssertionObject::Anonymous(individual) => Some(&**individual),
+        }
     }
 }
 
@@ -873,7 +965,6 @@ impl AnnotationPropertyRangeAxiom {
     }
 }
 
-
 /// Object minimum qualified cardinality axiom: ⊤ ⊑ ≥n R.C
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObjectMinQualifiedCardinalityAxiom {
@@ -1272,6 +1363,438 @@ impl ImportAxiom {
     }
 }
 
+/// RDF Collection axiom representing ordered lists using rdf:first, rdf:rest, rdf:nil
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollectionAxiom {
+    /// The subject that has the collection
+    subject: IRI,
+    /// The property that relates the subject to the collection
+    property: IRI,
+    /// The list of items in the collection
+    items: Vec<CollectionItem>,
+}
+
+/// Individual item in a collection
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CollectionItem {
+    Named(IRI),
+    Anonymous(Box<AnonymousIndividual>),
+    Literal(Literal),
+}
+
+impl CollectionAxiom {
+    /// Create a new collection axiom
+    pub fn new(subject: IRI, property: IRI, items: Vec<CollectionItem>) -> Self {
+        CollectionAxiom {
+            subject,
+            property,
+            items,
+        }
+    }
+
+    /// Get the subject
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the items
+    pub fn items(&self) -> &Vec<CollectionItem> {
+        &self.items
+    }
+
+    /// Get the number of items in the collection
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Check if the collection is empty
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    /// Create property assertions from the collection
+    pub fn to_property_assertions(&self) -> OwlResult<Vec<PropertyAssertionAxiom>> {
+        let mut assertions = Vec::new();
+
+        // Create a blank node for each collection node
+        let _previous_node: Option<AnonymousIndividual> = None;
+
+        // Process items in reverse order to build the linked list
+        for (index, item) in self.items.iter().enumerate() {
+            let node_id = format!(
+                "{}_{}",
+                self.subject
+                    .as_str()
+                    .replace("http://", "")
+                    .replace("/", "_"),
+                index
+            );
+            let _anon_node = AnonymousIndividual::new(&node_id);
+
+            // Add rdf:first assertion
+            let first_assertion = match item {
+                CollectionItem::Named(iri) => PropertyAssertionAxiom::new(
+                    create_blank_node_iri(&node_id)?,
+                    rdf::first(),
+                    iri.clone(),
+                ),
+                CollectionItem::Anonymous(anon) => PropertyAssertionAxiom::new_with_anonymous(
+                    create_blank_node_iri(&node_id)?,
+                    rdf::first(),
+                    *(*anon).clone(),
+                ),
+                CollectionItem::Literal(_lit) => {
+                    // For literals, we'd need to create a data property assertion
+                    // This is a simplified version
+                    PropertyAssertionAxiom::new(
+                        create_blank_node_iri(&node_id)?,
+                        rdf::first(),
+                        test::property("literal"), // placeholder
+                    )
+                }
+            };
+
+            // Add rdf:rest assertion
+            let rest_assertion = if index == self.items.len() - 1 {
+                // Last item points to rdf:nil
+                PropertyAssertionAxiom::new(
+                    create_blank_node_iri(&node_id)?,
+                    rdf::rest(),
+                    rdf::nil(),
+                )
+            } else {
+                // Points to next node
+                let next_node_id = format!(
+                    "{}_{}",
+                    self.subject
+                        .as_str()
+                        .replace("http://", "")
+                        .replace("/", "_"),
+                    index + 1
+                );
+                PropertyAssertionAxiom::new(
+                    create_blank_node_iri(&node_id)?,
+                    rdf::rest(),
+                    create_blank_node_iri(&next_node_id)?,
+                )
+            };
+
+            assertions.push(first_assertion);
+            assertions.push(rest_assertion);
+
+            // If this is the first item, connect it to the subject
+            if index == 0 {
+                let subject_assertion = PropertyAssertionAxiom::new(
+                    self.subject.clone(),
+                    self.property.clone(),
+                    create_blank_node_iri(&node_id)?,
+                );
+                assertions.insert(0, subject_assertion);
+            }
+
+            // _previous_node is tracked but not used in current implementation
+            // previous_node = Some(anon_node);
+        }
+
+        Ok(assertions)
+    }
+}
+
+/// RDF Container types (Seq, Bag, Alt)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ContainerType {
+    /// Ordered sequence (rdf:Seq)
+    Sequence,
+    /// Unordered bag (rdf:Bag)
+    Bag,
+    /// Alternative (rdf:Alt)
+    Alternative,
+}
+
+/// RDF Container axiom: represents Seq, Bag, or Alt containers
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContainerAxiom {
+    /// The subject that has the container
+    subject: IRI,
+    /// The property that relates the subject to the container
+    property: IRI,
+    /// The type of container (Seq, Bag, Alt)
+    container_type: ContainerType,
+    /// The list of items in the container
+    items: Vec<ContainerItem>,
+}
+
+/// Individual item in a container
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContainerItem {
+    Named(IRI),
+    Anonymous(Box<AnonymousIndividual>),
+    Literal(Literal),
+}
+
+impl ContainerAxiom {
+    /// Create a new container axiom
+    pub fn new(
+        subject: IRI,
+        property: IRI,
+        container_type: ContainerType,
+        items: Vec<ContainerItem>,
+    ) -> Self {
+        ContainerAxiom {
+            subject,
+            property,
+            container_type,
+            items,
+        }
+    }
+
+    /// Get the subject
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the property
+    pub fn property(&self) -> &IRI {
+        &self.property
+    }
+
+    /// Get the container type
+    pub fn container_type(&self) -> ContainerType {
+        self.container_type
+    }
+
+    /// Get the items
+    pub fn items(&self) -> &Vec<ContainerItem> {
+        &self.items
+    }
+
+    /// Get the number of items in the container
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Check if the container is empty
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    /// Create property assertions from the container
+    pub fn to_property_assertions(&self) -> OwlResult<Vec<PropertyAssertionAxiom>> {
+        let mut assertions = Vec::new();
+
+        // Create the container resource
+        let container_id = format!(
+            "{}_container",
+            self.subject
+                .as_str()
+                .replace("http://", "")
+                .replace("/", "_")
+        );
+        let container_iri = create_blank_node_iri(&container_id)?;
+
+        // Connect subject to container
+        let subject_to_container = PropertyAssertionAxiom::new(
+            self.subject.clone(),
+            self.property.clone(),
+            container_iri.clone(),
+        );
+        assertions.push(subject_to_container);
+
+        // Add type assertion for the container
+        let type_property = rdf::type_property();
+
+        let type_value = match self.container_type {
+            ContainerType::Sequence => rdf::seq(),
+            ContainerType::Bag => rdf::bag(),
+            ContainerType::Alternative => rdf::alt(),
+        };
+
+        let type_assertion =
+            PropertyAssertionAxiom::new(container_iri.clone(), type_property, type_value);
+        assertions.push(type_assertion);
+
+        // Add numbered elements (rdf:_1, rdf:_2, etc.)
+        for (index, item) in self.items.iter().enumerate() {
+            let element_property =
+                create_iri_safe(&format!("{}{}", RDF_ELEMENT_PREFIX, index + 1))?;
+
+            let element_assertion = match item {
+                ContainerItem::Named(iri) => PropertyAssertionAxiom::new(
+                    container_iri.clone(),
+                    element_property,
+                    iri.clone(),
+                ),
+                ContainerItem::Anonymous(anon) => PropertyAssertionAxiom::new(
+                    container_iri.clone(),
+                    element_property,
+                    create_blank_node_iri(anon.node_id())?,
+                ),
+                ContainerItem::Literal(_lit) => {
+                    // For literals, we need to use a data property assertion
+                    // This is a simplification - in practice, containers typically use IRIs
+                    PropertyAssertionAxiom::new(
+                        container_iri.clone(),
+                        element_property,
+                        create_blank_node_iri(&format!("literal_{}", index))?,
+                    )
+                }
+            };
+            assertions.push(element_assertion);
+        }
+
+        Ok(assertions)
+    }
+}
+
+/// RDF Reification axiom: represents statements about statements using rdf:subject, rdf:predicate, rdf:object
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReificationAxiom {
+    /// The reified statement resource (blank node or named resource)
+    reification_resource: IRI,
+    /// The subject of the original statement
+    subject: IRI,
+    /// The predicate of the original statement
+    predicate: IRI,
+    /// The object of the original statement
+    object: ReificationObject,
+    /// Additional properties about the reified statement
+    properties: Vec<PropertyAssertionAxiom>,
+}
+
+/// Object in a reified statement
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReificationObject {
+    Named(IRI),
+    Anonymous(Box<AnonymousIndividual>),
+    Literal(Literal),
+}
+
+impl ReificationAxiom {
+    /// Create a new reification axiom
+    pub fn new(
+        reification_resource: IRI,
+        subject: IRI,
+        predicate: IRI,
+        object: ReificationObject,
+    ) -> Self {
+        ReificationAxiom {
+            reification_resource,
+            subject,
+            predicate,
+            object,
+            properties: Vec::new(),
+        }
+    }
+
+    /// Create a new reification axiom with additional properties
+    pub fn with_properties(
+        reification_resource: IRI,
+        subject: IRI,
+        predicate: IRI,
+        object: ReificationObject,
+        properties: Vec<PropertyAssertionAxiom>,
+    ) -> Self {
+        ReificationAxiom {
+            reification_resource,
+            subject,
+            predicate,
+            object,
+            properties,
+        }
+    }
+
+    /// Get the reification resource
+    pub fn reification_resource(&self) -> &IRI {
+        &self.reification_resource
+    }
+
+    /// Get the subject of the original statement
+    pub fn subject(&self) -> &IRI {
+        &self.subject
+    }
+
+    /// Get the predicate of the original statement
+    pub fn predicate(&self) -> &IRI {
+        &self.predicate
+    }
+
+    /// Get the object of the original statement
+    pub fn object(&self) -> &ReificationObject {
+        &self.object
+    }
+
+    /// Get additional properties about the reified statement
+    pub fn properties(&self) -> &Vec<PropertyAssertionAxiom> {
+        &self.properties
+    }
+
+    /// Add a property to the reified statement
+    pub fn add_property(&mut self, property: PropertyAssertionAxiom) {
+        self.properties.push(property);
+    }
+
+    /// Create property assertions from the reification
+    pub fn to_property_assertions(&self) -> OwlResult<Vec<PropertyAssertionAxiom>> {
+        let mut assertions = Vec::new();
+
+        // Add rdf:subject assertion
+        let subject_assertion = PropertyAssertionAxiom::new(
+            self.reification_resource.clone(),
+            rdf::subject(),
+            self.subject.clone(),
+        );
+        assertions.push(subject_assertion);
+
+        // Add rdf:predicate assertion
+        let predicate_assertion = PropertyAssertionAxiom::new(
+            self.reification_resource.clone(),
+            rdf::predicate(),
+            self.predicate.clone(),
+        );
+        assertions.push(predicate_assertion);
+
+        // Add rdf:object assertion
+        let object_iri = match &self.object {
+            ReificationObject::Named(iri) => iri.clone(),
+            ReificationObject::Anonymous(anon) => create_blank_node_iri(anon.node_id())?,
+            ReificationObject::Literal(lit) => {
+                // For literals, create a temporary IRI (simplification)
+                create_blank_node_iri(&format!("literal_{}", lit.lexical_form()))?
+            }
+        };
+
+        let object_assertion = PropertyAssertionAxiom::new(
+            self.reification_resource.clone(),
+            rdf::object(),
+            object_iri,
+        );
+        assertions.push(object_assertion);
+
+        // Add additional properties
+        assertions.extend(self.properties.clone());
+
+        // Add rdf:type assertion to identify as rdf:Statement
+        let type_assertion = PropertyAssertionAxiom::new(
+            self.reification_resource.clone(),
+            rdf::type_property(),
+            rdf::statement(),
+        );
+        assertions.push(type_assertion);
+
+        Ok(assertions)
+    }
+
+    /// Get the original statement as a triple (subject, predicate, object)
+    pub fn original_statement(&self) -> (&IRI, &IRI, &ReificationObject) {
+        (&self.subject, &self.predicate, &self.object)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1350,7 +1873,7 @@ mod tests {
 
         assert_eq!(axiom.subject(), &john_iri);
         assert_eq!(axiom.property(), &has_parent_iri);
-        assert_eq!(axiom.object(), &mary_iri);
+        assert_eq!(axiom.object_iri(), Some(&mary_iri));
     }
 
     // Tests for property characteristic axioms
@@ -1417,11 +1940,11 @@ mod tests {
         let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
 
         let functional_axiom =
-            Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(has_father_iri.clone()));
+            Axiom::FunctionalProperty(Box::new(FunctionalPropertyAxiom::new(has_father_iri.clone())));
         let reflexive_axiom =
-            Axiom::ReflexiveProperty(ReflexivePropertyAxiom::new(knows_iri.clone()));
+            Axiom::ReflexiveProperty(Box::new(ReflexivePropertyAxiom::new(knows_iri.clone())));
         let transitive_axiom =
-            Axiom::TransitiveProperty(TransitivePropertyAxiom::new(ancestor_iri.clone()));
+            Axiom::TransitiveProperty(Box::new(TransitivePropertyAxiom::new(ancestor_iri.clone())));
 
         // Test that axioms can be created and matched
         match functional_axiom {
@@ -1492,23 +2015,23 @@ mod tests {
         let height_iri = IRI::new("http://example.org/height").unwrap();
         let weight_iri = IRI::new("http://example.org/weight").unwrap();
 
-        let sub_data_axiom = Axiom::SubDataProperty(SubDataPropertyAxiom::new(
+        let sub_data_axiom = Axiom::SubDataProperty(Box::new(SubDataPropertyAxiom::new(
             has_age_iri.clone(),
             height_iri.clone(),
-        ));
+        )));
         let functional_data_axiom = Axiom::FunctionalDataProperty(
             FunctionalDataPropertyAxiom::new(has_birth_date_iri.clone()),
         );
         let equivalent_data_axiom =
-            Axiom::EquivalentDataProperties(EquivalentDataPropertiesAxiom::new(vec![
+            Axiom::EquivalentDataProperties(Box::new(EquivalentDataPropertiesAxiom::new(vec![
                 has_age_iri.clone(),
                 height_iri.clone(),
-            ]));
+            ])));
         let disjoint_data_axiom =
-            Axiom::DisjointDataProperties(DisjointDataPropertiesAxiom::new(vec![
+            Axiom::DisjointDataProperties(Box::new(DisjointDataPropertiesAxiom::new(vec![
                 has_age_iri.clone(),
                 weight_iri.clone(),
-            ]));
+            ])));
 
         // Test that axioms can be created and matched
         match sub_data_axiom {
@@ -1567,14 +2090,14 @@ mod tests {
         let individual1 = IRI::new("http://example.org/individual1").unwrap();
         let individual2 = IRI::new("http://example.org/individual2").unwrap();
 
-        let same_axiom = Axiom::SameIndividual(SameIndividualAxiom::new(vec![
+        let same_axiom = Axiom::SameIndividual(Box::new(SameIndividualAxiom::new(vec![
             individual1.clone(),
             individual2.clone(),
-        ]));
-        let different_axiom = Axiom::DifferentIndividuals(DifferentIndividualsAxiom::new(vec![
+        ])));
+        let different_axiom = Axiom::DifferentIndividuals(Box::new(DifferentIndividualsAxiom::new(vec![
             individual1.clone(),
             individual2.clone(),
-        ]));
+        ])));
 
         match same_axiom {
             Axiom::SameIndividual(_) => assert!(true),
@@ -1592,10 +2115,11 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
 
-        let has_parent =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(
-            has_grandparent_iri.clone(),
+        let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_parent_iri.clone(),
+        )));
+        let has_grandparent = ObjectPropertyExpression::ObjectProperty(Box::new(
+            ObjectProperty::new(has_grandparent_iri.clone()),
         ));
 
         let axiom = SubPropertyChainOfAxiom::new(
@@ -1614,10 +2138,12 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_child =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
+        let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_parent_iri.clone(),
+        )));
+        let has_child = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_child_iri.clone(),
+        )));
 
         let axiom = InverseObjectPropertiesAxiom::new(has_parent.clone(), has_child.clone());
 
@@ -1630,10 +2156,13 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
+        let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_parent_iri.clone(),
+        )));
         let has_child_inverse = ObjectPropertyExpression::ObjectInverseOf(Box::new(
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone())),
+            ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+                has_child_iri.clone(),
+            ))),
         ));
 
         let axiom =
@@ -1649,16 +2178,17 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
 
-        let has_parent =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_grandparent = ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(
-            has_grandparent_iri.clone(),
+        let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_parent_iri.clone(),
+        )));
+        let has_grandparent = ObjectPropertyExpression::ObjectProperty(Box::new(
+            ObjectProperty::new(has_grandparent_iri.clone()),
         ));
 
-        let chain_axiom = Axiom::SubPropertyChainOf(SubPropertyChainOfAxiom::new(
+        let chain_axiom = Axiom::SubPropertyChainOf(Box::new(SubPropertyChainOfAxiom::new(
             vec![has_parent.clone()],
             has_grandparent.clone(),
-        ));
+        )));
 
         match chain_axiom {
             Axiom::SubPropertyChainOf(_) => assert!(true),
@@ -1671,15 +2201,17 @@ mod tests {
         let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
         let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
 
-        let has_parent =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_parent_iri.clone()));
-        let has_child =
-            ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(has_child_iri.clone()));
+        let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_parent_iri.clone(),
+        )));
+        let has_child = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+            has_child_iri.clone(),
+        )));
 
-        let inverse_axiom = Axiom::InverseObjectProperties(InverseObjectPropertiesAxiom::new(
+        let inverse_axiom = Axiom::InverseObjectProperties(Box::new(InverseObjectPropertiesAxiom::new(
             has_parent.clone(),
             has_child.clone(),
-        ));
+        )));
 
         match inverse_axiom {
             Axiom::InverseObjectProperties(_) => assert!(true),

@@ -485,7 +485,7 @@ impl OwlFunctionalSyntaxParser {
         } else if expr_str.starts_with("ObjectOneOf(") {
             let content = &expr_str["ObjectOneOf(".len()..expr_str.len() - 1];
             let individuals = self.parse_individual_list(content)?;
-            Ok(ClassExpression::ObjectOneOf(SmallVec::from_vec(individuals)))
+            Ok(ClassExpression::ObjectOneOf(Box::new(SmallVec::from_vec(individuals))))
         } else {
             // Simple named class
             let class_iri = self.resolve_iri(expr_str)?;
@@ -552,7 +552,7 @@ impl OwlFunctionalSyntaxParser {
             // Simple named property
             let property_iri = self.resolve_iri(expr_str)?;
             let property = crate::entities::ObjectProperty::new(property_iri);
-            Ok(ObjectPropertyExpression::ObjectProperty(property))
+            Ok(ObjectPropertyExpression::ObjectProperty(Box::new(property)))
         }
     }
 
@@ -765,7 +765,7 @@ impl OwlFunctionalSyntaxParser {
                 class_iris.push(self.extract_iri_from_class_expression(&expr)?);
             }
             let equiv_axiom = EquivalentClassesAxiom::new(class_iris);
-            ontology.add_axiom(Axiom::EquivalentClasses(equiv_axiom))?;
+            ontology.add_axiom(Axiom::EquivalentClasses(Box::new(equiv_axiom)))?;
         }
         Ok(())
     }
@@ -779,7 +779,7 @@ impl OwlFunctionalSyntaxParser {
                 class_iris.push(self.extract_iri_from_class_expression(&expr)?);
             }
             let disjoint_axiom = DisjointClassesAxiom::new(class_iris);
-            ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
+            ontology.add_axiom(Axiom::DisjointClasses(Box::new(disjoint_axiom)))?;
         }
         Ok(())
     }
@@ -796,7 +796,7 @@ impl OwlFunctionalSyntaxParser {
             }
 
             let disjoint_axiom = DisjointClassesAxiom::new(class_iris[1..].to_vec());
-            ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
+            ontology.add_axiom(Axiom::DisjointClasses(Box::new(disjoint_axiom)))?;
         }
         Ok(())
     }
@@ -813,7 +813,7 @@ impl OwlFunctionalSyntaxParser {
             let super_prop_iri = self.resolve_iri(parts[1])?;
 
             let sub_axiom = SubObjectPropertyAxiom::new(sub_prop_iri, super_prop_iri);
-            ontology.add_axiom(Axiom::SubObjectProperty(sub_axiom))?;
+            ontology.add_axiom(Axiom::SubObjectProperty(Box::new(sub_axiom)))?;
         }
         Ok(())
     }
@@ -827,7 +827,7 @@ impl OwlFunctionalSyntaxParser {
         let prop_iris = self.parse_iri_list(content)?;
         if prop_iris.len() >= 2 {
             let equiv_axiom = EquivalentObjectPropertiesAxiom::new(prop_iris);
-            ontology.add_axiom(Axiom::EquivalentObjectProperties(equiv_axiom))?;
+            ontology.add_axiom(Axiom::EquivalentObjectProperties(Box::new(equiv_axiom)))?;
         }
         Ok(())
     }
@@ -841,7 +841,7 @@ impl OwlFunctionalSyntaxParser {
         let prop_iris = self.parse_iri_list(content)?;
         if prop_iris.len() >= 2 {
             let disjoint_axiom = DisjointObjectPropertiesAxiom::new(prop_iris);
-            ontology.add_axiom(Axiom::DisjointObjectProperties(disjoint_axiom))?;
+            ontology.add_axiom(Axiom::DisjointObjectProperties(Box::new(disjoint_axiom)))?;
         }
         Ok(())
     }
@@ -861,7 +861,7 @@ impl OwlFunctionalSyntaxParser {
                 prop_iri.clone(),
                 ClassExpression::Class(Class::new(domain_iri.clone())),
             );
-            ontology.add_axiom(Axiom::ObjectPropertyDomain(domain_axiom))?;
+            ontology.add_axiom(Axiom::ObjectPropertyDomain(Box::new(domain_axiom)))?;
         }
         Ok(())
     }
@@ -877,7 +877,7 @@ impl OwlFunctionalSyntaxParser {
                 prop_iri.clone(),
                 ClassExpression::Class(Class::new(range_iri.clone())),
             );
-            ontology.add_axiom(Axiom::ObjectPropertyRange(range_axiom))?;
+            ontology.add_axiom(Axiom::ObjectPropertyRange(Box::new(range_axiom)))?;
         }
         Ok(())
     }
@@ -894,10 +894,10 @@ impl OwlFunctionalSyntaxParser {
             let prop2_iri = self.resolve_iri(parts[1])?;
 
             let inverse_axiom = InverseObjectPropertiesAxiom::new(
-                ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(prop1_iri)),
-                ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(prop2_iri)),
+                ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(prop1_iri))),
+                ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(prop2_iri))),
             );
-            ontology.add_axiom(Axiom::InverseObjectProperties(inverse_axiom))?;
+            ontology.add_axiom(Axiom::InverseObjectProperties(Box::new(inverse_axiom)))?;
         }
         Ok(())
     }
@@ -910,7 +910,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let functional_axiom = FunctionalPropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::FunctionalProperty(functional_axiom))?;
+        ontology.add_axiom(Axiom::FunctionalProperty(Box::new(functional_axiom)))?;
         Ok(())
     }
 
@@ -922,7 +922,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let inverse_functional_axiom = InverseFunctionalPropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::InverseFunctionalProperty(inverse_functional_axiom))?;
+        ontology.add_axiom(Axiom::InverseFunctionalProperty(Box::new(inverse_functional_axiom)))?;
         Ok(())
     }
 
@@ -934,7 +934,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let reflexive_axiom = ReflexivePropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::ReflexiveProperty(reflexive_axiom))?;
+        ontology.add_axiom(Axiom::ReflexiveProperty(Box::new(reflexive_axiom)))?;
         Ok(())
     }
 
@@ -946,7 +946,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let irreflexive_axiom = IrreflexivePropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::IrreflexiveProperty(irreflexive_axiom))?;
+        ontology.add_axiom(Axiom::IrreflexiveProperty(Box::new(irreflexive_axiom)))?;
         Ok(())
     }
 
@@ -958,7 +958,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let symmetric_axiom = SymmetricPropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::SymmetricProperty(symmetric_axiom))?;
+        ontology.add_axiom(Axiom::SymmetricProperty(Box::new(symmetric_axiom)))?;
         Ok(())
     }
 
@@ -970,7 +970,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let asymmetric_axiom = AsymmetricPropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::AsymmetricProperty(asymmetric_axiom))?;
+        ontology.add_axiom(Axiom::AsymmetricProperty(Box::new(asymmetric_axiom)))?;
         Ok(())
     }
 
@@ -982,7 +982,7 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let transitive_axiom = TransitivePropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::TransitiveProperty(transitive_axiom))?;
+        ontology.add_axiom(Axiom::TransitiveProperty(Box::new(transitive_axiom)))?;
         Ok(())
     }
 
@@ -994,7 +994,7 @@ impl OwlFunctionalSyntaxParser {
             let super_prop_iri = self.resolve_iri(parts[1])?;
 
             let sub_axiom = SubDataPropertyAxiom::new(sub_prop_iri, super_prop_iri);
-            ontology.add_axiom(Axiom::SubDataProperty(sub_axiom))?;
+            ontology.add_axiom(Axiom::SubDataProperty(Box::new(sub_axiom)))?;
         }
         Ok(())
     }
@@ -1008,7 +1008,7 @@ impl OwlFunctionalSyntaxParser {
         let prop_iris = self.parse_iri_list(content)?;
         if prop_iris.len() >= 2 {
             let equiv_axiom = EquivalentDataPropertiesAxiom::new(prop_iris);
-            ontology.add_axiom(Axiom::EquivalentDataProperties(equiv_axiom))?;
+            ontology.add_axiom(Axiom::EquivalentDataProperties(Box::new(equiv_axiom)))?;
         }
         Ok(())
     }
@@ -1022,7 +1022,7 @@ impl OwlFunctionalSyntaxParser {
         let prop_iris = self.parse_iri_list(content)?;
         if prop_iris.len() >= 2 {
             let disjoint_axiom = DisjointDataPropertiesAxiom::new(prop_iris);
-            ontology.add_axiom(Axiom::DisjointDataProperties(disjoint_axiom))?;
+            ontology.add_axiom(Axiom::DisjointDataProperties(Box::new(disjoint_axiom)))?;
         }
         Ok(())
     }
@@ -1038,7 +1038,7 @@ impl OwlFunctionalSyntaxParser {
                 prop_iri.clone(),
                 ClassExpression::Class(Class::new(domain_iri.clone())),
             );
-            ontology.add_axiom(Axiom::DataPropertyDomain(domain_axiom))?;
+            ontology.add_axiom(Axiom::DataPropertyDomain(Box::new(domain_axiom)))?;
         }
         Ok(())
     }
@@ -1051,7 +1051,7 @@ impl OwlFunctionalSyntaxParser {
             let range_iri = self.resolve_iri(parts[1])?;
 
             let range_axiom = DataPropertyRangeAxiom::new(prop_iri.clone(), range_iri.clone());
-            ontology.add_axiom(Axiom::DataPropertyRange(range_axiom))?;
+            ontology.add_axiom(Axiom::DataPropertyRange(Box::new(range_axiom)))?;
         }
         Ok(())
     }
@@ -1081,7 +1081,7 @@ impl OwlFunctionalSyntaxParser {
             let object_iri = self.resolve_iri(parts[2])?;
 
             let assertion = PropertyAssertionAxiom::new(subject_iri, prop_iri, object_iri);
-            ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+            ontology.add_axiom(Axiom::PropertyAssertion(Box::new(assertion)))?;
         }
         Ok(())
     }
@@ -1089,12 +1089,90 @@ impl OwlFunctionalSyntaxParser {
     /// Parse DataPropertyAssertion axiom
     fn parse_data_property_assertion(
         &self,
-        _content: &str,
-        _ontology: &mut Ontology,
+        content: &str,
+        ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        // For now, skip data property assertions as they need literal handling
-        // TODO: Implement proper literal parsing
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.len() >= 3 {
+            let subject_iri = self.resolve_iri(parts[0])?;
+            let prop_iri = self.resolve_iri(parts[1])?;
+
+            // Parse literal from remaining parts
+            let (literal, _remaining_parts) = self.parse_literal_from_parts(&parts[2..])?;
+
+            if let Some(lit) = literal {
+                let assertion = DataPropertyAssertionAxiom::new(
+                    subject_iri.clone(),
+                    prop_iri.clone(),
+                    lit,
+                );
+                ontology.add_axiom(Axiom::DataPropertyAssertion(Box::new(assertion)))?;
+            }
+        }
         Ok(())
+    }
+
+    /// Parse a literal from parts, handling different literal formats
+    fn parse_literal_from_parts<'a>(&self, parts: &[&'a str]) -> OwlResult<(Option<crate::entities::Literal>, Vec<&'a str>)> {
+        if parts.is_empty() {
+            return Ok((None, Vec::new()));
+        }
+
+        let first_part = parts[0];
+
+        // Handle quoted literals
+        if first_part.starts_with('"') {
+            let mut full_literal = first_part.to_string();
+            let mut parts_consumed = 1;
+
+            // Handle case where the literal spans multiple parts
+            for part in &parts[1..] {
+                if full_literal.contains('"') && !full_literal.ends_with('"') {
+                    // Still looking for closing quote
+                    full_literal.push(' ');
+                    full_literal.push_str(part);
+                    parts_consumed += 1;
+                } else {
+                    break;
+                }
+            }
+
+            // Extract the literal value and any datatype/language tag
+            let (literal_value, datatype, language_tag) = if let Some(closing_quote_pos) = full_literal.rfind('"') {
+                let after_quote = &full_literal[closing_quote_pos + 1..];
+
+                if after_quote.starts_with("^^") {
+                    // Typed literal: "value"^^datatype
+                    let datatype_part = &after_quote[2..];
+                    let datatype_iri = self.resolve_iri(datatype_part)?;
+                    (full_literal[1..closing_quote_pos].to_string(), Some(datatype_iri), None)
+                } else if after_quote.starts_with('@') {
+                    // Language-tagged literal: "value"@language
+                    let language_part = &after_quote[1..];
+                    (full_literal[1..closing_quote_pos].to_string(), None, Some(language_part.to_string()))
+                } else {
+                    // Simple string literal
+                    (full_literal[1..closing_quote_pos].to_string(), None, None)
+                }
+            } else {
+                return Ok((None, parts.to_vec()));
+            };
+
+            // Create the literal
+            let literal = if let Some(datatype_iri) = datatype {
+                Some(crate::entities::Literal::typed(literal_value, datatype_iri))
+            } else if let Some(lang_tag) = language_tag {
+                Some(crate::entities::Literal::lang_tagged(literal_value, lang_tag))
+            } else {
+                Some(crate::entities::Literal::simple(literal_value))
+            };
+
+            let remaining = parts[parts_consumed..].to_vec();
+            Ok((literal, remaining))
+        } else {
+            // Not a quoted literal, treat as simple IRI or error
+            Ok((None, parts.to_vec()))
+        }
     }
 
     /// Parse NegativeObjectPropertyAssertion axiom
@@ -1114,7 +1192,7 @@ impl OwlFunctionalSyntaxParser {
                 prop_iri.clone(),
                 object_iri.clone(),
             );
-            ontology.add_axiom(Axiom::NegativeObjectPropertyAssertion(neg_assertion))?;
+            ontology.add_axiom(Axiom::NegativeObjectPropertyAssertion(Box::new(neg_assertion)))?;
         }
         Ok(())
     }
@@ -1130,26 +1208,17 @@ impl OwlFunctionalSyntaxParser {
             let subject_iri = self.resolve_iri(parts[0])?;
             let prop_iri = self.resolve_iri(parts[1])?;
 
-            // Basic literal parsing - handle quoted strings and typed literals
-            let literal_value = if parts[2].starts_with('"') && parts[2].ends_with('"') {
-                // Simple string literal
-                parts[2].trim_matches('"').to_string()
-            } else if parts.len() >= 4 && parts[2].starts_with('"') && parts[3].starts_with("^^") {
-                // Typed literal
-                parts[2].trim_matches('"').to_string()
-            } else {
-                // Treat as simple string
-                parts[2].to_string()
-            };
+            // Parse literal from remaining parts using the same sophisticated parser
+            let (literal, _remaining_parts) = self.parse_literal_from_parts(&parts[2..])?;
 
-            let literal = Literal::simple(literal_value);
-
-            let neg_assertion = NegativeDataPropertyAssertionAxiom::new(
-                subject_iri.clone(),
-                prop_iri.clone(),
-                literal,
-            );
-            ontology.add_axiom(Axiom::NegativeDataPropertyAssertion(neg_assertion))?;
+            if let Some(lit) = literal {
+                let neg_assertion = NegativeDataPropertyAssertionAxiom::new(
+                    subject_iri.clone(),
+                    prop_iri.clone(),
+                    lit,
+                );
+                ontology.add_axiom(Axiom::NegativeDataPropertyAssertion(Box::new(neg_assertion)))?;
+            }
         }
         Ok(())
     }
@@ -1159,7 +1228,7 @@ impl OwlFunctionalSyntaxParser {
         let individual_iris = self.parse_iri_list(content)?;
         if individual_iris.len() >= 2 {
             let same_axiom = SameIndividualAxiom::new(individual_iris);
-            ontology.add_axiom(Axiom::SameIndividual(same_axiom))?;
+            ontology.add_axiom(Axiom::SameIndividual(Box::new(same_axiom)))?;
         }
         Ok(())
     }
@@ -1169,7 +1238,7 @@ impl OwlFunctionalSyntaxParser {
         let individual_iris = self.parse_iri_list(content)?;
         if individual_iris.len() >= 2 {
             let different_axiom = DifferentIndividualsAxiom::new(individual_iris);
-            ontology.add_axiom(Axiom::DifferentIndividuals(different_axiom))?;
+            ontology.add_axiom(Axiom::DifferentIndividuals(Box::new(different_axiom)))?;
         }
         Ok(())
     }
@@ -1224,7 +1293,7 @@ impl OwlFunctionalSyntaxParser {
                     ClassExpression::Class(Class::new(class_iri.clone())),
                     property_iris,
                 );
-                ontology.add_axiom(Axiom::HasKey(has_key_axiom))?;
+                ontology.add_axiom(Axiom::HasKey(Box::new(has_key_axiom)))?;
             }
         }
         Ok(())
@@ -1605,7 +1674,7 @@ impl OwlFunctionalSyntaxParser {
             };
 
             let annotation_assertion = AnnotationAssertionAxiom::new(property_iri, subject_iri, annotation_value);
-            ontology.add_axiom(Axiom::AnnotationAssertion(annotation_assertion))?;
+            ontology.add_axiom(Axiom::AnnotationAssertion(Box::new(annotation_assertion)))?;
         }
         Ok(())
     }
