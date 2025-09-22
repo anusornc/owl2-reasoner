@@ -1,0 +1,265 @@
+@prefix : <http://example.org/owl2-reasoner-codebase#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix code: <http://example.org/code-ontology#> .
+
+# Ontology Header
+<http://example.org/owl2-reasoner-codebase> a owl:Ontology ;
+    rdfs:label "OWL2 Reasoner Codebase Ontology" ;
+    rdfs:comment "Comprehensive ontology representing the OWL2 Reasoner Rust codebase architecture, components, and relationships" ;
+    owl:versionInfo "1.0" .
+
+# Class Definitions
+:Codebase a owl:Class ;
+    rdfs:label "Codebase" ;
+    rdfs:comment "A software codebase collection" ;
+    rdfs:subClassOf prov:Entity .
+
+:Module a owl:Class ;
+    rdfs:label "Module" ;
+    rdfs:comment "A software module or component" ;
+    rdfs:subClassOf prov:Entity .
+
+:Struct a owl:Class ;
+    rdfs:label "Struct" ;
+    rdfs:comment "A Rust struct definition" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Enum a owl:Class ;
+    rdfs:label "Enum" ;
+    rdfs:comment "A Rust enum definition" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Trait a owl:Class ;
+    rdfs:label "Trait" ;
+    rdfs:comment "A Rust trait definition" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Function a owl:Class ;
+    rdfs:label "Function" ;
+    rdfs:comment "A function or method" ;
+    rdfs:subClassOf :CodeEntity .
+
+:CodeEntity a owl:Class ;
+    rdfs:label "Code Entity" ;
+    rdfs:comment "Any code entity (struct, enum, trait, function)" ;
+    rdfs:subClassOf prov:Entity .
+
+:File a owl:Class ;
+    rdfs:label "File" ;
+    rdfs:comment "A source code file" ;
+    rdfs:subClassOf prov:Entity .
+
+:Directory a owl:Class ;
+    rdfs:label "Directory" ;
+    rdfs:comment "A directory in the codebase" ;
+    rdfs:subClassOf prov:Entity .
+
+:Parser a owl:Class ;
+    rdfs:label "Parser" ;
+    rdfs:comment "A parser implementation" ;
+    rdfs:subClassOf :Module .
+
+:Reasoner a owl:Class ;
+    rdfs:label "Reasoner" ;
+    rdfs:comment "A reasoning engine implementation" ;
+    rdfs:subClassOf :Module .
+
+:Test a owl:Class ;
+    rdfs:label "Test" ;
+    rdfs:comment "A test case or test suite" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Benchmark a owl:Class ;
+    rdfs:label "Benchmark" ;
+    rdfs:comment "A performance benchmark" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Dependency a owl:Class ;
+    rdfs:label "Dependency" ;
+    rdfs:comment "An external dependency" ;
+    rdfs:subClassOf prov:Entity .
+
+:Configuration a owl:Class ;
+    rdfs:label "Configuration" ;
+    rdfs:comment "Configuration settings" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Axiom a owl:Class ;
+    rdfs:label "Axiom" ;
+    rdfs:comment "OWL2 axiom implementation" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Entity a owl:Class ;
+    rdfs:label "Entity" ;
+    rdfs:comment "OWL2 entity implementation" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Profile a owl:Class ;
+    rdfs:label "Profile" ;
+    rdfs:comment "OWL2 profile implementation" ;
+    rdfs:subClassOf :Module .
+
+# Property Definitions
+:hasModule a owl:ObjectProperty ;
+    rdfs:label "has module" ;
+    rdfs:comment "A codebase contains modules" ;
+    rdfs:domain :Codebase ;
+    rdfs:range :Module .
+
+:hasFile a owl:ObjectProperty ;
+    rdfs:label "has file" ;
+    rdfs:comment "A directory contains files" ;
+    rdfs:domain :Directory ;
+    rdfs:range :File .
+
+:hasFunction a owl:ObjectProperty ;
+    rdfs:label "has function" ;
+    rdfs:comment "A module or struct has functions" ;
+    rdfs:domain :CodeEntity ;
+    rdfs:range :Function .
+
+:hasStruct a owl:ObjectProperty ;
+    rdfs:label "has struct" ;
+    rdfs:comment "A module has structs" ;
+    rdfs:domain :Module ;
+    rdfs:range :Struct .
+
+:hasEnum a owl:ObjectProperty ;
+    rdfs:label "has enum" ;
+    rdfs:comment "A module has enums" ;
+    rdfs:domain :Module ;
+    rdfs:range :Enum .
+
+:hasTrait a owl:ObjectProperty ;
+    rdfs:label "has trait" ;
+    rdfs:comment "A module has traits" ;
+    rdfs:domain :Module ;
+    rdfs:range :Trait .
+
+:dependsOn a owl:ObjectProperty ;
+    rdfs:label "depends on" ;
+    rdfs:comment "A module depends on another module" ;
+    rdfs:domain :Module ;
+    rdfs:range :Module .
+
+:implements a owl:ObjectProperty ;
+    rdfs:label "implements" ;
+    rdfs:comment "A struct implements a trait" ;
+    rdfs:domain :Struct ;
+    rdfs:range :Trait .
+
+:uses a owl:ObjectProperty ;
+    rdfs:label "uses" ;
+    rdfs:comment "A function uses a struct or enum" ;
+    rdfs:domain :Function ;
+    rdfs:range :CodeEntity .
+
+:hasDependency a owl:ObjectProperty ;
+    rdfs:label "has dependency" ;
+    rdfs:comment "A codebase has external dependencies" ;
+    rdfs:domain :Codebase ;
+    rdfs:range :Dependency .
+
+:hasTest a owl:ObjectProperty ;
+    rdfs:label "has test" ;
+    rdfs:comment "A module has tests" ;
+    rdfs:domain :Module ;
+    rdfs:range :Test .
+
+:hasBenchmark a owl:ObjectProperty ;
+    rdfs:label "has benchmark" ;
+    rdfs:comment "A module has benchmarks" ;
+    rdfs:domain :Module ;
+    rdfs:range :Benchmark .
+
+:hasConfiguration a owl:ObjectProperty ;
+    rdfs:label "has configuration" ;
+    rdfs:comment "A module has configuration" ;
+    rdfs:domain :Module ;
+    rdfs:range :Configuration .
+
+:hasAxiomType a owl:ObjectProperty ;
+    rdfs:label "has axiom type" ;
+    rdfs:comment "A reasoning module supports axiom types" ;
+    rdfs:domain :Reasoner ;
+    rdfs:range :Axiom .
+
+:supportsFormat a owl:ObjectProperty ;
+    rdfs:label "supports format" ;
+    rdfs:comment "A parser supports a specific format" ;
+    rdfs:domain :Parser ;
+    rdfs:range xsd:string .
+
+:hasPerformance a owl:DatatypeProperty ;
+    rdfs:label "has performance" ;
+    rdfs:comment "Performance characteristics" ;
+    rdfs:domain :CodeEntity ;
+    rdfs:range xsd:string .
+
+:hasComplexity a owl:DatatypeProperty ;
+    rdfs:label "has complexity" ;
+    rdfs:comment "Computational complexity" ;
+    rdfs:domain :Algorithm ;
+    rdfs:range xsd:string .
+
+:hasMemoryUsage a owl:DatatypeProperty ;
+    rdfs:label "has memory usage" ;
+    rdfs:comment "Memory usage characteristics" ;
+    rdfs:domain :CodeEntity ;
+    rdfs:range xsd:string .
+
+:filePath a owl:DatatypeProperty ;
+    rdfs:label "file path" ;
+    rdfs:comment "Path to the source file" ;
+    rdfs:domain :File ;
+    rdfs:range xsd:string .
+
+:lineCount a owl:DatatypeProperty ;
+    rdfs:label "line count" ;
+    rdfs:comment "Number of lines in a file" ;
+    rdfs:domain :File ;
+    rdfs:range xsd:integer .
+
+:testCount a owl:DatatypeProperty ;
+    rdfs:label "test count" ;
+    rdfs:comment "Number of tests" ;
+    rdfs:domain :Module ;
+    rdfs:range xsd:integer .
+
+:benchmarkCount a owl:DatatypeProperty ;
+    rdfs:label "benchmark count" ;
+    rdfs:comment "Number of benchmarks" ;
+    rdfs:domain :Module ;
+    rdfs:range xsd:integer .
+
+:version a owl:DatatypeProperty ;
+    rdfs:label "version" ;
+    rdfs:comment "Version information" ;
+    rdfs:domain :CodeEntity ;
+    rdfs:range xsd:string .
+
+:description a owl:DatatypeProperty ;
+    rdfs:label "description" ;
+    rdfs:comment "Description of the entity" ;
+    rdfs:domain :CodeEntity ;
+    rdfs:range xsd:string .
+
+:Algorithm a owl:Class ;
+    rdfs:label "Algorithm" ;
+    rdfs:comment "An algorithm implementation" ;
+    rdfs:subClassOf :CodeEntity .
+
+:Storage a owl:Class ;
+    rdfs:label "Storage" ;
+    rdfs:comment "A storage backend implementation" ;
+    rdfs:subClassOf :Module .
+
+:Cache a owl:Class ;
+    rdfs:label "Cache" ;
+    rdfs:comment "A caching implementation" ;
+    rdfs:subClassOf :Module .
