@@ -32,6 +32,12 @@ pub struct ComparativeBenchmark {
     results: HashMap<String, ComparativeResult>,
 }
 
+impl Default for ComparativeBenchmark {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ComparativeBenchmark {
     /// Create new comparative benchmark system
     pub fn new() -> Self {
@@ -89,8 +95,7 @@ impl ComparativeBenchmark {
         };
 
         let improvement_ratio = avg_baseline / our_time;
-        let statistical_significance =
-            self.calculate_significance(&vec![our_time], &baseline_times);
+        let statistical_significance = self.calculate_significance(&[our_time], &baseline_times);
 
         let result = ComparativeResult {
             test_name: format!("consistency_checking_size_{}", size),
@@ -162,7 +167,7 @@ impl ComparativeBenchmark {
         for baseline in &self.baselines {
             report.push_str(&format!("- **Baseline**: {}\n", baseline.name()));
         }
-        report.push_str("\n");
+        report.push('\n');
 
         report.push_str("## Performance Comparison\n\n");
 
@@ -185,7 +190,7 @@ impl ComparativeBenchmark {
                 result.statistical_significance * 100.0
             ));
             report.push_str(&format!("- Sample Size: {}\n", result.sample_size));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report.push_str("## Interpretation\n\n");

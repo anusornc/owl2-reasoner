@@ -12,10 +12,10 @@ pub use comparative::{ComparativeBenchmark as ComparativeBenchmarkResult, Compar
 pub use empirical::{BenchmarkResult as EmpiricalBenchmark, CacheAnalysis, EmpiricalValidator};
 pub use memory_profiler::{EntitySizeCalculator, MemoryProfiler, MemoryStats};
 
-use crate::Ontology;
 use crate::axioms::SubClassOfAxiom;
 use crate::entities::Class;
 use crate::error::OwlResult;
+use crate::Ontology;
 
 /// Validation result with confidence intervals
 #[derive(Debug, Clone)]
@@ -98,7 +98,7 @@ pub fn run_comprehensive_validation() -> OwlResult<ValidationReport> {
 fn parse_validation_results(_report: &str) -> Vec<ValidationResult> {
     // Parse the report and extract validation results
     // This is a simplified implementation
-    vec![]
+    Vec::new()
 }
 
 fn get_system_info() -> SystemInfo {

@@ -8,8 +8,8 @@ use crate::entities::{Class, ObjectProperty};
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::reasoning::simple::CacheStats;
 use crate::profiles::*;
+use crate::reasoning::simple::CacheStats;
 use crate::reasoning::SimpleReasoner;
 use crate::validation::memory_profiler::EntitySizeCalculator;
 use std::collections::HashMap;
@@ -68,6 +68,12 @@ pub struct EmpiricalValidator {
     comparative_results: HashMap<String, ComparativeBenchmark>,
 }
 
+impl Default for EmpiricalValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EmpiricalValidator {
     /// Create a new empirical validator
     pub fn new() -> Self {
@@ -101,7 +107,7 @@ impl EmpiricalValidator {
             for i in 0..classes.len().min(10) {
                 for j in 0..classes.len().min(10) {
                     if i != j {
-                        let _result = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                        let _result = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                     }
                 }
             }
@@ -114,7 +120,7 @@ impl EmpiricalValidator {
         // Benchmark satisfiability checking
         let satisfiability_start = Instant::now();
         for class in classes.iter().take(5) {
-            let _result = reasoner.is_class_satisfiable(&class.iri());
+            let _result = reasoner.is_class_satisfiable(class.iri());
         }
         let _satisfiability_time = satisfiability_start.elapsed().as_millis() as f64;
 
@@ -149,22 +155,22 @@ impl EmpiricalValidator {
 
         // Add classes
         for i in 0..(100 * size_factor) {
-            let class_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
+            let class_iri = IRI::new(format!("http://example.org/Class{}", i))?;
             let class = Class::new(class_iri);
             ontology.add_class(class)?;
         }
 
         // Add properties
         for i in 0..(20 * size_factor) {
-            let prop_iri = IRI::new(&format!("http://example.org/hasProp{}", i))?;
+            let prop_iri = IRI::new(format!("http://example.org/hasProp{}", i))?;
             let prop = ObjectProperty::new(prop_iri);
             ontology.add_object_property(prop)?;
         }
 
         // Add axioms
         for i in 0..(50 * size_factor) {
-            let sub_class = Class::new(IRI::new(&format!("http://example.org/Class{}", i))?);
-            let super_class = Class::new(IRI::new(&format!(
+            let sub_class = Class::new(IRI::new(format!("http://example.org/Class{}", i))?);
+            let super_class = Class::new(IRI::new(format!(
                 "http://example.org/Class{}",
                 (i + 1) % (100 * size_factor)
             ))?);
@@ -234,7 +240,7 @@ impl EmpiricalValidator {
         // Warm up cache
         let classes: Vec<_> = ontology.classes().iter().cloned().collect();
         for class in classes.iter().take(5) {
-            let _ = reasoner.is_class_satisfiable(&class.iri());
+            let _ = reasoner.is_class_satisfiable(class.iri());
         }
 
         // Benchmark cache hits (repeated operations)
@@ -246,7 +252,7 @@ impl EmpiricalValidator {
         for _ in 0..total_requests {
             for class in classes.iter().take(5) {
                 let start = Instant::now();
-                let _result = reasoner.is_class_satisfiable(&class.iri());
+                let _result = reasoner.is_class_satisfiable(class.iri());
                 let elapsed = start.elapsed();
 
                 // More realistic cache simulation
@@ -348,7 +354,7 @@ impl EmpiricalValidator {
             if let Some(hit_rate) = result.cache_hit_rate {
                 report.push_str(&format!("- Cache Hit Rate: {:.1}%\n", hit_rate * 100.0));
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Memory Profiles
@@ -364,7 +370,7 @@ impl EmpiricalValidator {
                 "- Memory Efficiency Ratio: {:.2}\n",
                 profile.memory_efficiency_ratio
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Cache Analysis
@@ -379,7 +385,7 @@ impl EmpiricalValidator {
                 "- Avg Response Time: {:.3} ms\n",
                 analysis.avg_response_time_ms
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Claims Validation
@@ -474,7 +480,9 @@ impl EmpiricalValidator {
     /// Calculate cache hit rate from reasoner
     fn calculate_cache_hit_rate(&self, reasoner: &SimpleReasoner) -> Option<f64> {
         // Use real cache statistics from the reasoner
-        let stats = reasoner.get_cache_stats().unwrap_or_else(|_| CacheStats::new());
+        let stats = reasoner
+            .get_cache_stats()
+            .unwrap_or_else(|_| CacheStats::new());
         if stats.total_requests > 0 {
             Some(stats.hit_rate())
         } else {

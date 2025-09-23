@@ -2,12 +2,12 @@
 //!
 //! Provides algorithms for checking ontology consistency and detecting contradictions.
 
-use crate::Axiom;
 use crate::entities::*;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::tableaux::TableauxReasoner;
-use crate::error::{OwlError, OwlResult};
+use crate::Axiom;
 
 use smallvec::SmallVec;
 
@@ -115,11 +115,12 @@ impl ConsistencyChecker {
         let mut axioms_analyzed = 0;
 
         // Check basic consistency using tableaux reasoning
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing")
-            .map_err(|e| OwlError::IriParseError {
+        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").map_err(|e| {
+            OwlError::IriParseError {
                 iri: "http://www.w3.org/2002/07/owl#Thing".to_string(),
                 context: format!("Failed to create owl:Thing IRI: {}", e),
-            })?;
+            }
+        })?;
         let tableaux_result = self.tableaux_reasoner.is_class_satisfiable(&thing_iri)?;
 
         if !tableaux_result {
@@ -208,9 +209,10 @@ impl ConsistencyChecker {
                                 class1, class2
                             ),
                             involved_axioms: vec![
-                                Axiom::DisjointClasses(axiom.clone()),
-                                Axiom::EquivalentClasses(equiv_axiom.clone()),
-                            ].into(),
+                                Axiom::DisjointClasses(Box::new(axiom.clone())),
+                                Axiom::EquivalentClasses(Box::new(equiv_axiom.clone())),
+                            ]
+                            .into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
                                 vec![class1.clone(), class2.clone()],
                             ),
@@ -246,9 +248,10 @@ impl ConsistencyChecker {
                                 class1, class2
                             ),
                             involved_axioms: vec![
-                                Axiom::EquivalentClasses(axiom.clone()),
-                                Axiom::DisjointClasses(disjoint_axiom.clone()),
-                            ].into(),
+                                Axiom::EquivalentClasses(Box::new(axiom.clone())),
+                                Axiom::DisjointClasses(Box::new(disjoint_axiom.clone())),
+                            ]
+                            .into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
                                 vec![class1.clone(), class2.clone()],
                             ),
@@ -357,28 +360,28 @@ impl ConsistencyChecker {
         // Check subclass axioms
         for axiom in self.tableaux_reasoner.ontology.subclass_axioms() {
             if axiom.involves_class(class_iri) {
-                axioms.push(Axiom::SubClassOf(axiom.clone()));
+                axioms.push(Axiom::SubClassOf(Box::new(axiom.clone())));
             }
         }
 
         // Check equivalent classes axioms
         for axiom in self.tableaux_reasoner.ontology.equivalent_classes_axioms() {
             if axiom.classes().contains(class_iri) {
-                axioms.push(Axiom::EquivalentClasses(axiom.clone()));
+                axioms.push(Axiom::EquivalentClasses(Box::new(axiom.clone())));
             }
         }
 
         // Check disjoint classes axioms
         for axiom in self.tableaux_reasoner.ontology.disjoint_classes_axioms() {
             if axiom.classes().contains(class_iri) {
-                axioms.push(Axiom::DisjointClasses(axiom.clone()));
+                axioms.push(Axiom::DisjointClasses(Box::new(axiom.clone())));
             }
         }
 
         // Check class assertions
         for axiom in self.tableaux_reasoner.ontology.class_assertions() {
             if axiom.class_expr().contains_class(class_iri) {
-                axioms.push(Axiom::ClassAssertion(axiom.clone()));
+                axioms.push(Axiom::ClassAssertion(Box::new(axiom.clone())));
             }
         }
 
@@ -392,16 +395,16 @@ impl ConsistencyChecker {
 
         // Add the axiom to the temporary ontology
         match axiom {
-            Axiom::SubClassOf(axiom) => temp_ontology.add_subclass_axiom(axiom.clone())?,
+            Axiom::SubClassOf(axiom) => temp_ontology.add_subclass_axiom((**axiom).clone())?,
             Axiom::EquivalentClasses(axiom) => {
-                temp_ontology.add_equivalent_classes_axiom(axiom.clone())?
+                temp_ontology.add_equivalent_classes_axiom((**axiom).clone())?
             }
             Axiom::DisjointClasses(axiom) => {
-                temp_ontology.add_disjoint_classes_axiom(axiom.clone())?
+                temp_ontology.add_disjoint_classes_axiom((**axiom).clone())?
             }
-            Axiom::ClassAssertion(axiom) => temp_ontology.add_class_assertion(axiom.clone())?,
+            Axiom::ClassAssertion(axiom) => temp_ontology.add_class_assertion((**axiom).clone())?,
             Axiom::PropertyAssertion(axiom) => {
-                temp_ontology.add_property_assertion(axiom.clone())?
+                temp_ontology.add_property_assertion((**axiom).clone())?
             }
             _ => return Ok(true), // Other axiom types not yet supported
         }
@@ -461,8 +464,8 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Create a simple inconsistency: class is disjoint with itself
-        let person_iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI for testing");
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI for testing");
         let person_class = Class::new(person_iri.clone());
         ontology.add_class(person_class).unwrap();
 

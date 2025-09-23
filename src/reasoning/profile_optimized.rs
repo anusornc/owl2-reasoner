@@ -9,10 +9,10 @@ use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::profiles::{Owl2Profile, Owl2ProfileValidator};
-use crate::reasoning::tableaux::{TableauxReasoner, ReasoningResult, ReasoningStats};
+use crate::reasoning::tableaux::{ReasoningResult, TableauxReasoner};
 
+use std::collections::HashSet;
 use std::sync::Arc;
-use std::collections::{HashSet};
 
 /// Profile-optimized reasoner that uses profile-specific optimizations
 pub struct ProfileOptimizedReasoner {
@@ -120,21 +120,18 @@ impl ProfileOptimizedReasoner {
         let ontology = &self.base_reasoner.ontology;
         if self.is_trivially_satisfiable_el(class_iri, ontology) {
             let duration = start_time.elapsed();
-            self.optimization_stats.profile_optimizations.insert("EL_trivial_satisfiability".to_string());
+            self.optimization_stats
+                .profile_optimizations
+                .insert("EL_trivial_satisfiability".to_string());
             self.optimization_stats.optimizations_applied += 1;
             self.optimization_stats.time_saved_ms += duration.as_millis() as f64;
 
             return Ok(ReasoningResult {
-                is_satisfiable: true,
-                explanation: Some("EL profile: trivially satisfiable".to_string()),
-                model: None,
-                stats: ReasoningStats {
-                    nodes_created: 0,
-                    rules_applied: 0,
-                    time_ms: 0,
-                    cache_hits: 0,
-                    backtracks: 0,
-                },
+                is_consistent: true,
+                has_clash: false,
+                reasoning_time_ms: 0,
+                nodes_expanded: 0,
+                rules_applied: 0,
             });
         }
 
@@ -142,21 +139,18 @@ impl ProfileOptimizedReasoner {
         let is_satisfiable = self.el_subsumption_checking(class_iri, ontology)?;
 
         let duration = start_time.elapsed();
-        self.optimization_stats.profile_optimizations.insert("EL_classification".to_string());
+        self.optimization_stats
+            .profile_optimizations
+            .insert("EL_classification".to_string());
         self.optimization_stats.optimizations_applied += 1;
         self.optimization_stats.time_saved_ms += duration.as_millis() as f64;
 
         Ok(ReasoningResult {
-            is_satisfiable,
-            explanation: Some("EL classification algorithm completed".to_string()),
-            model: None,
-            stats: ReasoningStats {
-                nodes_created: 0,
-                rules_applied: 0,
-                time_ms: duration.as_millis() as u64,
-                cache_hits: 0,
-                backtracks: 0,
-            },
+            is_consistent: is_satisfiable,
+            has_clash: !is_satisfiable,
+            reasoning_time_ms: duration.as_millis() as u64,
+            nodes_expanded: 0,
+            rules_applied: 0,
         })
     }
 
@@ -195,7 +189,10 @@ impl ProfileOptimizedReasoner {
         let has_existential = ontology.subclass_axioms().iter().any(|axiom| {
             if let ClassExpression::Class(sub_class) = axiom.sub_class() {
                 if sub_class.iri() == class_iri {
-                    matches!(axiom.super_class(), ClassExpression::ObjectSomeValuesFrom(_, _))
+                    matches!(
+                        axiom.super_class(),
+                        ClassExpression::ObjectSomeValuesFrom(_, _)
+                    )
                 } else {
                     false
                 }
@@ -223,21 +220,18 @@ impl ProfileOptimizedReasoner {
         let has_property_relationships = self.has_ql_property_relationships(class_iri, ontology);
 
         let duration = start_time.elapsed();
-        self.optimization_stats.profile_optimizations.insert("QL_property_analysis".to_string());
+        self.optimization_stats
+            .profile_optimizations
+            .insert("QL_property_analysis".to_string());
         self.optimization_stats.optimizations_applied += 1;
         self.optimization_stats.time_saved_ms += duration.as_millis() as f64;
 
         Ok(ReasoningResult {
-            is_satisfiable: has_property_relationships,
-            explanation: Some("QL property relationship analysis completed".to_string()),
-            model: None,
-            stats: ReasoningStats {
-                nodes_created: 0,
-                rules_applied: 0,
-                time_ms: duration.as_millis() as u64,
-                cache_hits: 0,
-                backtracks: 0,
-            },
+            is_consistent: has_property_relationships,
+            has_clash: !has_property_relationships,
+            reasoning_time_ms: duration.as_millis() as u64,
+            nodes_expanded: 0,
+            rules_applied: 0,
         })
     }
 
@@ -247,7 +241,7 @@ impl ProfileOptimizedReasoner {
         // Use available ontology methods
 
         // Check properties that might have this class in their domain
-        for _property in ontology.object_properties() {
+        if let Some(_property) = ontology.object_properties().iter().next() {
             // For now, assume any property might be related to this class
             // This is a simplified approach for demonstration
             return true;
@@ -257,7 +251,9 @@ impl ProfileOptimizedReasoner {
         for subclass_axiom in ontology.subclass_axioms() {
             if let ClassExpression::Class(sub_class) = subclass_axiom.sub_class() {
                 if sub_class.iri() == class_iri {
-                    if let ClassExpression::ObjectSomeValuesFrom(_, _) = subclass_axiom.super_class() {
+                    if let ClassExpression::ObjectSomeValuesFrom(_, _) =
+                        subclass_axiom.super_class()
+                    {
                         return true;
                     }
                 }
@@ -279,24 +275,22 @@ impl ProfileOptimizedReasoner {
         // Build role hierarchy for optimization
         let ontology = &self.base_reasoner.ontology;
         let role_hierarchy = self.build_role_hierarchy(ontology);
-        let has_role_relationships = self.has_rl_role_relationships(class_iri, ontology, &role_hierarchy);
+        let has_role_relationships =
+            self.has_rl_role_relationships(class_iri, ontology, &role_hierarchy);
 
         let duration = start_time.elapsed();
-        self.optimization_stats.profile_optimizations.insert("RL_role_hierarchy".to_string());
+        self.optimization_stats
+            .profile_optimizations
+            .insert("RL_role_hierarchy".to_string());
         self.optimization_stats.optimizations_applied += 1;
         self.optimization_stats.time_saved_ms += duration.as_millis() as f64;
 
         Ok(ReasoningResult {
-            is_satisfiable: has_role_relationships,
-            explanation: Some("RL role hierarchy analysis completed".to_string()),
-            model: None,
-            stats: ReasoningStats {
-                nodes_created: 0,
-                rules_applied: 0,
-                time_ms: duration.as_millis() as u64,
-                cache_hits: 0,
-                backtracks: 0,
-            },
+            is_consistent: has_role_relationships,
+            has_clash: !has_role_relationships,
+            reasoning_time_ms: duration.as_millis() as u64,
+            nodes_expanded: 0,
+            rules_applied: 0,
         })
     }
 
@@ -309,7 +303,9 @@ impl ProfileOptimizedReasoner {
             // Extract property IRIs from the subproperty axiom
             // Note: This is a simplified approach - actual implementation would need proper property extraction
             if let Some(sub_prop_iri) = self.extract_property_iri_from_axiom(subproperty_axiom) {
-                if let Some(super_prop_iri) = self.extract_super_property_iri_from_axiom(subproperty_axiom) {
+                if let Some(super_prop_iri) =
+                    self.extract_super_property_iri_from_axiom(subproperty_axiom)
+                {
                     hierarchy.add_relationship(sub_prop_iri, super_prop_iri);
                 }
             }
@@ -319,21 +315,32 @@ impl ProfileOptimizedReasoner {
     }
 
     /// Extract property IRI from subproperty axiom (simplified)
-    fn extract_property_iri_from_axiom(&self, _axiom: &crate::axioms::SubObjectPropertyAxiom) -> Option<IRI> {
+    fn extract_property_iri_from_axiom(
+        &self,
+        _axiom: &crate::axioms::SubObjectPropertyAxiom,
+    ) -> Option<IRI> {
         // This is a placeholder - actual implementation would extract the property IRI
         // For now, return a dummy IRI to demonstrate the concept
         Some(IRI::new("http://example.org/dummy-property").unwrap())
     }
 
     /// Extract super property IRI from subproperty axiom (simplified)
-    fn extract_super_property_iri_from_axiom(&self, _axiom: &crate::axioms::SubObjectPropertyAxiom) -> Option<IRI> {
+    fn extract_super_property_iri_from_axiom(
+        &self,
+        _axiom: &crate::axioms::SubObjectPropertyAxiom,
+    ) -> Option<IRI> {
         // This is a placeholder - actual implementation would extract the super property IRI
         // For now, return a dummy IRI to demonstrate the concept
         Some(IRI::new("http://example.org/dummy-super-property").unwrap())
     }
 
     /// Check if a class has RL-compatible role relationships
-    fn has_rl_role_relationships(&self, class_iri: &IRI, ontology: &Ontology, hierarchy: &RoleHierarchy) -> bool {
+    fn has_rl_role_relationships(
+        &self,
+        class_iri: &IRI,
+        ontology: &Ontology,
+        hierarchy: &RoleHierarchy,
+    ) -> bool {
         // RL profile focuses on role hierarchies and their relationships
 
         // Check if class is involved in property hierarchies
@@ -341,7 +348,9 @@ impl ProfileOptimizedReasoner {
             if let ClassExpression::Class(sub_class) = subclass_axiom.sub_class() {
                 if sub_class.iri() == class_iri {
                     // Check for existential restrictions with properties
-                    if let ClassExpression::ObjectSomeValuesFrom(property, _) = subclass_axiom.super_class() {
+                    if let ClassExpression::ObjectSomeValuesFrom(property, _) =
+                        subclass_axiom.super_class()
+                    {
                         let prop_iri = match &**property {
                             ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
                             ObjectPropertyExpression::ObjectInverseOf(_) => continue,
@@ -391,12 +400,12 @@ impl RoleHierarchy {
     fn add_relationship(&mut self, sub_prop: IRI, super_prop: IRI) {
         self.super_properties
             .entry(sub_prop.clone())
-            .or_insert_with(smallvec::SmallVec::new)
+            .or_default()
             .push(super_prop.clone());
 
         self.sub_properties
             .entry(super_prop)
-            .or_insert_with(smallvec::SmallVec::new)
+            .or_default()
             .push(sub_prop);
     }
 
@@ -437,8 +446,10 @@ mod tests {
         let class = crate::entities::Class::new(IRI::new("http://example.org/TestClass").unwrap());
         ontology.add_class(class).unwrap();
 
-        let mut reasoner = ProfileOptimizedReasoner::new(Arc::new(ontology), Owl2Profile::EL).unwrap();
-        let result = reasoner.is_class_satisfiable(&IRI::new("http://example.org/TestClass").unwrap());
+        let mut reasoner =
+            ProfileOptimizedReasoner::new(Arc::new(ontology), Owl2Profile::EL).unwrap();
+        let result =
+            reasoner.is_class_satisfiable(&IRI::new("http://example.org/TestClass").unwrap());
         assert!(result.is_ok());
     }
 

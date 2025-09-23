@@ -89,6 +89,12 @@ pub struct MemoryProfiler {
     arc_analysis: Option<ArcSharingAnalysis>,
 }
 
+impl Default for MemoryProfiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryProfiler {
     /// Create new memory profiler
     pub fn new() -> Self {
@@ -187,7 +193,7 @@ impl MemoryProfiler {
     ) -> OwlResult<EntityMemoryProfile> {
         let mut classes = Vec::new();
         for i in 0..count {
-            let class_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
+            let class_iri = IRI::new(format!("http://example.org/Class{}", i))?;
             let class = Class::new(class_iri);
             classes.push(class);
         }
@@ -195,7 +201,7 @@ impl MemoryProfiler {
         // Estimate total memory usage
         let total_memory_bytes: usize = classes
             .iter()
-            .map(|class| EntitySizeCalculator::estimate_class_size(class))
+            .map(EntitySizeCalculator::estimate_class_size)
             .sum();
 
         // Add to ontology
@@ -240,7 +246,7 @@ impl MemoryProfiler {
     ) -> OwlResult<EntityMemoryProfile> {
         let mut properties = Vec::new();
         for i in 0..count {
-            let prop_iri = IRI::new(&format!("http://example.org/hasProp{}", i))?;
+            let prop_iri = IRI::new(format!("http://example.org/hasProp{}", i))?;
             let prop = ObjectProperty::new(prop_iri);
             properties.push(prop);
         }
@@ -248,7 +254,7 @@ impl MemoryProfiler {
         // Estimate total memory usage
         let total_memory_bytes: usize = properties
             .iter()
-            .map(|prop| EntitySizeCalculator::estimate_object_property_size(prop))
+            .map(EntitySizeCalculator::estimate_object_property_size)
             .sum();
 
         // Add to ontology
@@ -281,8 +287,8 @@ impl MemoryProfiler {
     ) -> OwlResult<EntityMemoryProfile> {
         let mut axioms = Vec::new();
         for i in 0..count {
-            let sub_class = Class::new(IRI::new(&format!("http://example.org/Class{}", i))?);
-            let super_class = Class::new(IRI::new(&format!(
+            let sub_class = Class::new(IRI::new(format!("http://example.org/Class{}", i))?);
+            let super_class = Class::new(IRI::new(format!(
                 "http://example.org/Class{}",
                 (i + 1) % count
             ))?);
@@ -296,7 +302,7 @@ impl MemoryProfiler {
         // Estimate total memory usage
         let total_memory_bytes: usize = axioms
             .iter()
-            .map(|axiom| EntitySizeCalculator::estimate_subclass_axiom_size(axiom))
+            .map(EntitySizeCalculator::estimate_subclass_axiom_size)
             .sum();
 
         // Add to ontology
@@ -334,7 +340,7 @@ impl MemoryProfiler {
 
         let classes = ontology.classes();
         for class in classes.iter().take(10) {
-            let _is_satisfiable = reasoner.is_class_satisfiable(&class.iri());
+            let _is_satisfiable = reasoner.is_class_satisfiable(class.iri());
         }
 
         let after_memory = self.measure_memory_usage()?;
@@ -528,7 +534,7 @@ impl MemoryProfiler {
                 "- Fragmentation: {:.2}%\n",
                 stats.fragmentation_ratio * 100.0
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Entity memory profiles
@@ -549,7 +555,7 @@ impl MemoryProfiler {
                 "- Overhead Ratio: {:.2}%\n",
                 profile.overhead_ratio * 100.0
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Arc sharing analysis
@@ -572,7 +578,7 @@ impl MemoryProfiler {
                 "- Deduplication Efficiency: {:.1}%\n",
                 analysis.deduplication_efficiency * 100.0
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Memory usage analysis

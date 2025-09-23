@@ -149,21 +149,23 @@ impl ClassificationEngine {
     /// Initialize the class hierarchy with direct relationships
     fn initialize_hierarchy(&mut self) -> OwlResult<()> {
         // Add owl:Thing as the root
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing")
-            .map_err(|e| OwlError::IriParseError {
+        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").map_err(|e| {
+            OwlError::IriParseError {
                 iri: "http://www.w3.org/2002/07/owl#Thing".to_string(),
                 context: format!("Failed to create owl:Thing IRI: {}", e),
-            })?;
+            }
+        })?;
         self.hierarchy
             .parents
             .insert(thing_iri.clone(), HashSet::new());
 
         // Add owl:Nothing as the bottom
-        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing")
-            .map_err(|e| OwlError::IriParseError {
+        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing").map_err(|e| {
+            OwlError::IriParseError {
                 iri: "http://www.w3.org/2002/07/owl#Nothing".to_string(),
                 context: format!("Failed to create owl:Nothing IRI: {}", e),
-            })?;
+            }
+        })?;
         self.hierarchy
             .children
             .insert(nothing_iri.clone(), HashSet::new());
@@ -185,14 +187,11 @@ impl ClassificationEngine {
             let class_iri = class.iri();
 
             // Add to hierarchy if not present
-            self.hierarchy
-                .parents
-                .entry(class_iri.clone())
-                .or_insert_with(HashSet::new);
+            self.hierarchy.parents.entry(class_iri.clone()).or_default();
             self.hierarchy
                 .children
                 .entry(class_iri.clone())
-                .or_insert_with(HashSet::new);
+                .or_default();
 
             // If no parents specified, add owl:Thing as parent
             if self.hierarchy.parents[class_iri].is_empty() && class_iri != &thing_iri {
@@ -452,11 +451,12 @@ impl ClassificationEngine {
 
     /// Ensure owl:Nothing is subclass of all classes
     fn ensure_nothing_bottom(&mut self) -> OwlResult<()> {
-        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing")
-            .map_err(|e| OwlError::IriParseError {
+        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing").map_err(|e| {
+            OwlError::IriParseError {
                 iri: "http://www.w3.org/2002/07/owl#Nothing".to_string(),
                 context: format!("Failed to create owl:Nothing IRI: {}", e),
-            })?;
+            }
+        })?;
 
         // Get classes without cloning IRIs
         let classes: Vec<&IRI> = self
@@ -555,12 +555,9 @@ impl ClassHierarchy {
     pub fn add_parent(&mut self, child: IRI, parent: IRI) {
         self.parents
             .entry(child.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(parent.clone());
-        self.children
-            .entry(parent)
-            .or_insert_with(HashSet::new)
-            .insert(child);
+        self.children.entry(parent).or_default().insert(child);
         self.depth_cache.clear(); // Invalidate depth cache
     }
 
@@ -568,50 +565,41 @@ impl ClassHierarchy {
     pub fn add_child(&mut self, parent: IRI, child: IRI) {
         self.children
             .entry(parent.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(child.clone());
-        self.parents
-            .entry(child)
-            .or_insert_with(HashSet::new)
-            .insert(parent);
+        self.parents.entry(child).or_default().insert(parent);
     }
 
     /// Add an equivalence relationship
     pub fn add_equivalence(&mut self, class1: IRI, class2: IRI) {
         self.equivalences
             .entry(class1.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(class2.clone());
-        self.equivalences
-            .entry(class2)
-            .or_insert_with(HashSet::new)
-            .insert(class1);
+        self.equivalences.entry(class2).or_default().insert(class1);
     }
 
     /// Add a disjointness relationship
     pub fn add_disjoint(&mut self, class1: IRI, class2: IRI) {
         self.disjointness
             .entry(class1.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(class2.clone());
-        self.disjointness
-            .entry(class2)
-            .or_insert_with(HashSet::new)
-            .insert(class1);
+        self.disjointness.entry(class2).or_default().insert(class1);
     }
 
     /// Check if two classes are equivalent
     pub fn are_equivalent(&self, class1: &IRI, class2: &IRI) -> bool {
         self.equivalences
             .get(class1)
-            .map_or(false, |eqs| eqs.contains(class2))
+            .is_some_and(|eqs| eqs.contains(class2))
     }
 
     /// Check if two classes are disjoint
     pub fn are_disjoint(&self, class1: &IRI, class2: &IRI) -> bool {
         self.disjointness
             .get(class1)
-            .map_or(false, |disjs| disjs.contains(class2))
+            .is_some_and(|disjs| disjs.contains(class2))
     }
 
     /// Get all superclasses of a class (transitive)
@@ -697,7 +685,7 @@ impl ClassHierarchy {
 mod tests {
     use super::*;
     use crate::ontology::Ontology;
-    use crate::{Class, SubClassOfAxiom, EquivalentClassesAxiom};
+    use crate::{Class, EquivalentClassesAxiom, SubClassOfAxiom};
 
     #[test]
     fn test_classification_engine_creation() {
@@ -786,16 +774,12 @@ mod tests {
         hierarchy.add_parent(mammal_iri.clone(), animal_iri.clone());
 
         // Test direct relationships
-        assert!(
-            hierarchy
-                .get_direct_parents(&person_iri)
-                .contains(&mammal_iri)
-        );
-        assert!(
-            hierarchy
-                .get_direct_children(&mammal_iri)
-                .contains(&person_iri)
-        );
+        assert!(hierarchy
+            .get_direct_parents(&person_iri)
+            .contains(&mammal_iri));
+        assert!(hierarchy
+            .get_direct_children(&mammal_iri)
+            .contains(&person_iri));
 
         // Test transitive relationships
         let person_superclasses = hierarchy.get_all_superclasses(&person_iri);
