@@ -38,21 +38,31 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
 
     // Verify that the ontology contains the expected individuals
     let john_iri = IRI::new("http://example.org/john")?;
-    assert!(ontology.named_individuals().iter().any(|ni| ni.iri() == &john_iri));
+    assert!(ontology
+        .named_individuals()
+        .iter()
+        .any(|ni| ni.iri() == &john_iri));
 
     // Check that we have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();
-    assert!(!anonymous_individuals.is_empty(), "Should have anonymous individuals");
+    assert!(
+        !anonymous_individuals.is_empty(),
+        "Should have anonymous individuals"
+    );
 
     // Count property assertions
-    let property_assertions: Vec<_> = ontology.axioms()
+    let property_assertions: Vec<_> = ontology
+        .axioms()
         .iter()
         .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
         .collect();
 
     // Should have property assertions
-    assert!(!property_assertions.is_empty(),
-        "Expected property assertions, got {}", property_assertions.len());
+    assert!(
+        !property_assertions.is_empty(),
+        "Expected property assertions, got {}",
+        property_assertions.len()
+    );
 
     // Verify that property assertions with anonymous individuals were created
     let mut anon_assertions = 0;
@@ -64,14 +74,22 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
         }
     }
 
-    assert!(anon_assertions >= 1,
+    assert!(
+        anon_assertions >= 1,
         "Expected at least 1 property assertion with anonymous individual, got {}",
-        anon_assertions);
+        anon_assertions
+    );
 
     println!("✅ RDF/XML blank node property assertions work correctly!");
-    println!("   - Total property assertions: {}", property_assertions.len());
+    println!(
+        "   - Total property assertions: {}",
+        property_assertions.len()
+    );
     println!("   - Anonymous individual assertions: {}", anon_assertions);
-    println!("   - Anonymous individuals: {}", anonymous_individuals.len());
+    println!(
+        "   - Anonymous individuals: {}",
+        anonymous_individuals.len()
+    );
 
     Ok(())
 }
@@ -103,23 +121,35 @@ fn test_rdf_xml_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
         anon_individual,
     );
 
-    ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+    ontology.add_axiom(Axiom::PropertyAssertion(Box::new(assertion)))?;
 
     // Verify the axiom was added
-    let assertions: Vec<_> = ontology.axioms()
+    let assertions: Vec<_> = ontology
+        .axioms()
         .iter()
         .filter(|axiom| match axiom.as_ref() {
-            Axiom::PropertyAssertion(pa) =>
-                pa.subject() == &john_iri && pa.property() == &knows_iri,
+            Axiom::PropertyAssertion(pa) => {
+                pa.subject() == &john_iri && pa.property() == &knows_iri
+            }
             _ => false,
         })
         .collect();
 
-    assert_eq!(assertions.len(), 1, "Should have exactly one property assertion");
+    assert_eq!(
+        assertions.len(),
+        1,
+        "Should have exactly one property assertion"
+    );
 
     if let Axiom::PropertyAssertion(pa) = assertions[0].as_ref() {
-        assert!(pa.object_anonymous().is_some(), "Object should be anonymous");
-        assert!(pa.object_iri().is_none(), "Object should not be a named IRI");
+        assert!(
+            pa.object_anonymous().is_some(),
+            "Object should be anonymous"
+        );
+        assert!(
+            pa.object_iri().is_none(),
+            "Object should not be a named IRI"
+        );
     }
 
     println!("✅ RDF/XML PropertyAssertionAxiom with anonymous individuals works correctly!");
@@ -152,18 +182,28 @@ fn test_rdf_xml_nested_blank_nodes() -> OwlResult<()> {
 
     // Should have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();
-    assert!(anonymous_individuals.len() >= 2, "Should have multiple anonymous individuals");
+    assert!(
+        anonymous_individuals.len() >= 2,
+        "Should have multiple anonymous individuals"
+    );
 
     // Should have property assertions
-    let property_assertions: Vec<_> = ontology.axioms()
+    let property_assertions: Vec<_> = ontology
+        .axioms()
         .iter()
         .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
         .collect();
 
-    assert!(property_assertions.len() >= 2, "Should have multiple property assertions");
+    assert!(
+        property_assertions.len() >= 2,
+        "Should have multiple property assertions"
+    );
 
     println!("✅ RDF/XML nested blank nodes work correctly!");
-    println!("   - Anonymous individuals: {}", anonymous_individuals.len());
+    println!(
+        "   - Anonymous individuals: {}",
+        anonymous_individuals.len()
+    );
     println!("   - Property assertions: {}", property_assertions.len());
 
     Ok(())
@@ -194,15 +234,24 @@ fn test_rdf_xml_mixed_named_and_blank_nodes() -> OwlResult<()> {
 
     // Should have named individuals
     let named_individuals = ontology.named_individuals();
-    println!("Debug: Found {} named individuals:", named_individuals.len());
+    println!(
+        "Debug: Found {} named individuals:",
+        named_individuals.len()
+    );
     for ni in named_individuals.iter() {
         println!("  - {}", ni.iri());
     }
-    assert!(named_individuals.len() >= 2, "Should have named individuals");
+    assert!(
+        named_individuals.len() >= 2,
+        "Should have named individuals"
+    );
 
     // Should have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();
-    assert!(!anonymous_individuals.is_empty(), "Should have anonymous individuals");
+    assert!(
+        !anonymous_individuals.is_empty(),
+        "Should have anonymous individuals"
+    );
 
     // Should have both types of property assertions
     let mut named_assertions = 0;
@@ -218,12 +267,21 @@ fn test_rdf_xml_mixed_named_and_blank_nodes() -> OwlResult<()> {
         }
     }
 
-    assert!(named_assertions >= 1, "Should have at least 1 named object assertion");
-    assert!(anon_assertions >= 1, "Should have at least 1 anonymous object assertion");
+    assert!(
+        named_assertions >= 1,
+        "Should have at least 1 named object assertion"
+    );
+    assert!(
+        anon_assertions >= 1,
+        "Should have at least 1 anonymous object assertion"
+    );
 
     println!("✅ RDF/XML mixed named and blank nodes work correctly!");
     println!("   - Named individuals: {}", named_individuals.len());
-    println!("   - Anonymous individuals: {}", anonymous_individuals.len());
+    println!(
+        "   - Anonymous individuals: {}",
+        anonymous_individuals.len()
+    );
     println!("   - Named object assertions: {}", named_assertions);
     println!("   - Anonymous object assertions: {}", anon_assertions);
 

@@ -3,12 +3,12 @@
 //! This module tests thread safety and concurrent access patterns
 //! for global caches, arena allocation, and parser operations.
 
+use crate::entities::{Class, ObjectProperty};
+use crate::iri::{clear_global_iri_cache, global_iri_cache_stats, IRI};
+use crate::ontology::Ontology;
+use crate::parser::arena::SharedParserArena;
 use std::sync::Arc;
 use std::thread;
-use crate::parser::arena::SharedParserArena;
-use crate::iri::{IRI, clear_global_iri_cache, global_iri_cache_stats};
-use crate::entities::{Class, ObjectProperty};
-use crate::ontology::Ontology;
 
 #[cfg(test)]
 mod tests {
@@ -95,7 +95,8 @@ mod tests {
                     let mut created_iris = Vec::new();
 
                     for i in 0..iris_per_thread {
-                        let iri_str = format!("http://example.org/thread_{}/entity_{}", thread_id, i);
+                        let iri_str =
+                            format!("http://example.org/thread_{}/entity_{}", thread_id, i);
                         let iri = IRI::new(iri_str).unwrap();
                         created_iris.push(iri);
                     }
@@ -106,7 +107,8 @@ mod tests {
             .collect();
 
         // Wait for all threads and collect results
-        let all_iris: Vec<Vec<IRI>> = handles.into_iter()
+        let all_iris: Vec<Vec<IRI>> = handles
+            .into_iter()
             .map(|handle| handle.join().unwrap())
             .collect();
 
@@ -130,11 +132,13 @@ mod tests {
                     let mut properties = Vec::new();
 
                     for i in 0..entities_per_thread {
-                        let class_iri = format!("http://example.org/classes/Class_{}_{}", thread_id, i);
+                        let class_iri =
+                            format!("http://example.org/classes/Class_{}_{}", thread_id, i);
                         let class = Class::new(class_iri);
                         classes.push(class);
 
-                        let prop_iri = format!("http://example.org/properties/prop_{}_{}", thread_id, i);
+                        let prop_iri =
+                            format!("http://example.org/properties/prop_{}_{}", thread_id, i);
                         let property = ObjectProperty::new(prop_iri);
                         properties.push(property);
                     }
@@ -165,7 +169,8 @@ mod tests {
                     let mut ontology = Ontology::new();
 
                     for i in 0..operations_per_thread {
-                        let class_iri = format!("http://example.org/ontology_{}/Class_{}", thread_id, i);
+                        let class_iri =
+                            format!("http://example.org/ontology_{}/Class_{}", thread_id, i);
                         let class = Class::new(class_iri);
 
                         // Add class to ontology
@@ -184,7 +189,8 @@ mod tests {
             .collect();
 
         // Wait for all threads to complete
-        let _ontologies: Vec<Ontology> = handles.into_iter()
+        let _ontologies: Vec<Ontology> = handles
+            .into_iter()
             .map(|handle| handle.join().unwrap())
             .collect();
 
@@ -311,7 +317,8 @@ mod tests {
             .collect();
 
         // Wait for completion and verify no deadlocks or panics
-        let _all_iris: Vec<Vec<IRI>> = handles.into_iter()
+        let _all_iris: Vec<Vec<IRI>> = handles
+            .into_iter()
             .map(|handle| handle.join().unwrap())
             .collect();
 
@@ -358,10 +365,11 @@ mod tests {
                             }
                             3 => {
                                 // IRI operations
-                                let iri_str = format!("http://mixed.example.org/{}_{}", thread_id, i);
+                                let iri_str =
+                                    format!("http://mixed.example.org/{}_{}", thread_id, i);
                                 let _iri = IRI::new(iri_str).unwrap();
                             }
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
                 })

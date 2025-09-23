@@ -68,7 +68,9 @@ ex:hasPet a owl:ObjectProperty ;
 
         // Test cache clearing
         reasoner.clear_caches().expect("Should clear caches");
-        let stats_after = reasoner.cache_stats().expect("Should get cache stats after clear");
+        let stats_after = reasoner
+            .cache_stats()
+            .expect("Should get cache stats after clear");
         assert_eq!(
             stats_after.get("consistency"),
             Some(&0),
@@ -112,7 +114,9 @@ ex:hasFather rdfs:subPropertyOf ex:hasParent .
 
         // Test cache clearing
         reasoner.clear_caches().expect("Should clear caches");
-        let stats_after = reasoner.cache_stats().expect("Should get cache stats after clear");
+        let stats_after = reasoner
+            .cache_stats()
+            .expect("Should get cache stats after clear");
         assert_eq!(
             stats_after.get("consistency"),
             Some(&0),

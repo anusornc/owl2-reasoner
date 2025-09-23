@@ -120,9 +120,8 @@ pub mod family {
 
         // Add property hierarchy
         ontology
-            .add_axiom(Axiom::SubObjectProperty(SubObjectPropertyAxiom::new(
-                has_child.iri().clone(),
-                has_parent.iri().clone(),
+            .add_axiom(Axiom::SubObjectProperty(Box::new(
+                SubObjectPropertyAxiom::new(has_child.iri().clone(), has_parent.iri().clone()),
             )))
             .unwrap();
 
@@ -400,11 +399,9 @@ pub mod biomedical {
         let genetic_disorder_iri =
             IRI::new("http://example.org/biomedical/GeneticDisorder").unwrap();
 
-        assert!(
-            reasoner
-                .is_subclass_of(&genetic_disorder_iri, &disease_iri)
-                .unwrap()
-        );
+        assert!(reasoner
+            .is_subclass_of(&genetic_disorder_iri, &disease_iri)
+            .unwrap());
 
         // Test instance classification
         let genetic_disorders = reasoner.get_instances(&genetic_disorder_iri).unwrap();

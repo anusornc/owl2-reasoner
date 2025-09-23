@@ -415,7 +415,7 @@ ex:Class5 a owl:Class .
     fn test_concurrent_parser_access() {
         use std::thread;
 
-        let mut handles = vec![];
+        let mut handles = Vec::new();
 
         // Test concurrent parsing using independent parser instances per thread
         for i in 0..10 {

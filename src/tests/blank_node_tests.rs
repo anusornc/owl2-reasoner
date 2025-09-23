@@ -26,11 +26,17 @@ fn test_turtle_blank_node_property_assertion() -> OwlResult<()> {
 
     // Verify that the ontology contains the expected individuals
     let john_iri = IRI::new("http://example.org/john")?;
-    assert!(ontology.named_individuals().iter().any(|ni| ni.iri() == &john_iri));
+    assert!(ontology
+        .named_individuals()
+        .iter()
+        .any(|ni| ni.iri() == &john_iri));
 
     // Check that we have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();
-    println!("Debug: Found {} anonymous individuals", anonymous_individuals.len());
+    println!(
+        "Debug: Found {} anonymous individuals",
+        anonymous_individuals.len()
+    );
     println!("Debug: All axioms in ontology:");
     for (i, axiom) in ontology.axioms().iter().enumerate() {
         println!("  {}: {:?}", i + 1, axiom);
@@ -43,18 +49,24 @@ fn test_turtle_blank_node_property_assertion() -> OwlResult<()> {
     for op in ontology.object_properties() {
         println!("  - {}", op.iri());
     }
-    assert!(!anonymous_individuals.is_empty(), "Should have anonymous individuals");
+    assert!(
+        !anonymous_individuals.is_empty(),
+        "Should have anonymous individuals"
+    );
 
     // Count property assertions
-    let property_assertions: Vec<_> = ontology.axioms()
+    let property_assertions: Vec<_> = ontology
+        .axioms()
         .iter()
         .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
         .collect();
 
     // Should have at least 2 property assertions (one for _:blank1, one for nested blank node)
-    assert!(property_assertions.len() >= 2,
+    assert!(
+        property_assertions.len() >= 2,
         "Expected at least 2 property assertions, got {}",
-        property_assertions.len());
+        property_assertions.len()
+    );
 
     // Verify that property assertions with anonymous individuals were created
     let mut anon_assertions = 0;
@@ -66,14 +78,22 @@ fn test_turtle_blank_node_property_assertion() -> OwlResult<()> {
         }
     }
 
-    assert!(anon_assertions >= 1,
+    assert!(
+        anon_assertions >= 1,
         "Expected at least 1 property assertion with anonymous individual, got {}",
-        anon_assertions);
+        anon_assertions
+    );
 
     println!("✅ Turtle blank node property assertions work correctly!");
-    println!("   - Total property assertions: {}", property_assertions.len());
+    println!(
+        "   - Total property assertions: {}",
+        property_assertions.len()
+    );
     println!("   - Anonymous individual assertions: {}", anon_assertions);
-    println!("   - Anonymous individuals: {}", anonymous_individuals.len());
+    println!(
+        "   - Anonymous individuals: {}",
+        anonymous_individuals.len()
+    );
 
     Ok(())
 }
@@ -105,23 +125,35 @@ fn test_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
         anon_individual,
     );
 
-    ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+    ontology.add_axiom(Axiom::PropertyAssertion(Box::new(assertion)))?;
 
     // Verify the axiom was added
-    let assertions: Vec<_> = ontology.axioms()
+    let assertions: Vec<_> = ontology
+        .axioms()
         .iter()
         .filter(|axiom| match axiom.as_ref() {
-            Axiom::PropertyAssertion(pa) =>
-                pa.subject() == &john_iri && pa.property() == &knows_iri,
+            Axiom::PropertyAssertion(pa) => {
+                pa.subject() == &john_iri && pa.property() == &knows_iri
+            }
             _ => false,
         })
         .collect();
 
-    assert_eq!(assertions.len(), 1, "Should have exactly one property assertion");
+    assert_eq!(
+        assertions.len(),
+        1,
+        "Should have exactly one property assertion"
+    );
 
     if let Axiom::PropertyAssertion(pa) = assertions[0].as_ref() {
-        assert!(pa.object_anonymous().is_some(), "Object should be anonymous");
-        assert!(pa.object_iri().is_none(), "Object should not be a named IRI");
+        assert!(
+            pa.object_anonymous().is_some(),
+            "Object should be anonymous"
+        );
+        assert!(
+            pa.object_iri().is_none(),
+            "Object should not be a named IRI"
+        );
     }
 
     println!("✅ PropertyAssertionAxiom with anonymous individuals works correctly!");

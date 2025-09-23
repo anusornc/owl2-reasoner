@@ -80,8 +80,8 @@ mod tests {
 
     #[test]
     fn test_empty_turtle_input() {
-        use crate::parser::OntologyParser;
         use crate::parser::turtle::TurtleParser;
+        use crate::parser::OntologyParser;
 
         let parser = TurtleParser::new();
         let result = parser.parse_str("");
@@ -99,8 +99,8 @@ mod tests {
 
     #[test]
     fn test_malformed_turtle_triples() {
-        use crate::parser::OntologyParser;
         use crate::parser::turtle::TurtleParser;
+        use crate::parser::OntologyParser;
 
         let parser = TurtleParser::new();
         let malformed_triples = vec![
@@ -185,7 +185,9 @@ mod tests {
         let reasoner = SimpleReasoner::new(ontology);
 
         // Clear cache (should not error)
-        reasoner.clear_caches().expect("Should clear caches without error");
+        reasoner
+            .clear_caches()
+            .expect("Should clear caches without error");
 
         // Test consistency checking after cache clear
         let result = reasoner.is_consistent();
@@ -198,8 +200,8 @@ mod tests {
 
     #[test]
     fn test_file_parsing_errors() {
-        use crate::parser::OntologyParser;
         use crate::parser::turtle::TurtleParser;
+        use crate::parser::OntologyParser;
         use std::path::Path;
 
         let parser = TurtleParser::new();

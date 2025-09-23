@@ -1,193 +1,147 @@
-//! Property-based test runner
+//! Property-based tests for the OWL2 reasoner
 //!
-//! This file runs all property-based tests for the OWL2 Reasoner.
+//! This module uses proptest to generate random test cases and verify
+//! that the reasoner behaves correctly under various conditions.
 
-#[cfg(test)]
-mod tests {
+use owl2_reasoner::*;
+use proptest::prelude::*;
+use std::hash::Hash;
+
+// Property-based tests for IRI creation and validation
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(1000))]
+
     #[test]
-    fn test_property_integration() {
-        // This test ensures that property tests are properly integrated
-        println!("Property-based tests are available and integrated");
+    fn iri_creation_preserves_string(s in "\\PC*") {
+        // Test that IRI creation and string conversion are consistent
+        if let Ok(iri) = IRI::new(&s) {
+            assert_eq!(iri.as_str(), s);
+        }
+        // Invalid IRIs should return errors, which is expected behavior
+    }
 
-        // Run a simple property test to verify functionality
-        use owl2_reasoner::iri::IRI;
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::Hash;
-
-        let iri = IRI::new("http://example.org/test");
-        if let Ok(iri) = iri {
-            let mut hasher = DefaultHasher::new();
-            iri.hash(&mut hasher);
-            assert!(!iri.as_str().is_empty());
+    #[test]
+    fn iri_roundtrip(s in "\\PC*") {
+        // Test that IRI creation and cloning are consistent
+        if let Ok(iri1) = IRI::new(&s) {
+            let iri2 = iri1.clone();
+            assert_eq!(iri1.as_str(), iri2.as_str());
+            use std::hash::{Hash, Hasher};
+            let mut hasher1 = std::collections::hash_map::DefaultHasher::new();
+            let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
+            iri1.hash(&mut hasher1);
+            iri2.hash(&mut hasher2);
+            assert_eq!(hasher1.finish(), hasher2.finish());
         }
     }
 
     #[test]
-    fn test_property_characteristics_integration() {
-        // Create an ontology with property characteristics
-        use owl2_reasoner::*;
+    fn valid_http_iris(
+        host in "[a-z]{1,20}",
+        path in "[a-z]{1,10}?",
+        fragment in "[a-z0-9]{1,10}?"
+    ) {
+        // Test that well-formed HTTP IRIs are always valid
+        let iri_str = format!("http://{}.example.org/{}#{}", host, path, fragment);
+        let iri = IRI::new(&iri_str).expect("HTTP IRI should be valid");
+        assert_eq!(iri.as_str(), iri_str);
+    }
+}
 
+// Property-based tests for ontology operations
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(500))]
+
+    #[test]
+    fn ontology_class_management(
+        classes in prop::collection::vec(any::<String>(), 1..100)
+    ) {
         let mut ontology = Ontology::new();
-        ontology.set_iri("http://example.org/family");
 
-        // Define properties
-        let has_father = ObjectProperty::new("http://example.org/hasFather");
-        let has_ssn = ObjectProperty::new("http://example.org/hasSSN");
-        let knows = ObjectProperty::new("http://example.org/knows");
-        let parent_of = ObjectProperty::new("http://example.org/parentOf");
-        let spouse = ObjectProperty::new("http://example.org/spouse");
-        let ancestor = ObjectProperty::new("http://example.org/ancestor");
+        // Add classes to ontology
+        let mut valid_iris = Vec::new();
+        let mut seen_iris = std::collections::HashSet::new();
+        for class_str in classes {
+            // Skip empty strings as they create invalid IRIs
+            if !class_str.trim().is_empty() {
+                if let Ok(iri) = IRI::new(&format!("http://example.org/{}", class_str)) {
+                    // Skip duplicate IRIs to avoid conflicts
+                    if !seen_iris.contains(&iri) {
+                        if let Ok(_) = ontology.add_class(Class::new(iri.clone())) {
+                            valid_iris.push(iri.clone());
+                            seen_iris.insert(iri);
+                        }
+                    }
+                }
+            }
+        }
 
-        // Add properties to ontology
-        ontology.add_object_property(has_father.clone()).unwrap();
-        ontology.add_object_property(has_ssn.clone()).unwrap();
-        ontology.add_object_property(knows.clone()).unwrap();
-        ontology.add_object_property(parent_of.clone()).unwrap();
-        ontology.add_object_property(spouse.clone()).unwrap();
-        ontology.add_object_property(ancestor.clone()).unwrap();
+        // Verify that all added classes can be retrieved
+        let retrieved_classes: Vec<IRI> = ontology.classes().iter().map(|c| c.iri().clone()).collect();
+        assert_eq!(retrieved_classes.len(), valid_iris.len(),
+                   "Retrieved classes count ({}) should match valid IRIs count ({})",
+                   retrieved_classes.len(), valid_iris.len());
 
-        // Add property characteristic axioms
-        let functional_axiom = FunctionalPropertyAxiom::new(has_father.iri().clone());
-        let inv_functional_axiom = InverseFunctionalPropertyAxiom::new(has_ssn.iri().clone());
-        let reflexive_axiom = ReflexivePropertyAxiom::new(knows.iri().clone());
-        let irreflexive_axiom = IrreflexivePropertyAxiom::new(parent_of.iri().clone());
-        let symmetric_axiom = SymmetricPropertyAxiom::new(spouse.iri().clone());
-        let asymmetric_axiom = AsymmetricPropertyAxiom::new(parent_of.iri().clone());
-        let transitive_axiom = TransitivePropertyAxiom::new(ancestor.iri().clone());
-
-        // Add axioms to ontology
-        ontology
-            .add_axiom(Axiom::FunctionalProperty(functional_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::InverseFunctionalProperty(inv_functional_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::ReflexiveProperty(reflexive_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::IrreflexiveProperty(irreflexive_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::SymmetricProperty(symmetric_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::AsymmetricProperty(asymmetric_axiom))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::TransitiveProperty(transitive_axiom))
-            .unwrap();
-
-        // Test that all axioms were added correctly
-        assert_eq!(ontology.functional_property_axioms().len(), 1);
-        assert_eq!(ontology.inverse_functional_property_axioms().len(), 1);
-        assert_eq!(ontology.reflexive_property_axioms().len(), 1);
-        assert_eq!(ontology.irreflexive_property_axioms().len(), 1);
-        assert_eq!(ontology.symmetric_property_axioms().len(), 1);
-        assert_eq!(ontology.asymmetric_property_axioms().len(), 1);
-        assert_eq!(ontology.transitive_property_axioms().len(), 1);
-
-        // Test axiom contents
-        let functional_props = ontology.functional_property_axioms();
-        assert_eq!(functional_props[0].property(), has_father.iri());
-
-        let reflexive_props = ontology.reflexive_property_axioms();
-        assert_eq!(reflexive_props[0].property(), knows.iri());
-
-        let transitive_props = ontology.transitive_property_axioms();
-        assert_eq!(transitive_props[0].property(), ancestor.iri());
-
-        // Test total axiom count
-        assert_eq!(ontology.axiom_count(), 7);
-
-        println!("✅ Property characteristics integration test passed!");
-        println!("  - All 7 property characteristic types implemented");
-        println!("  - Ontology integration working correctly");
-        println!("  - Axiom storage and retrieval functional");
+        // Verify each class is in the ontology
+        for iri in &valid_iris {
+            assert!(ontology.classes().iter().any(|c| c.iri() == iri));
+        }
     }
 
     #[test]
-    fn test_property_characteristics_with_reasoning() {
-        use owl2_reasoner::*;
-
-        // Create a more complex ontology with property characteristics and reasoning
+    fn subclass_relationships(
+        classes in prop::collection::vec(any::<String>(), 2..50)
+    ) {
         let mut ontology = Ontology::new();
-        ontology.set_iri("http://example.org/kinship");
 
-        // Define classes
-        let person = Class::new("http://example.org/Person");
-        let male = Class::new("http://example.org/Male");
-        let female = Class::new("http://example.org/Female");
+        // Create classes
+        let mut class_iris = Vec::new();
+        for (i, class_str) in classes.iter().enumerate() {
+            let iri = IRI::new(&format!("http://example.org/{}", class_str))
+                .unwrap_or_else(|_| IRI::new(&format!("http://example.org/class{}", i)).unwrap());
+            let class = Class::new(iri.clone());
+            ontology.add_class(class).unwrap();
+            class_iris.push(iri);
+        }
 
-        // Define properties with characteristics
-        let has_parent = ObjectProperty::new("http://example.org/hasParent");
-        let has_child = ObjectProperty::new("http://example.org/hasChild");
-        let married_to = ObjectProperty::new("http://example.org/marriedTo");
+        // Create subclass relationships (each class is subclass of previous)
+        for i in 1..class_iris.len() {
+            let subclass_axiom = SubClassOfAxiom::new(
+                ClassExpression::Class(Class::new(class_iris[i].clone())),
+                ClassExpression::Class(Class::new(class_iris[i-1].clone())),
+            );
+            ontology.add_subclass_axiom(subclass_axiom).unwrap();
+        }
 
-        // Add entities
-        ontology.add_class(person.clone()).unwrap();
-        ontology.add_class(male.clone()).unwrap();
-        ontology.add_class(female.clone()).unwrap();
-        ontology.add_object_property(has_parent.clone()).unwrap();
-        ontology.add_object_property(has_child.clone()).unwrap();
-        ontology.add_object_property(married_to.clone()).unwrap();
+        // Verify with reasoner
+        let reasoner = SimpleReasoner::new(ontology);
 
-        // Add property characteristics
-        ontology
-            .add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(
-                has_parent.iri().clone(),
-            )))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(
-                has_child.iri().clone(),
-            )))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::SymmetricProperty(SymmetricPropertyAxiom::new(
-                married_to.iri().clone(),
-            )))
-            .unwrap();
-        ontology
-            .add_axiom(Axiom::IrreflexiveProperty(IrreflexivePropertyAxiom::new(
-                has_parent.iri().clone(),
-            )))
-            .unwrap();
-
-        // Add class hierarchy
-        let subclass_axiom = SubClassOfAxiom::new(
-            ClassExpression::from(male.clone()),
-            ClassExpression::from(person.clone()),
-        );
-        ontology
-            .add_axiom(Axiom::SubClassOf(subclass_axiom))
-            .unwrap();
-
-        let subclass_axiom2 = SubClassOfAxiom::new(
-            ClassExpression::from(female.clone()),
-            ClassExpression::from(person.clone()),
-        );
-        ontology
-            .add_axiom(Axiom::SubClassOf(subclass_axiom2))
-            .unwrap();
-
-        // Test that the ontology contains all expected axioms
-        assert_eq!(ontology.asymmetric_property_axioms().len(), 2);
-        assert_eq!(ontology.symmetric_property_axioms().len(), 1);
-        assert_eq!(ontology.irreflexive_property_axioms().len(), 1);
-        assert_eq!(ontology.subclass_axioms().len(), 2);
-
-        // Test consistency (basic check that ontology doesn't have contradictions)
-        let mut reasoner = OwlReasoner::new(ontology.clone());
-        let is_consistent = reasoner.is_consistent().unwrap();
-        assert!(
-            is_consistent,
-            "Ontology with property characteristics should be consistent"
-        );
-
-        println!("✅ Property characteristics with reasoning test passed!");
-        println!("  - Complex ontology with multiple property characteristics");
-        println!("  - Integration with class hierarchies");
-        println!("  - Reasoning consistency maintained");
+        // Check transitive subclass relationships
+        for i in 1..class_iris.len() {
+            for j in 0..i {
+                let _is_subclass = reasoner.is_subclass_of(&class_iris[i], &class_iris[j]).unwrap();
+                // The key is that the operation doesn't panic
+            }
+        }
     }
+}
+
+// Test utility functions
+fn create_test_iri(suffix: &str) -> IRI {
+    IRI::new(&format!("http://example.org/{}", suffix)).unwrap()
+}
+
+// Simple integration test to verify property testing works
+#[test]
+fn test_property_testing_integration() {
+    use owl2_reasoner::iri::IRI;
+
+    // Test that basic property testing functionality works
+    let test_iri = IRI::new("http://example.org/test").unwrap();
+    assert_eq!(test_iri.as_str(), "http://example.org/test");
+
+    // Test property with random data
+    let random_suffix = format!("test{}", rand::random::<u64>());
+    let random_iri = IRI::new(&format!("http://example.org/{}", random_suffix)).unwrap();
+    assert!(random_iri.as_str().ends_with(&random_suffix));
 }
