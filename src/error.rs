@@ -13,6 +13,10 @@ pub enum OwlError {
     #[error("IRI parse error: {iri}, context: {context}")]
     IriParseError { iri: String, context: String },
 
+    /// IRI creation errors with format context
+    #[error("IRI creation failed: {iri_str}")]
+    IriCreationError { iri_str: String },
+
     /// Unknown namespace prefix
     #[error("Unknown prefix: {0}")]
     UnknownPrefix(String),
@@ -23,7 +27,11 @@ pub enum OwlError {
 
     /// Parse errors with line and column information
     #[error("Parse error at line {line}, column {column}: {message}")]
-    ParseErrorWithLocation { line: usize, column: usize, message: String },
+    ParseErrorWithLocation {
+        line: usize,
+        column: usize,
+        message: String,
+    },
 
     /// Serialization errors
     #[error("Serialization error: {0}")]
@@ -55,7 +63,11 @@ pub enum OwlError {
 
     /// Lock contention errors
     #[error("Lock contention error: {lock_type} lock failed after {timeout_ms}ms: {message}")]
-    LockError { lock_type: String, timeout_ms: u64, message: String },
+    LockError {
+        lock_type: String,
+        timeout_ms: u64,
+        message: String,
+    },
 
     /// Validation errors
     #[error("Validation error: {0}")]
@@ -63,7 +75,11 @@ pub enum OwlError {
 
     /// Entity validation errors
     #[error("Entity validation error: {entity_type} '{name}': {message}")]
-    EntityValidationError { entity_type: String, name: String, message: String },
+    EntityValidationError {
+        entity_type: String,
+        name: String,
+        message: String,
+    },
 
     /// Axiom validation errors
     #[error("Axiom validation error: {axiom_type}: {message}")]
@@ -83,7 +99,11 @@ pub enum OwlError {
 
     /// Resource limit exceeded errors
     #[error("Resource limit exceeded: {resource_type} limit {limit} reached: {message}")]
-    ResourceLimitExceeded { resource_type: String, limit: usize, message: String },
+    ResourceLimitExceeded {
+        resource_type: String,
+        limit: usize,
+        message: String,
+    },
 
     /// Timeout errors
     #[error("Timeout error: {operation} timed out after {timeout_ms}ms")]
@@ -136,16 +156,24 @@ impl ErrorContext {
         let context_str = if self.details.is_empty() {
             self.operation
         } else {
-            format!("{}: {}", self.operation,
-                self.details.iter()
+            format!(
+                "{}: {}",
+                self.operation,
+                self.details
+                    .iter()
                     .map(|(k, v)| format!("{}={}", k, v))
                     .collect::<Vec<_>>()
-                    .join(", "))
+                    .join(", ")
+            )
         };
 
         match error {
-            OwlError::ReasoningError(msg) => OwlError::ReasoningError(format!("{}: {}", context_str, msg)),
-            OwlError::StorageError(msg) => OwlError::StorageError(format!("{}: {}", context_str, msg)),
+            OwlError::ReasoningError(msg) => {
+                OwlError::ReasoningError(format!("{}: {}", context_str, msg))
+            }
+            OwlError::StorageError(msg) => {
+                OwlError::StorageError(format!("{}: {}", context_str, msg))
+            }
             OwlError::ParseError(msg) => OwlError::ParseError(format!("{}: {}", context_str, msg)),
             _ => error,
         }
