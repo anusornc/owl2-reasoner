@@ -1,6 +1,6 @@
 //! Reasoning performance benchmarks
 
-use criterion::{black_box, BenchmarkId, Criterion};
+use criterion::{black_box, BenchmarkId, Criterion, criterion_group, criterion_main};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::Class;
 use owl2_reasoner::iri::IRI;
@@ -382,3 +382,15 @@ fn create_large_hierarchy_ontology(size: usize) -> Ontology {
 
     ontology
 }
+
+criterion_group!(
+    reasoning_bench,
+    bench_consistency_checking,
+    bench_class_satisfiability,
+    bench_cache_operations,
+    bench_subclass_checking,
+    bench_memory_usage,
+    bench_large_scale_ontologies
+);
+
+criterion_main!(reasoning_bench);

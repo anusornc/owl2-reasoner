@@ -12,6 +12,7 @@
 - [ ] Create tableaux expansion module - Separate rule expansion logic | Due: 4 weeks
 
 ## Completed
+- [x] Fix CRITICAL: Missing Entry Points in benchmark files - Added criterion_main!() and criterion_group!() macros to tableaux_benchmarks.rs and reasoning_bench.rs | Due: 2025-09-23 | Completed: 2025-09-23
 - [x] Fix all 152 Clippy linting errors (unused variables, large enum variants, redundant closures) | Due: 2025-01-29
 - [x] Refactor axiom_type() method with 46 match arms in src/axioms/mod.rs:172-219 | Due: 2025-01-31
 - [x] Break down 78-line match_triple_pattern_optimized method in src/reasoning/query.rs:305-383 | Due: 2025-01-31

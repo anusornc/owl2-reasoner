@@ -4,7 +4,7 @@
 //! This benchmarks individual components and their integration to ensure
 //! optimal performance across all tableaux modules.
 
-use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use owl2_reasoner::axioms::*;
 use owl2_reasoner::entities::*;
 use owl2_reasoner::iri::IRI;
@@ -585,3 +585,18 @@ pub fn bench_tableaux_caching(c: &mut Criterion) {
 
     group.finish();
 }
+
+criterion_group!(
+    tableaux_benchmarks,
+    bench_tableaux_core,
+    bench_tableaux_graph,
+    bench_tableaux_memory,
+    bench_tableaux_blocking,
+    bench_tableaux_dependency,
+    bench_tableaux_expansion,
+    bench_tableaux_integration,
+    bench_tableaux_memory_usage,
+    bench_tableaux_caching
+);
+
+criterion_main!(tableaux_benchmarks);

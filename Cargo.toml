@@ -91,6 +91,14 @@ harness = false
 name = "tableaux_main"
 harness = false
 
+[[bench]]
+name = "tableaux_benchmarks"
+harness = false
+
+[[bench]]
+name = "reasoning_bench"
+harness = false
+
 [lib]
 name = "owl2_reasoner"
 path = "src/lib.rs"
