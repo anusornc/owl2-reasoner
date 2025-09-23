@@ -8,7 +8,7 @@ use crate::entities::{DataProperty, ObjectProperty};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObjectPropertyExpression {
     /// Named object property
-    ObjectProperty(ObjectProperty),
+    ObjectProperty(Box<ObjectProperty>),
     /// Inverse object property (R⁻)
     ObjectInverseOf(Box<ObjectPropertyExpression>),
 }
@@ -42,7 +42,7 @@ impl ObjectPropertyExpression {
 
 impl From<ObjectProperty> for ObjectPropertyExpression {
     fn from(prop: ObjectProperty) -> Self {
-        ObjectPropertyExpression::ObjectProperty(prop)
+        ObjectPropertyExpression::ObjectProperty(Box::new(prop))
     }
 }
 

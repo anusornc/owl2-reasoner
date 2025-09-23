@@ -19,7 +19,7 @@ pub enum ClassExpression {
     /// Object complement of (not C)
     ObjectComplementOf(Box<ClassExpression>),
     /// Object one of {a, b, c}
-    ObjectOneOf(SmallVec<[crate::entities::Individual; 8]>),
+    ObjectOneOf(Box<SmallVec<[crate::entities::Individual; 8]>>),
     /// Object some values from (∃R.C)
     ObjectSomeValuesFrom(Box<ObjectPropertyExpression>, Box<ClassExpression>),
     /// Object all values from (∀R.C)

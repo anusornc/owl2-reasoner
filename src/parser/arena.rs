@@ -5,8 +5,8 @@
 
 use bumpalo::Bump;
 use std::cell::Cell;
-use std::sync::Arc;
 use std::slice;
+use std::sync::Arc;
 
 /// Parser arena for efficient allocation of frequently created objects
 pub struct ParserArena {
@@ -71,8 +71,8 @@ impl ParserArena {
         self.bump.alloc_slice_fill_iter(iter)
     }
 
-    /// Allocate a vector of T in the arena (returns &mut [T])
-    pub fn alloc_vec<T: Copy>(&self, vec: Vec<T>) -> &mut [T] {
+    /// Allocate a vector of T in the arena (returns &mut \[T\])
+    pub fn alloc_vec<T: Copy>(&mut self, vec: Vec<T>) -> &mut [T] {
         let slice: &[T] = self.bump.alloc_slice_copy(&vec);
         // SAFETY: This operation is safe because:
         // 1. We just allocated this slice and have exclusive access to the arena
@@ -86,7 +86,11 @@ impl ParserArena {
     /// Try to allocate a string with length check
     pub fn try_alloc_str(&self, s: &str, max_len: usize) -> Result<&str, String> {
         if s.len() > max_len {
-            Err(format!("String length {} exceeds maximum allowed length {}", s.len(), max_len))
+            Err(format!(
+                "String length {} exceeds maximum allowed length {}",
+                s.len(),
+                max_len
+            ))
         } else {
             Ok(self.alloc_str(s))
         }
@@ -295,7 +299,11 @@ impl ParserArenaTrait for SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No other references exist while this mutable reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(&mut *self.arena.lock().unwrap()) }
+        unsafe {
+            std::mem::transmute::<&mut ParserArena, &mut ParserArena>(
+                &mut *self.arena.lock().unwrap(),
+            )
+        }
     }
 
     fn reset(&mut self) {

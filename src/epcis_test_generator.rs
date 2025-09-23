@@ -334,7 +334,7 @@ impl EPCISTestDataGenerator {
 
     /// Select business step
     fn select_business_step(&mut self) -> EPCISBusinessStep {
-        let steps = vec![
+        let steps = [
             EPCISBusinessStep::Manufacturing,
             EPCISBusinessStep::Assembling,
             EPCISBusinessStep::Receiving,
@@ -347,7 +347,7 @@ impl EPCISTestDataGenerator {
 
     /// Select disposition
     fn select_disposition(&mut self) -> EPCISDisposition {
-        let dispositions = vec![
+        let dispositions = [
             EPCISDisposition::InProgress,
             EPCISDisposition::InStock,
             EPCISDisposition::Passed,

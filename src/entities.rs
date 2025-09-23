@@ -58,8 +58,8 @@ pub trait Entity {
 pub fn create_entity_with_fallback<I: Into<IRI> + Clone, E: Entity>(iri: I) -> E {
     // For backward compatibility, fall back to direct creation if sharing fails
     let iri_clone = iri.clone();
-    let shared_iri = get_shared_iri(iri.into().as_str())
-        .unwrap_or_else(|_| Arc::new(iri_clone.into()));
+    let shared_iri =
+        get_shared_iri(iri.into().as_str()).unwrap_or_else(|_| Arc::new(iri_clone.into()));
     E::from_shared_iri(shared_iri)
 }
 
@@ -76,7 +76,6 @@ pub fn force_global_entity_cache_eviction(count: usize) -> OwlResult<usize> {
     let evicted = current_size - target_size;
     Ok(evicted)
 }
-
 
 /// A named class in OWL2
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -454,7 +453,6 @@ impl Entity for AnnotationProperty {
         }
     }
 }
-
 
 /// Characteristics of data properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
