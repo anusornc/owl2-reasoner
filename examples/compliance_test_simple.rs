@@ -2,9 +2,9 @@
 //!
 //! Validates the complete SROIQ(D) implementation with core functionality tests
 
-use owl2_reasoner::OntologyParser;
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
 use owl2_reasoner::reasoning::tableaux::TableauxReasoner;
+use owl2_reasoner::OntologyParser;
 use owl2_reasoner::IRI;
 use std::time::Instant;
 
@@ -205,7 +205,10 @@ ClassAssertion(:Professor :Bob)
     println!("Total Tests: {}", total_tests);
     println!("Passed Tests: {}", passed_tests);
     println!("Failed Tests: {}", total_tests - passed_tests);
-    println!("Success Rate: {:.1}%", (passed_tests as f64 / total_tests as f64) * 100.0);
+    println!(
+        "Success Rate: {:.1}%",
+        (passed_tests as f64 / total_tests as f64) * 100.0
+    );
     println!("Average Time: {:.1}ms", total_time / total_tests as f64);
 
     let overall_status = if (passed_tests as f64 / total_tests as f64) >= 0.9 {

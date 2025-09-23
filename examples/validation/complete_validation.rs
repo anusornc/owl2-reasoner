@@ -116,7 +116,11 @@ fn main() -> OwlResult<()> {
     println!(
         "📊 Cache operations: {:.3} ms ({}% hit rate)",
         cache_time,
-        cache_stats.as_ref().unwrap_or(&Default::default()).hit_rate() * 100.0
+        cache_stats
+            .as_ref()
+            .unwrap_or(&Default::default())
+            .hit_rate()
+            * 100.0
     );
 
     // Calculate average response time
@@ -201,7 +205,14 @@ fn main() -> OwlResult<()> {
     println!("\n📈 Performance Summary:");
     println!("=======================");
     println!("📊 Average response time: {:.3} ms", avg_response_time_ms);
-    println!("📊 Cache hit rate: {:.1}%", cache_stats.as_ref().unwrap_or(&Default::default()).hit_rate() * 100.0);
+    println!(
+        "📊 Cache hit rate: {:.1}%",
+        cache_stats
+            .as_ref()
+            .unwrap_or(&Default::default())
+            .hit_rate()
+            * 100.0
+    );
     println!("📊 Memory per entity: {:.2} KB", memory_per_entity_kb);
     println!("📊 IRI sharing ratio: {:.1}%", sharing_ratio * 100.0);
 

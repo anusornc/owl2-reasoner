@@ -3,7 +3,7 @@
 //! This benchmark provides basic measurements of entity size calculations
 //! without making fake breakthrough claims or hardcoded assertions.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use owl2_reasoner::axioms::ClassExpression;
 use owl2_reasoner::axioms::SubClassOfAxiom;
 use owl2_reasoner::entities::{Class, ObjectProperty};

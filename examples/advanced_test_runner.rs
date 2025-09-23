@@ -3,10 +3,10 @@
 //! This example demonstrates comprehensive test suite functionality using
 //! advanced reasoning capabilities including tableaux-based reasoning.
 
-use owl2_reasoner::OwlResult;
 use owl2_reasoner::test_suite_advanced::{
     AdvancedTestSuiteConfig, AdvancedTestSuiteRunner, ReasoningMode,
 };
+use owl2_reasoner::OwlResult;
 use std::path::PathBuf;
 
 fn main() -> OwlResult<()> {

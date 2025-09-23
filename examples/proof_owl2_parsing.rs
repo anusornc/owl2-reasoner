@@ -8,8 +8,8 @@
 //! - Ontology imports and anonymous individuals
 //! - Nested expressions and advanced constructs
 
-use owl2_reasoner::OntologyParser;
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
+use owl2_reasoner::OntologyParser;
 use std::io::Result;
 
 fn main() -> Result<()> {
@@ -153,11 +153,26 @@ HasKey(:Person (:hasEmail))
 
             println!("📊 **Parsing Statistics:**");
             println!("   📚 Classes: {}", ontology.classes().len());
-            println!("   🔗 Object Properties: {}", ontology.object_properties().len());
-            println!("   📊 Data Properties: {}", ontology.data_properties().len());
-            println!("   👥 Named Individuals: {}", ontology.named_individuals().len());
-            println!("   🎭 Anonymous Individuals: {}", ontology.anonymous_individuals().len());
-            println!("   🏷️  Annotation Properties: {}", ontology.annotation_properties().len());
+            println!(
+                "   🔗 Object Properties: {}",
+                ontology.object_properties().len()
+            );
+            println!(
+                "   📊 Data Properties: {}",
+                ontology.data_properties().len()
+            );
+            println!(
+                "   👥 Named Individuals: {}",
+                ontology.named_individuals().len()
+            );
+            println!(
+                "   🎭 Anonymous Individuals: {}",
+                ontology.anonymous_individuals().len()
+            );
+            println!(
+                "   🏷️  Annotation Properties: {}",
+                ontology.annotation_properties().len()
+            );
             println!("   📦 Imports: {}", ontology.imports().len());
             println!("   📜 Total Axioms: {}\n", ontology.axioms().len());
 
@@ -178,13 +193,15 @@ HasKey(:Person (:hasEmail))
             println!("\n🎯 **Feature Validation:**");
 
             // Check for complex class expressions
-            let complex_classes = ontology.classes().iter()
+            let complex_classes = ontology
+                .classes()
+                .iter()
                 .filter(|class| {
                     let class_iri = class.iri().as_str();
-                    class_iri.contains("GraduateStudent") ||
-                    class_iri.contains("Academic") ||
-                    class_iri.contains("NonAcademic") ||
-                    class_iri.contains("SeniorFaculty")
+                    class_iri.contains("GraduateStudent")
+                        || class_iri.contains("Academic")
+                        || class_iri.contains("NonAcademic")
+                        || class_iri.contains("SeniorFaculty")
                 })
                 .count();
 
@@ -198,10 +215,11 @@ HasKey(:Person (:hasEmail))
                 match axiom.as_ref() {
                     owl2_reasoner::axioms::Axiom::SubClassOf(subclass_axiom) => {
                         let class_expr_str = format!("{:?}", subclass_axiom.super_class());
-                        if class_expr_str.contains("SomeValuesFrom") ||
-                           class_expr_str.contains("AllValuesFrom") ||
-                           class_expr_str.contains("HasValue") ||
-                           class_expr_str.contains("HasSelf") {
+                        if class_expr_str.contains("SomeValuesFrom")
+                            || class_expr_str.contains("AllValuesFrom")
+                            || class_expr_str.contains("HasValue")
+                            || class_expr_str.contains("HasSelf")
+                        {
                             restriction_count += 1;
                         }
                     }
@@ -236,9 +254,15 @@ HasKey(:Person (:hasEmail))
             for axiom in ontology.axioms() {
                 match axiom.as_ref() {
                     owl2_reasoner::axioms::Axiom::AnnotationAssertion(_) => annotation_count += 1,
-                    owl2_reasoner::axioms::Axiom::SubAnnotationPropertyOf(_) => annotation_count += 1,
-                    owl2_reasoner::axioms::Axiom::AnnotationPropertyDomain(_) => annotation_count += 1,
-                    owl2_reasoner::axioms::Axiom::AnnotationPropertyRange(_) => annotation_count += 1,
+                    owl2_reasoner::axioms::Axiom::SubAnnotationPropertyOf(_) => {
+                        annotation_count += 1
+                    }
+                    owl2_reasoner::axioms::Axiom::AnnotationPropertyDomain(_) => {
+                        annotation_count += 1
+                    }
+                    owl2_reasoner::axioms::Axiom::AnnotationPropertyRange(_) => {
+                        annotation_count += 1
+                    }
                     _ => {}
                 }
             }
@@ -254,7 +278,10 @@ HasKey(:Person (:hasEmail))
 
             // Check for anonymous individuals
             if ontology.anonymous_individuals().len() > 0 {
-                println!("   ✅ Anonymous individuals: {}", ontology.anonymous_individuals().len());
+                println!(
+                    "   ✅ Anonymous individuals: {}",
+                    ontology.anonymous_individuals().len()
+                );
             }
 
             // Check for property characteristics
@@ -264,7 +291,9 @@ HasKey(:Person (:hasEmail))
                     owl2_reasoner::axioms::Axiom::FunctionalProperty(_) => property_char_count += 1,
                     owl2_reasoner::axioms::Axiom::SymmetricProperty(_) => property_char_count += 1,
                     owl2_reasoner::axioms::Axiom::TransitiveProperty(_) => property_char_count += 1,
-                    owl2_reasoner::axioms::Axiom::InverseFunctionalProperty(_) => property_char_count += 1,
+                    owl2_reasoner::axioms::Axiom::InverseFunctionalProperty(_) => {
+                        property_char_count += 1
+                    }
                     _ => {}
                 }
             }
@@ -280,7 +309,6 @@ HasKey(:Person (:hasEmail))
             println!("   • Ready for real-world OWL2 ontology processing");
             println!("   • Estimated parser compliance: 70%+");
             println!("   • Comprehensive feature coverage achieved");
-
         }
         Err(e) => {
             println!("❌ **FAILED:** Complex OWL2 ontology parsing failed: {}", e);

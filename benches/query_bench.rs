@@ -4,10 +4,8 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
+use owl2_reasoner::reasoning::query::{PatternTerm, QueryEngine, QueryPattern, TriplePattern};
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::reasoning::query::{
-    PatternTerm, QueryEngine, QueryPattern, TriplePattern,
-};
 
 /// Benchmark query engine creation
 pub fn bench_query_engine_creation(c: &mut Criterion) {

@@ -3,12 +3,12 @@
 //! This example demonstrates the full reasoning capabilities of the OWL2 reasoner
 //! including consistency checking, classification, instance retrieval, and profile validation.
 
-use owl2_reasoner::OwlReasoner;
-use owl2_reasoner::OntologyParser;
-use owl2_reasoner::ProfileValidator;
-use owl2_reasoner::Reasoner;
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
 use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator};
+use owl2_reasoner::OntologyParser;
+use owl2_reasoner::OwlReasoner;
+use owl2_reasoner::ProfileValidator;
+use owl2_reasoner::Reasoner;
 use std::io::Result;
 
 fn main() -> Result<()> {
@@ -111,9 +111,18 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
         Ok(ontology) => {
             println!("✅ **SUCCESS!** Ontology loaded successfully!");
             println!("   📚 Classes: {}", ontology.classes().len());
-            println!("   🔗 Object Properties: {}", ontology.object_properties().len());
-            println!("   📊 Data Properties: {}", ontology.data_properties().len());
-            println!("   👥 Named Individuals: {}", ontology.named_individuals().len());
+            println!(
+                "   🔗 Object Properties: {}",
+                ontology.object_properties().len()
+            );
+            println!(
+                "   📊 Data Properties: {}",
+                ontology.data_properties().len()
+            );
+            println!(
+                "   👥 Named Individuals: {}",
+                ontology.named_individuals().len()
+            );
             println!("   📜 Total Axioms: {}\n", ontology.axioms().len());
             ontology
         }
@@ -163,8 +172,14 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
     ];
 
     for (subclass, superclass) in test_relationships {
-        let subclass_iri = owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &subclass[1..])).unwrap();
-        let superclass_iri = owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &superclass[1..])).unwrap();
+        let subclass_iri =
+            owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &subclass[1..]))
+                .unwrap();
+        let superclass_iri = owl2_reasoner::IRI::new(&format!(
+            "http://example.org/university#{}",
+            &superclass[1..]
+        ))
+        .unwrap();
         match reasoner.is_subclass_of(&subclass_iri, &superclass_iri) {
             Ok(result) => {
                 let status = if result { "✅" } else { "❌" };
@@ -183,7 +198,9 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
     let test_classes = vec![":Student", ":Professor", ":Person", ":Course"];
 
     for class in test_classes {
-        let class_iri = owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &class[1..])).unwrap();
+        let class_iri =
+            owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &class[1..]))
+                .unwrap();
         match reasoner.get_instances(&class_iri) {
             Ok(instances) => {
                 println!("   📋 {} instances:", class);
@@ -222,9 +239,15 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
         match profile_validator.validate_profile(profile) {
             Ok(result) => {
                 if result.is_valid {
-                    println!("      ✅ **COMPLIANT**: Ontology conforms to {}", profile_name);
+                    println!(
+                        "      ✅ **COMPLIANT**: Ontology conforms to {}",
+                        profile_name
+                    );
                 } else {
-                    println!("      ❌ **NON-COMPLIANT**: {} violations found", result.violations.len());
+                    println!(
+                        "      ❌ **NON-COMPLIANT**: {} violations found",
+                        result.violations.len()
+                    );
                     for (i, violation) in result.violations.iter().take(3).enumerate() {
                         println!("         {}. {:?}", i + 1, violation.violation_type);
                     }
@@ -232,7 +255,10 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
                         println!("         ... and {} more", result.violations.len() - 3);
                     }
                 }
-                println!("      📈 Statistics: {} axioms checked", result.statistics.total_axioms_checked);
+                println!(
+                    "      📈 Statistics: {} axioms checked",
+                    result.statistics.total_axioms_checked
+                );
             }
             Err(e) => {
                 println!("      ⚠️  **ERROR**: Profile validation failed: {}", e);

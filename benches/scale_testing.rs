@@ -8,7 +8,7 @@
 //!
 //! Focuses on what actually works, not claimed features.
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual, ObjectProperty};
 use owl2_reasoner::iri::IRI;

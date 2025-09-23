@@ -4,8 +4,8 @@
 //! across different ecosystem integration points.
 
 use owl2_reasoner::epcis_parser::*;
-use owl2_reasoner::reasoning::SimpleReasoner;
 use owl2_reasoner::profiles::Owl2Profile;
+use owl2_reasoner::reasoning::SimpleReasoner;
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,7 +16,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample_events = create_sample_epcis_events();
 
     println!("📊 **Sample EPCIS Events Created**");
-    println!("   {} events spanning supply chain lifecycle", sample_events.len());
+    println!(
+        "   {} events spanning supply chain lifecycle",
+        sample_events.len()
+    );
 
     // Example 1: Core EPCIS Processing with OWL2 Reasoning
     println!("\n1️⃣ **Core EPCIS Processing Example**");
@@ -111,7 +114,9 @@ fn create_sample_epcis_events() -> Vec<EPCISSimpleEvent> {
     events
 }
 
-fn demonstrate_core_processing(events: &[EPCISSimpleEvent]) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_core_processing(
+    events: &[EPCISSimpleEvent],
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 **Processing EPCIS Events with OWL2 Reasoning**");
 
     // Parse EPCIS events and create ontology
@@ -130,7 +135,10 @@ fn demonstrate_core_processing(events: &[EPCISSimpleEvent]) -> Result<(), Box<dy
 
     // Perform consistency checking
     let is_consistent = reasoner.is_consistent()?;
-    println!("   ✅ Consistency Check: {}", if is_consistent { "PASS" } else { "FAIL" });
+    println!(
+        "   ✅ Consistency Check: {}",
+        if is_consistent { "PASS" } else { "FAIL" }
+    );
 
     // Validate against OWL2 profiles
     let profiles = vec!["EL", "QL", "RL"];
@@ -143,8 +151,15 @@ fn demonstrate_core_processing(events: &[EPCISSimpleEvent]) -> Result<(), Box<dy
         };
 
         match result {
-            Ok(validation) => println!("   📋 {} Profile: {}", profile,
-                if validation.is_valid { "VALID" } else { "INVALID" }),
+            Ok(validation) => println!(
+                "   📋 {} Profile: {}",
+                profile,
+                if validation.is_valid {
+                    "VALID"
+                } else {
+                    "INVALID"
+                }
+            ),
             Err(e) => println!("   ❌ {} Profile Error: {}", profile, e),
         }
     }
@@ -352,7 +367,9 @@ async function processEPCISData(xmlContent) {
     Ok(())
 }
 
-fn demonstrate_data_pipeline(events: &[EPCISSimpleEvent]) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_data_pipeline(
+    events: &[EPCISSimpleEvent],
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("⚙️ **Data Processing Pipeline Pattern**");
 
     println!("   🔄 **Pipeline Stages**:");
@@ -366,13 +383,22 @@ fn demonstrate_data_pipeline(events: &[EPCISSimpleEvent]) -> Result<(), Box<dyn 
     println!("\n   📊 **Pipeline Processing Simulation**:");
 
     // Stage 1: Data Ingestion
-    println!("      Stage 1 - Data Ingestion: ✅ {} events ingested", events.len());
+    println!(
+        "      Stage 1 - Data Ingestion: ✅ {} events ingested",
+        events.len()
+    );
 
     // Stage 2: Validation
     let validation_results = validate_epcis_events(events);
-    println!("      Stage 2 - Validation: ✅ {} valid events", validation_results.valid_count);
+    println!(
+        "      Stage 2 - Validation: ✅ {} valid events",
+        validation_results.valid_count
+    );
     if !validation_results.errors.is_empty() {
-        println!("                        ❌ {} validation errors", validation_results.errors.len());
+        println!(
+            "                        ❌ {} validation errors",
+            validation_results.errors.len()
+        );
     }
 
     // Stage 3: Reasoning
@@ -380,11 +406,17 @@ fn demonstrate_data_pipeline(events: &[EPCISSimpleEvent]) -> Result<(), Box<dyn 
     let ontology = parser.to_ontology(events)?;
     let reasoner = SimpleReasoner::new(ontology);
     let is_consistent = reasoner.is_consistent()?;
-    println!("      Stage 3 - Reasoning: ✅ Consistency check {}", if is_consistent { "PASS" } else { "FAIL" });
+    println!(
+        "      Stage 3 - Reasoning: ✅ Consistency check {}",
+        if is_consistent { "PASS" } else { "FAIL" }
+    );
 
     // Stage 4: Analysis
     let analysis_results = analyze_epcis_data(events, &reasoner);
-    println!("      Stage 4 - Analysis: ✅ {} insights generated", analysis_results.len());
+    println!(
+        "      Stage 4 - Analysis: ✅ {} insights generated",
+        analysis_results.len()
+    );
 
     // Stage 5: Output
     println!("      Stage 5 - Output: ✅ Ready for export");
@@ -426,7 +458,10 @@ fn demonstrate_client_integration() -> Result<(), Box<dyn std::error::Error>> {
     // Show integration patterns for different languages
     let integration_examples = vec![
         ("Python", "PyO3 native bindings with pandas integration"),
-        ("JavaScript/Node.js", "REST API client with WebSocket support"),
+        (
+            "JavaScript/Node.js",
+            "REST API client with WebSocket support",
+        ),
         ("Java", "REST API client with Apache HttpClient"),
         ("C#", "REST API client with HttpClient"),
         ("Go", "REST API client with net/http"),
@@ -507,9 +542,18 @@ public class EPCISClient {
 fn get_basic_statistics(reasoner: &SimpleReasoner) -> HashMap<String, usize> {
     let mut stats = HashMap::new();
     stats.insert("classes".to_string(), reasoner.ontology.classes().len());
-    stats.insert("object_properties".to_string(), reasoner.ontology.object_properties().len());
-    stats.insert("data_properties".to_string(), reasoner.ontology.data_properties().len());
-    stats.insert("individuals".to_string(), reasoner.ontology.named_individuals().len());
+    stats.insert(
+        "object_properties".to_string(),
+        reasoner.ontology.object_properties().len(),
+    );
+    stats.insert(
+        "data_properties".to_string(),
+        reasoner.ontology.data_properties().len(),
+    );
+    stats.insert(
+        "individuals".to_string(),
+        reasoner.ontology.named_individuals().len(),
+    );
     stats.insert("axioms".to_string(), reasoner.ontology.axioms().len());
     stats
 }
@@ -535,7 +579,10 @@ fn validate_epcis_events(events: &[EPCISSimpleEvent]) -> ValidationResult {
         valid_count += 1;
     }
 
-    ValidationResult { valid_count, errors }
+    ValidationResult {
+        valid_count,
+        errors,
+    }
 }
 
 fn extract_supply_chain_insights(events: &[EPCISSimpleEvent]) -> Vec<String> {
@@ -550,17 +597,12 @@ fn extract_supply_chain_insights(events: &[EPCISSimpleEvent]) -> Vec<String> {
     insights.push(format!("Event type distribution: {:?}", event_counts));
 
     // Count unique EPCs
-    let unique_epcs: std::collections::HashSet<_> = events
-        .iter()
-        .flat_map(|e| &e.epcs)
-        .collect();
+    let unique_epcs: std::collections::HashSet<_> = events.iter().flat_map(|e| &e.epcs).collect();
     insights.push(format!("Unique EPCs tracked: {}", unique_epcs.len()));
 
     // Analyze business steps
-    let business_steps: std::collections::HashSet<_> = events
-        .iter()
-        .filter_map(|e| e.biz_step.as_ref())
-        .collect();
+    let business_steps: std::collections::HashSet<_> =
+        events.iter().filter_map(|e| e.biz_step.as_ref()).collect();
     insights.push(format!("Business steps involved: {}", business_steps.len()));
 
     insights
@@ -571,17 +613,21 @@ fn analyze_epcis_data(events: &[EPCISSimpleEvent], _reasoner: &SimpleReasoner) -
 
     // Time span analysis
     if let (Some(first), Some(last)) = (events.first(), events.last()) {
-        insights.push(format!("Time span from {} to {}", first.event_time, last.event_time));
+        insights.push(format!(
+            "Time span from {} to {}",
+            first.event_time, last.event_time
+        ));
     }
 
     // Action distribution
-    let action_counts: HashMap<_, _> = events
-        .iter()
-        .map(|e| &e.action)
-        .fold(HashMap::new(), |mut acc, action| {
-            *acc.entry(action).or_insert(0) += 1;
-            acc
-        });
+    let action_counts: HashMap<_, _> =
+        events
+            .iter()
+            .map(|e| &e.action)
+            .fold(HashMap::new(), |mut acc, action| {
+                *acc.entry(action).or_insert(0) += 1;
+                acc
+            });
     insights.push(format!("Action distribution: {:?}", action_counts));
 
     insights

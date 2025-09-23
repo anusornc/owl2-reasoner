@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .enable_stats(true)
             .enable_memory_pressure(true)
             .memory_pressure_threshold(0.75)
-            .cleanup_interval(std::time::Duration::from_secs(30))
+            .cleanup_interval(std::time::Duration::from_secs(30)),
     );
 
     advanced_cache.insert("pi".to_string(), 3.14159)?;
@@ -137,7 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .max_size(10_000)
             .enable_stats(true)
             .enable_memory_pressure(true)
-            .memory_pressure_threshold(0.8)
+            .memory_pressure_threshold(0.8),
     );
 
     // Simulate loading entities
@@ -161,7 +161,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Retrieve some entities
     if let Some(person) = entity_cache.get(&"Person".to_string())? {
-        println!("   Retrieved entity: {} - {}", person.name, person.description);
+        println!(
+            "   Retrieved entity: {} - {}",
+            person.name, person.description
+        );
     }
 
     if let Some(org) = entity_cache.get(&"Organization".to_string())? {
@@ -183,8 +186,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let cache = BoundedCache::<usize, String, LruStrategy>::new(1000);
         let start = std::time::Instant::now();
-        for i in 0..2000 { let _ = cache.insert(i, format!("item_{}", i)); }
-        for i in 0..500 { let _ = cache.get(&i); }
+        for i in 0..2000 {
+            let _ = cache.insert(i, format!("item_{}", i));
+        }
+        for i in 0..500 {
+            let _ = cache.get(&i);
+        }
         println!("   LRU strategy: {:?}", start.elapsed());
     }
 
@@ -195,8 +202,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             LfuStrategy::new().min_access_count(3),
         );
         let start = std::time::Instant::now();
-        for i in 0..2000 { let _ = cache.insert(i, format!("item_{}", i)); }
-        for i in 0..500 { let _ = cache.get(&i); }
+        for i in 0..2000 {
+            let _ = cache.insert(i, format!("item_{}", i));
+        }
+        for i in 0..500 {
+            let _ = cache.get(&i);
+        }
         println!("   LFU strategy: {:?}", start.elapsed());
     }
 
@@ -207,8 +218,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             FifoStrategy::new(),
         );
         let start = std::time::Instant::now();
-        for i in 0..2000 { let _ = cache.insert(i, format!("item_{}", i)); }
-        for i in 0..500 { let _ = cache.get(&i); }
+        for i in 0..2000 {
+            let _ = cache.insert(i, format!("item_{}", i));
+        }
+        for i in 0..500 {
+            let _ = cache.get(&i);
+        }
         println!("   FIFO strategy: {:?}", start.elapsed());
     }
 
@@ -219,8 +234,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             RandomStrategy::new(),
         );
         let start = std::time::Instant::now();
-        for i in 0..2000 { let _ = cache.insert(i, format!("item_{}", i)); }
-        for i in 0..500 { let _ = cache.get(&i); }
+        for i in 0..2000 {
+            let _ = cache.insert(i, format!("item_{}", i));
+        }
+        for i in 0..500 {
+            let _ = cache.get(&i);
+        }
         println!("   Random strategy: {:?}", start.elapsed());
     }
 

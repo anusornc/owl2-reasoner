@@ -7,9 +7,9 @@ use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
-use owl2_reasoner::OntologyParser;
+use owl2_reasoner::reasoning::query::{PatternTerm, QueryEngine, QueryPattern, TriplePattern};
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::reasoning::query::{QueryEngine, QueryPattern, TriplePattern, PatternTerm};
+use owl2_reasoner::OntologyParser;
 
 fn benchmark_suite(c: &mut Criterion) {
     println!("Running OWL2 Reasoner Benchmark Suite...");
@@ -150,7 +150,7 @@ fn bench_simple_queries(c: &mut Criterion) {
         let ontology = create_hierarchy_ontology(*size);
         let mut engine = QueryEngine::new(ontology);
 
-        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern { 
+        let pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
             subject: PatternTerm::Variable("s".into()),
             predicate: PatternTerm::Variable("p".into()),
             object: PatternTerm::Variable("o".into()),

@@ -4,10 +4,10 @@
 //! measuring the improvements achieved through optimization work.
 //! Includes timing comparisons, memory usage analysis, and validation throughput.
 
-use criterion::{black_box, BenchmarkId, Criterion, criterion_group, criterion_main};
-use owl2_reasoner::OntologyParser;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
 use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator, ProfileValidator};
+use owl2_reasoner::OntologyParser;
 use std::sync::Arc;
 
 /// Benchmark configuration for different ontology sizes
@@ -15,7 +15,7 @@ const BENCHMARK_SIZES: &[usize] = &[10, 50, 100, 500, 1000];
 
 /// Benchmark data generators for different profiles
 mod benchmark_data {
-  
+
     /// Generate EL profile compliant ontology
     pub fn generate_el_ontology(size: usize) -> String {
         let mut ontology = String::new();
@@ -36,8 +36,12 @@ mod benchmark_data {
         // Generate existential restrictions (EL profile allows)
         for i in 0..(size / 2) {
             ontology.push_str(&format!("Declaration(ObjectProperty(:hasProp{}))\n", i));
-            ontology.push_str(&format!("SubClassOf(:Class{} ObjectSomeValuesFrom(:hasProp{} :BaseClass{}))\n",
-                i, i, i % 10));
+            ontology.push_str(&format!(
+                "SubClassOf(:Class{} ObjectSomeValuesFrom(:hasProp{} :BaseClass{}))\n",
+                i,
+                i,
+                i % 10
+            ));
         }
 
         ontology.push(')');
@@ -61,13 +65,20 @@ mod benchmark_data {
 
         // Generate simple subclass axioms (QL profile allows)
         for i in 1..size {
-            ontology.push_str(&format!("SubClassOf(:QLClass{} :QLClass{})\n", i, i-1));
+            ontology.push_str(&format!("SubClassOf(:QLClass{} :QLClass{})\n", i, i - 1));
         }
 
         // Generate property domains and ranges
         for i in 0..(size / 2) {
-            ontology.push_str(&format!("ObjectPropertyDomain(:qlProp{} :QLClass{})\n", i, i));
-            ontology.push_str(&format!("ObjectPropertyRange(:qlProp{} :QLClass{})\n", i, (i + 1) % size));
+            ontology.push_str(&format!(
+                "ObjectPropertyDomain(:qlProp{} :QLClass{})\n",
+                i, i
+            ));
+            ontology.push_str(&format!(
+                "ObjectPropertyRange(:qlProp{} :QLClass{})\n",
+                i,
+                (i + 1) % size
+            ));
         }
 
         ontology.push(')');
@@ -91,13 +102,21 @@ mod benchmark_data {
 
         // Generate role hierarchy (RL profile allows)
         for i in 1..(size / 2) {
-            ontology.push_str(&format!("SubObjectPropertyOf(:rlRole{} :rlRole{})\n", i, i-1));
+            ontology.push_str(&format!(
+                "SubObjectPropertyOf(:rlRole{} :rlRole{})\n",
+                i,
+                i - 1
+            ));
         }
 
         // Generate simple restrictions
         for i in 0..(size / 2) {
-            ontology.push_str(&format!("SubClassOf(:RLClass{} ObjectSomeValuesFrom(:rlRole{} :RLClass{}))\n",
-                i, i % (size / 2), (i + 1) % size));
+            ontology.push_str(&format!(
+                "SubClassOf(:RLClass{} ObjectSomeValuesFrom(:rlRole{} :RLClass{}))\n",
+                i,
+                i % (size / 2),
+                (i + 1) % size
+            ));
         }
 
         ontology.push(')');
@@ -121,13 +140,20 @@ mod benchmark_data {
 
         // Add EL-compliant features
         for i in 0..(size / 3) {
-            ontology.push_str(&format!("SubClassOf(:MixedClass{} ObjectSomeValuesFrom(:mixedProp{} :MixedClass{}))\n",
-                i, i, (i + 1) % size));
+            ontology.push_str(&format!(
+                "SubClassOf(:MixedClass{} ObjectSomeValuesFrom(:mixedProp{} :MixedClass{}))\n",
+                i,
+                i,
+                (i + 1) % size
+            ));
         }
 
         // Add QL-compliant features
         for i in 0..(size / 3) {
-            ontology.push_str(&format!("ObjectPropertyDomain(:mixedProp{} :MixedClass{})\n", i, i));
+            ontology.push_str(&format!(
+                "ObjectPropertyDomain(:mixedProp{} :MixedClass{})\n",
+                i, i
+            ));
         }
 
         // Add some violations for testing
@@ -136,7 +162,9 @@ mod benchmark_data {
             ontology.push_str("DisjointClasses(:MixedClass0 :MixedClass1)\n");
 
             // This will violate QL profile (property chain not allowed)
-            ontology.push_str("SubObjectPropertyOf(ObjectPropertyChain(:mixedProp0 :mixedProp1) :mixedProp2)\n");
+            ontology.push_str(
+                "SubObjectPropertyOf(ObjectPropertyChain(:mixedProp0 :mixedProp1) :mixedProp2)\n",
+            );
         }
 
         ontology.push(')');
@@ -253,16 +281,20 @@ fn bench_precomputation_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("precomputation_performance");
 
     for size in [50, 100, 200].iter() {
-        group.bench_with_input(BenchmarkId::new("index_creation", size), size, |b, &size| {
-            b.iter(|| {
-                let ontology_str = benchmark_data::generate_mixed_ontology(size);
-                let parser = OwlFunctionalSyntaxParser::new();
-                let _ontology = parser.parse_str(&ontology_str).unwrap();
-                let validator = Owl2ProfileValidator::new(Arc::new(_ontology));
-                let _ = validator.get_validation_stats(); // Forces index recomputation
-                black_box(())
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("index_creation", size),
+            size,
+            |b, &size| {
+                b.iter(|| {
+                    let ontology_str = benchmark_data::generate_mixed_ontology(size);
+                    let parser = OwlFunctionalSyntaxParser::new();
+                    let _ontology = parser.parse_str(&ontology_str).unwrap();
+                    let validator = Owl2ProfileValidator::new(Arc::new(_ontology));
+                    let _ = validator.get_validation_stats(); // Forces index recomputation
+                    black_box(())
+                });
+            },
+        );
     }
 
     group.finish();

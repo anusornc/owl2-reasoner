@@ -2,8 +2,8 @@
 //!
 //! This example demonstrates basic test suite functionality.
 
-use owl2_reasoner::OwlResult;
 use owl2_reasoner::test_suite_simple::{TestSuiteConfig, TestSuiteRunner};
+use owl2_reasoner::OwlResult;
 use std::path::PathBuf;
 
 fn main() -> OwlResult<()> {

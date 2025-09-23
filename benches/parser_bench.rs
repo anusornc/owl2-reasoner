@@ -45,7 +45,7 @@ pub fn bench_turtle_parsing(c: &mut Criterion) {
             |b, content| {
                 b.iter(|| {
                     let result = parser.parse_str(black_box(content));
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -109,3 +109,6 @@ fn generate_large_turtle() -> String {
 
     content
 }
+
+criterion_group!(benches, bench_turtle_parsing);
+criterion_main!(benches);

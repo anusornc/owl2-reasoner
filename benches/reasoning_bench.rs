@@ -6,7 +6,7 @@ use owl2_reasoner::entities::Class;
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::{
-    OwlReasoner, ReasoningConfig, SimpleReasoner, tableaux::ReasoningConfig as TableauxConfig,
+    tableaux::ReasoningConfig as TableauxConfig, OwlReasoner, ReasoningConfig, SimpleReasoner,
 };
 use owl2_reasoner::Reasoner;
 
