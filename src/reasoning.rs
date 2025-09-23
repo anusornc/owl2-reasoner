@@ -83,7 +83,7 @@ impl OwlReasoner {
         let simple = SimpleReasoner::new(ontology.clone());
         let tableaux = if config.use_advanced_reasoning {
             Some(TableauxReasoner::with_config(
-                &ontology,
+                ontology,
                 config.tableaux_config,
             ))
         } else {
@@ -117,7 +117,7 @@ impl OwlReasoner {
         let mut engine = self.query_engine();
         // Parse the query string into a query pattern
         // For now, we'll use a simple placeholder implementation
-        let pattern = QueryPattern::BasicGraphPattern(vec![]);
+        let pattern = QueryPattern::BasicGraphPattern(Vec::new());
         engine.execute_query(&pattern)
     }
 }

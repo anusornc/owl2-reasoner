@@ -43,7 +43,7 @@ use crate::axioms;
 use crate::axioms::class_expressions::ClassExpression;
 use crate::entities::*;
 use crate::error::{OwlError, OwlResult};
-use crate::iri::{IRI, IRIRegistry};
+use crate::iri::{IRIRegistry, IRI};
 use hashbrown::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -200,7 +200,8 @@ pub struct Ontology {
     object_property_range_axioms: Vec<Arc<axioms::ObjectPropertyRangeAxiom>>,
     data_property_domain_axioms: Vec<Arc<axioms::DataPropertyDomainAxiom>>,
     data_property_range_axioms: Vec<Arc<axioms::DataPropertyRangeAxiom>>,
-    negative_object_property_assertion_axioms: Vec<Arc<axioms::NegativeObjectPropertyAssertionAxiom>>,
+    negative_object_property_assertion_axioms:
+        Vec<Arc<axioms::NegativeObjectPropertyAssertionAxiom>>,
     negative_data_property_assertion_axioms: Vec<Arc<axioms::NegativeDataPropertyAssertionAxiom>>,
 
     // Performance indexes
@@ -433,19 +434,19 @@ impl Ontology {
         // Add to indexed storage based on axiom type
         match axiom_arc.as_ref() {
             axioms::Axiom::SubClassOf(axiom) => {
-                let subclass_arc = Arc::new(axiom.clone());
+                let subclass_arc = Arc::new((**axiom).clone());
                 self.subclass_axioms.push(subclass_arc);
             }
             axioms::Axiom::EquivalentClasses(axiom) => {
-                let equiv_arc = Arc::new(axiom.clone());
+                let equiv_arc = Arc::new((**axiom).clone());
                 self.equivalent_classes_axioms.push(equiv_arc);
             }
             axioms::Axiom::DisjointClasses(axiom) => {
-                let disjoint_arc = Arc::new(axiom.clone());
+                let disjoint_arc = Arc::new((**axiom).clone());
                 self.disjoint_classes_axioms.push(disjoint_arc);
             }
             axioms::Axiom::ClassAssertion(axiom) => {
-                let assertion_arc = Arc::new(axiom.clone());
+                let assertion_arc = Arc::new((**axiom).clone());
                 self.class_assertions.push(assertion_arc);
                 // Update class instances index
                 if let Some(class_iri) = axiom.class_expr().as_named().map(|c| c.iri().clone()) {
@@ -456,20 +457,23 @@ impl Ontology {
                 }
             }
             axioms::Axiom::PropertyAssertion(axiom) => {
-                let assertion_arc = Arc::new(axiom.clone());
+                let assertion_arc = Arc::new((**axiom).clone());
                 self.property_assertions.push(assertion_arc);
                 // Update property domains and ranges indexes
                 self.property_domains
                     .entry(axiom.property().clone())
                     .or_default()
                     .push(axiom.subject().clone());
-                self.property_ranges
-                    .entry(axiom.property().clone())
-                    .or_default()
-                    .push(axiom.object().clone());
+                // Only index named objects (IRIs) into property_ranges
+                if let crate::axioms::PropertyAssertionObject::Named(object_iri) = axiom.object() {
+                    self.property_ranges
+                        .entry(axiom.property().clone())
+                        .or_default()
+                        .push(object_iri.clone());
+                }
             }
             axioms::Axiom::DataPropertyAssertion(axiom) => {
-                let assertion_arc = Arc::new(axiom.clone());
+                let assertion_arc = Arc::new((**axiom).clone());
                 self.data_property_assertions.push(assertion_arc);
                 // We don't index literals into property_ranges (IRI-only index)
                 self.property_domains
@@ -478,56 +482,56 @@ impl Ontology {
                     .push(axiom.subject().clone());
             }
             axioms::Axiom::SubObjectProperty(axiom) => {
-                let subprop_arc = Arc::new(axiom.clone());
+                let subprop_arc = Arc::new((**axiom).clone());
                 self.subobject_property_axioms.push(subprop_arc);
             }
             axioms::Axiom::EquivalentObjectProperties(axiom) => {
-                let equiv_arc = Arc::new(axiom.clone());
+                let equiv_arc = Arc::new((**axiom).clone());
                 self.equivalent_object_properties_axioms.push(equiv_arc);
             }
             axioms::Axiom::DisjointObjectProperties(axiom) => {
-                let disjoint_arc = Arc::new(axiom.clone());
+                let disjoint_arc = Arc::new((**axiom).clone());
                 self.disjoint_object_properties_axioms.push(disjoint_arc);
             }
             axioms::Axiom::FunctionalProperty(axiom) => {
-                let functional_arc = Arc::new(axiom.clone());
+                let functional_arc = Arc::new((**axiom).clone());
                 self.functional_property_axioms.push(functional_arc);
             }
             axioms::Axiom::InverseFunctionalProperty(axiom) => {
-                let inv_functional_arc = Arc::new(axiom.clone());
+                let inv_functional_arc = Arc::new((**axiom).clone());
                 self.inverse_functional_property_axioms
                     .push(inv_functional_arc);
             }
             axioms::Axiom::ReflexiveProperty(axiom) => {
-                let reflexive_arc = Arc::new(axiom.clone());
+                let reflexive_arc = Arc::new((**axiom).clone());
                 self.reflexive_property_axioms.push(reflexive_arc);
             }
             axioms::Axiom::IrreflexiveProperty(axiom) => {
-                let irreflexive_arc = Arc::new(axiom.clone());
+                let irreflexive_arc = Arc::new((**axiom).clone());
                 self.irreflexive_property_axioms.push(irreflexive_arc);
             }
             axioms::Axiom::SymmetricProperty(axiom) => {
-                let symmetric_arc = Arc::new(axiom.clone());
+                let symmetric_arc = Arc::new((**axiom).clone());
                 self.symmetric_property_axioms.push(symmetric_arc);
             }
             axioms::Axiom::AsymmetricProperty(axiom) => {
-                let asymmetric_arc = Arc::new(axiom.clone());
+                let asymmetric_arc = Arc::new((**axiom).clone());
                 self.asymmetric_property_axioms.push(asymmetric_arc);
             }
             axioms::Axiom::TransitiveProperty(axiom) => {
-                let transitive_arc = Arc::new(axiom.clone());
+                let transitive_arc = Arc::new((**axiom).clone());
                 self.transitive_property_axioms.push(transitive_arc);
             }
             axioms::Axiom::SubDataProperty(axiom) => {
-                let subdata_arc = Arc::new(axiom.clone());
+                let subdata_arc = Arc::new((**axiom).clone());
                 self.subdata_property_axioms.push(subdata_arc);
             }
             axioms::Axiom::EquivalentDataProperties(axiom) => {
-                let equiv_data_arc = Arc::new(axiom.clone());
+                let equiv_data_arc = Arc::new((**axiom).clone());
                 self.equivalent_data_properties_axioms.push(equiv_data_arc);
             }
             axioms::Axiom::DisjointDataProperties(axiom) => {
-                let disjoint_data_arc = Arc::new(axiom.clone());
+                let disjoint_data_arc = Arc::new((**axiom).clone());
                 self.disjoint_data_properties_axioms.push(disjoint_data_arc);
             }
             axioms::Axiom::FunctionalDataProperty(axiom) => {
@@ -536,89 +540,89 @@ impl Ontology {
                     .push(functional_data_arc);
             }
             axioms::Axiom::SameIndividual(axiom) => {
-                let same_individual_arc = Arc::new(axiom.clone());
+                let same_individual_arc = Arc::new((**axiom).clone());
                 self.same_individual_axioms.push(same_individual_arc);
             }
             axioms::Axiom::DifferentIndividuals(axiom) => {
-                let different_individuals_arc = Arc::new(axiom.clone());
+                let different_individuals_arc = Arc::new((**axiom).clone());
                 self.different_individuals_axioms
                     .push(different_individuals_arc);
             }
             axioms::Axiom::HasKey(axiom) => {
-                let has_key_arc = Arc::new(axiom.clone());
+                let has_key_arc = Arc::new((**axiom).clone());
                 self.has_key_axioms.push(has_key_arc);
             }
             axioms::Axiom::AnnotationAssertion(axiom) => {
-                let annotation_assertion_arc = Arc::new(axiom.clone());
+                let annotation_assertion_arc = Arc::new((**axiom).clone());
                 self.annotation_assertion_axioms
                     .push(annotation_assertion_arc);
             }
             axioms::Axiom::SubPropertyChainOf(axiom) => {
-                let sub_property_chain_arc = Arc::new(axiom.clone());
+                let sub_property_chain_arc = Arc::new((**axiom).clone());
                 self.sub_property_chain_axioms.push(sub_property_chain_arc);
             }
             axioms::Axiom::InverseObjectProperties(axiom) => {
-                let inverse_object_properties_arc = Arc::new(axiom.clone());
+                let inverse_object_properties_arc = Arc::new((**axiom).clone());
                 self.inverse_object_properties_axioms
                     .push(inverse_object_properties_arc);
             }
             axioms::Axiom::ObjectMinQualifiedCardinality(axiom) => {
-                let object_min_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let object_min_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.object_min_qualified_cardinality_axioms
                     .push(object_min_qualified_cardinality_arc);
             }
             axioms::Axiom::ObjectMaxQualifiedCardinality(axiom) => {
-                let object_max_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let object_max_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.object_max_qualified_cardinality_axioms
                     .push(object_max_qualified_cardinality_arc);
             }
             axioms::Axiom::ObjectExactQualifiedCardinality(axiom) => {
-                let object_exact_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let object_exact_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.object_exact_qualified_cardinality_axioms
                     .push(object_exact_qualified_cardinality_arc);
             }
             axioms::Axiom::DataMinQualifiedCardinality(axiom) => {
-                let data_min_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let data_min_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.data_min_qualified_cardinality_axioms
                     .push(data_min_qualified_cardinality_arc);
             }
             axioms::Axiom::DataMaxQualifiedCardinality(axiom) => {
-                let data_max_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let data_max_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.data_max_qualified_cardinality_axioms
                     .push(data_max_qualified_cardinality_arc);
             }
             axioms::Axiom::DataExactQualifiedCardinality(axiom) => {
-                let data_exact_qualified_cardinality_arc = Arc::new(axiom.clone());
+                let data_exact_qualified_cardinality_arc = Arc::new((**axiom).clone());
                 self.data_exact_qualified_cardinality_axioms
                     .push(data_exact_qualified_cardinality_arc);
             }
             axioms::Axiom::ObjectPropertyDomain(axiom) => {
-                let object_property_domain_arc = Arc::new(axiom.clone());
+                let object_property_domain_arc = Arc::new((**axiom).clone());
                 self.object_property_domain_axioms
                     .push(object_property_domain_arc);
             }
             axioms::Axiom::ObjectPropertyRange(axiom) => {
-                let object_property_range_arc = Arc::new(axiom.clone());
+                let object_property_range_arc = Arc::new((**axiom).clone());
                 self.object_property_range_axioms
                     .push(object_property_range_arc);
             }
             axioms::Axiom::DataPropertyDomain(axiom) => {
-                let data_property_domain_arc = Arc::new(axiom.clone());
+                let data_property_domain_arc = Arc::new((**axiom).clone());
                 self.data_property_domain_axioms
                     .push(data_property_domain_arc);
             }
             axioms::Axiom::DataPropertyRange(axiom) => {
-                let data_property_range_arc = Arc::new(axiom.clone());
+                let data_property_range_arc = Arc::new((**axiom).clone());
                 self.data_property_range_axioms
                     .push(data_property_range_arc);
             }
             axioms::Axiom::NegativeObjectPropertyAssertion(axiom) => {
-                let negative_object_property_assertion_arc = Arc::new(axiom.clone());
+                let negative_object_property_assertion_arc = Arc::new((**axiom).clone());
                 self.negative_object_property_assertion_axioms
                     .push(negative_object_property_assertion_arc);
             }
             axioms::Axiom::NegativeDataPropertyAssertion(axiom) => {
-                let negative_data_property_assertion_arc = Arc::new(axiom.clone());
+                let negative_data_property_assertion_arc = Arc::new((**axiom).clone());
                 self.negative_data_property_assertion_axioms
                     .push(negative_data_property_assertion_arc);
             }
@@ -639,7 +643,20 @@ impl Ontology {
             }
             axioms::Axiom::Import(axiom) => {
                 // Add import to the ontology's import set
-                self.imports.insert(Arc::new(axiom.imported_ontology().clone()));
+                self.imports
+                    .insert(Arc::new(axiom.imported_ontology().clone()));
+            }
+            axioms::Axiom::Collection(_axiom) => {
+                // Collection axioms are stored in the general axioms list
+                // Additional indexing could be added here if needed
+            }
+            axioms::Axiom::Container(_axiom) => {
+                // Container axioms are stored in the general axioms list
+                // Additional indexing could be added here if needed
+            }
+            axioms::Axiom::Reification(_axiom) => {
+                // Reification axioms are stored in the general axioms list
+                // Additional indexing could be added here if needed
             }
         }
 
@@ -706,7 +723,10 @@ impl Ontology {
     }
 
     /// Get annotation assertions for a specific annotation property (placeholder implementation)
-    pub fn annotations_for_property(&self, _property_iri: &IRI) -> Vec<&axioms::AnnotationAssertionAxiom> {
+    pub fn annotations_for_property(
+        &self,
+        _property_iri: &IRI,
+    ) -> Vec<&axioms::AnnotationAssertionAxiom> {
         // Simplified implementation - would use annotation_property_index in full version
         Vec::new()
     }
@@ -736,7 +756,10 @@ impl Ontology {
     }
 
     /// Get all subclass axioms where a class appears as superclass (placeholder implementation)
-    pub fn subclass_axioms_for_superclass(&self, _class_iri: &IRI) -> Vec<&axioms::SubClassOfAxiom> {
+    pub fn subclass_axioms_for_superclass(
+        &self,
+        _class_iri: &IRI,
+    ) -> Vec<&axioms::SubClassOfAxiom> {
         // Would filter by superclass in full implementation
         self.subclass_axioms
             .iter()
@@ -1088,7 +1111,7 @@ impl Ontology {
 
     /// Add a subclass axiom
     pub fn add_subclass_axiom(&mut self, axiom: axioms::SubClassOfAxiom) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::SubClassOf(axiom))
+        self.add_axiom(axioms::Axiom::SubClassOf(Box::new(axiom)))
     }
 
     /// Add an equivalent classes axiom
@@ -1096,7 +1119,7 @@ impl Ontology {
         &mut self,
         axiom: axioms::EquivalentClassesAxiom,
     ) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::EquivalentClasses(axiom))
+        self.add_axiom(axioms::Axiom::EquivalentClasses(Box::new(axiom)))
     }
 
     /// Add a disjoint classes axiom
@@ -1104,12 +1127,12 @@ impl Ontology {
         &mut self,
         axiom: axioms::DisjointClassesAxiom,
     ) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::DisjointClasses(axiom))
+        self.add_axiom(axioms::Axiom::DisjointClasses(Box::new(axiom)))
     }
 
     /// Add a class assertion axiom
     pub fn add_class_assertion(&mut self, axiom: axioms::ClassAssertionAxiom) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::ClassAssertion(axiom))
+        self.add_axiom(axioms::Axiom::ClassAssertion(Box::new(axiom)))
     }
 
     /// Add a property assertion axiom
@@ -1117,7 +1140,7 @@ impl Ontology {
         &mut self,
         axiom: axioms::PropertyAssertionAxiom,
     ) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::PropertyAssertion(axiom))
+        self.add_axiom(axioms::Axiom::PropertyAssertion(Box::new(axiom)))
     }
 
     /// Add a data property assertion axiom
@@ -1125,7 +1148,7 @@ impl Ontology {
         &mut self,
         axiom: axioms::DataPropertyAssertionAxiom,
     ) -> OwlResult<()> {
-        self.add_axiom(axioms::Axiom::DataPropertyAssertion(axiom))
+        self.add_axiom(axioms::Axiom::DataPropertyAssertion(Box::new(axiom)))
     }
 
     /// Validate class IRI according to OWL2 constraints
@@ -1174,7 +1197,10 @@ impl Ontology {
             return Err(OwlError::EntityValidationError {
                 entity_type: "Class".to_string(),
                 name: iri_str.to_string(),
-                message: format!("Cannot directly create instance of built-in class: {}", iri_str),
+                message: format!(
+                    "Cannot directly create instance of built-in class: {}",
+                    iri_str
+                ),
             });
         }
 
@@ -1194,7 +1220,11 @@ impl Ontology {
         }
 
         // Check for duplicate properties
-        if self.object_properties.iter().any(|p| p.iri() == property.iri()) {
+        if self
+            .object_properties
+            .iter()
+            .any(|p| p.iri() == property.iri())
+        {
             return Err(OwlError::EntityValidationError {
                 entity_type: "ObjectProperty".to_string(),
                 name: property.iri().as_str().to_string(),
@@ -1213,8 +1243,9 @@ impl Ontology {
         let characteristics = property.characteristics();
 
         // Check for mutually exclusive characteristics
-        if characteristics.contains(&ObjectPropertyCharacteristic::Asymmetric) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::Symmetric) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Asymmetric)
+            && characteristics.contains(&ObjectPropertyCharacteristic::Symmetric)
+        {
             return Err(OwlError::EntityValidationError {
                 entity_type: "ObjectProperty".to_string(),
                 name: property.iri().as_str().to_string(),
@@ -1222,8 +1253,9 @@ impl Ontology {
             });
         }
 
-        if characteristics.contains(&ObjectPropertyCharacteristic::Reflexive) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::Irreflexive) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Reflexive)
+            && characteristics.contains(&ObjectPropertyCharacteristic::Irreflexive)
+        {
             return Err(OwlError::EntityValidationError {
                 entity_type: "ObjectProperty".to_string(),
                 name: property.iri().as_str().to_string(),
@@ -1232,8 +1264,9 @@ impl Ontology {
         }
 
         // Validate functional property constraints
-        if characteristics.contains(&ObjectPropertyCharacteristic::Functional) &&
-           characteristics.contains(&ObjectPropertyCharacteristic::InverseFunctional) {
+        if characteristics.contains(&ObjectPropertyCharacteristic::Functional)
+            && characteristics.contains(&ObjectPropertyCharacteristic::InverseFunctional)
+        {
             // This is allowed but might need additional validation
             // For now, just warn about potential issues
         }
@@ -1247,7 +1280,9 @@ impl Ontology {
 
         // Validate all cardinality restrictions in the ontology
         for axiom in self.subclass_axioms() {
-            if let (ClassExpression::Class(sub), super_expr) = (axiom.sub_class(), axiom.super_class()) {
+            if let (ClassExpression::Class(sub), super_expr) =
+                (axiom.sub_class(), axiom.super_class())
+            {
                 self.validate_cardinality_in_expression(super_expr, sub.iri(), &mut errors);
             }
         }
@@ -1263,9 +1298,9 @@ impl Ontology {
         errors: &mut Vec<OwlError>,
     ) {
         match expr {
-            ClassExpression::ObjectMinCardinality(cardinality, _) |
-            ClassExpression::ObjectMaxCardinality(cardinality, _) |
-            ClassExpression::ObjectExactCardinality(cardinality, _) => {
+            ClassExpression::ObjectMinCardinality(cardinality, _)
+            | ClassExpression::ObjectMaxCardinality(cardinality, _)
+            | ClassExpression::ObjectExactCardinality(cardinality, _) => {
                 if *cardinality > 1000000 {
                     errors.push(OwlError::ValidationError(format!(
                         "Excessive cardinality {} for class {}",
@@ -1273,9 +1308,9 @@ impl Ontology {
                     )));
                 }
             }
-            ClassExpression::DataMinCardinality(cardinality, _) |
-            ClassExpression::DataMaxCardinality(cardinality, _) |
-            ClassExpression::DataExactCardinality(cardinality, _) => {
+            ClassExpression::DataMinCardinality(cardinality, _)
+            | ClassExpression::DataMaxCardinality(cardinality, _)
+            | ClassExpression::DataExactCardinality(cardinality, _) => {
                 if *cardinality > 1000000 {
                     errors.push(OwlError::ValidationError(format!(
                         "Excessive cardinality {} for class {}",
@@ -1297,16 +1332,25 @@ impl Ontology {
         let mut errors = Vec::new();
 
         // Check for circular subclass relationships
-        errors.extend(self.detect_circular_subclass_cycles().unwrap_or_else(|e| vec![e]));
+        errors.extend(
+            self.detect_circular_subclass_cycles()
+                .unwrap_or_else(|e| vec![e]),
+        );
 
         // Check for property characteristic conflicts
         errors.extend(self.detect_property_conflicts().unwrap_or_else(|e| vec![e]));
 
         // Validate cardinality constraints
-        errors.extend(self.validate_cardinality_constraints().unwrap_or_else(|e| vec![e]));
+        errors.extend(
+            self.validate_cardinality_constraints()
+                .unwrap_or_else(|e| vec![e]),
+        );
 
         // Check for unsatisfiable classes
-        errors.extend(self.detect_unsatisfiable_classes().unwrap_or_else(|e| vec![e]));
+        errors.extend(
+            self.detect_unsatisfiable_classes()
+                .unwrap_or_else(|e| vec![e]),
+        );
 
         Ok(errors)
     }
@@ -1329,11 +1373,7 @@ impl Ontology {
     }
 
     /// Check for subclass cycle starting from a given class
-    fn has_subclass_cycle(
-        &self,
-        class_iri: &IRI,
-        visited: &mut HashSet<IRI>,
-    ) -> bool {
+    fn has_subclass_cycle(&self, class_iri: &IRI, visited: &mut HashSet<IRI>) -> bool {
         if visited.contains(class_iri) {
             return true;
         }
@@ -1381,7 +1421,7 @@ impl Ontology {
 
             if unique_classes.len() != classes.len() {
                 errors.push(OwlError::OwlViolation(
-                    "Disjoint classes axiom contains duplicate classes".to_string()
+                    "Disjoint classes axiom contains duplicate classes".to_string(),
                 ));
             }
         }

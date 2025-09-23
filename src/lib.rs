@@ -80,6 +80,9 @@ pub mod error;
 /// IRI management for OWL2 entities with caching and namespace support
 pub mod iri;
 
+/// Constants for commonly used IRIs and configuration values
+pub mod constants;
+
 /// OWL2 Entities - Classes, Properties, and Individuals with characteristics
 pub mod entities;
 
@@ -133,13 +136,14 @@ pub mod tests;
 // Re-export common types for convenience
 pub use axioms::*;
 pub use cache::*;
+pub use constants::*;
 pub use entities::*;
 pub use epcis::*;
 pub use epcis_parser::{EPCISDocumentParser, EPCISDocumentWriter, EPCISParserConfig};
 pub use epcis_test_generator::*;
 pub use error::{OwlError, OwlResult};
-pub use iri::{IRI, IRIRef};
-pub use memory::*;
+pub use iri::{IRIRef, IRI};
+pub use memory::{LeakDetectionReport, MemoryMonitor, MemoryMonitorConfig, MemoryStats};
 pub use ontology::*;
 pub use parser::*;
 pub use profiles::*;

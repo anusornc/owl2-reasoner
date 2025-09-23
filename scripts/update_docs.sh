@@ -17,9 +17,13 @@ cargo doc --no-deps
 # 2. Build and test examples
 echo "🧪 Testing examples..."
 cargo check --example simple_example
-cargo check --example family_ontology  
+cargo check --example family_ontology
 cargo check --example biomedical_ontology
 cargo check --example performance_benchmarking
+cargo check --example benchmark_cli
+cargo check --example comparative_analysis
+cargo check --example cache_usage
+# Note: test_arena_allocation and test_sroiq_reasoning need API updates
 
 # 3. Build mdbook documentation
 echo "📖 Building mdbook documentation..."
@@ -38,7 +42,12 @@ fi
 echo "✅ Running tests..."
 cargo test
 
-# 6. Show documentation locations
+# 6. Validate benchmarks compile
+echo "📊 Validating benchmarks..."
+cargo bench --bench tableaux_main --no-run
+cargo bench --bench basic_benchmarks --no-run
+
+# 7. Show documentation locations
 echo ""
 echo "📚 Documentation Generated Successfully!"
 echo ""

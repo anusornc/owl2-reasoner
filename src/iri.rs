@@ -34,13 +34,13 @@
 //! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
 
-use crate::error::{OwlError, OwlResult};
 use crate::cache::BoundedCache;
+use crate::error::{OwlError, OwlResult};
 use once_cell::sync::Lazy;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 /// Global IRI cache for interning IRIs across the entire application
 /// Uses bounded cache with configurable size limits and eviction policies
@@ -127,8 +127,10 @@ pub struct IriCacheStatsSnapshot {
 
 impl IriCacheStatsSnapshot {
     pub fn hit_rate(&self) -> f64 {
-        let total = self.global_cache_hits + self.global_cache_misses +
-                   self.local_cache_hits + self.local_cache_misses;
+        let total = self.global_cache_hits
+            + self.global_cache_misses
+            + self.local_cache_hits
+            + self.local_cache_misses;
         if total == 0 {
             0.0
         } else {
@@ -461,9 +463,10 @@ impl IRI {
             )));
         }
 
-        if iri.len() < 3 { // Minimum: "a:b"
+        if iri.len() < 3 {
+            // Minimum: "a:b"
             return Err(OwlError::InvalidIRI(
-                "IRI too short, minimum valid format is 'scheme:path'".to_string()
+                "IRI too short, minimum valid format is 'scheme:path'".to_string(),
             ));
         }
 
@@ -476,21 +479,21 @@ impl IRI {
         // Must contain at least one colon
         if !iri.contains(':') {
             return Err(OwlError::InvalidIRI(
-                "IRI must contain a colon ':' separating scheme from path".to_string()
+                "IRI must contain a colon ':' separating scheme from path".to_string(),
             ));
         }
 
         // Cannot start or end with whitespace
         if iri.trim() != iri {
             return Err(OwlError::InvalidIRI(
-                "IRI cannot start or end with whitespace".to_string()
+                "IRI cannot start or end with whitespace".to_string(),
             ));
         }
 
         // Check for invalid characters
         if iri.contains(char::is_control) {
             return Err(OwlError::InvalidIRI(
-                "IRI contains control characters".to_string()
+                "IRI contains control characters".to_string(),
             ));
         }
 
@@ -500,21 +503,26 @@ impl IRI {
     /// Validate IRI scheme according to RFC 3987
     #[allow(dead_code)]
     fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
-        let colon_pos = iri.find(':')
+        let colon_pos = iri
+            .find(':')
             .ok_or_else(|| OwlError::InvalidIRI("IRI missing scheme separator ':'".to_string()))?;
 
         let scheme = &iri[..colon_pos];
 
         if scheme.is_empty() {
             return Err(OwlError::InvalidIRI(
-                "IRI scheme cannot be empty".to_string()
+                "IRI scheme cannot be empty".to_string(),
             ));
         }
 
         // Scheme must start with a letter
-        if !scheme.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
+        if !scheme
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic())
+        {
             return Err(OwlError::InvalidIRI(
-                "IRI scheme must start with a letter".to_string()
+                "IRI scheme must start with a letter".to_string(),
             ));
         }
 
@@ -522,7 +530,8 @@ impl IRI {
         for c in scheme.chars() {
             if !c.is_ascii_alphanumeric() && c != '+' && c != '-' && c != '.' {
                 return Err(OwlError::InvalidIRI(format!(
-                    "Invalid character '{}' in IRI scheme", c
+                    "Invalid character '{}' in IRI scheme",
+                    c
                 )));
             }
         }
@@ -537,7 +546,7 @@ impl IRI {
                 // Allow custom schemes but with warnings for common mistakes
                 if scheme.len() > 20 {
                     return Err(OwlError::InvalidIRI(
-                        "IRI scheme unusually long, may indicate malformed IRI".to_string()
+                        "IRI scheme unusually long, may indicate malformed IRI".to_string(),
                     ));
                 }
             }
@@ -556,7 +565,8 @@ impl IRI {
                 // Must have // after http(s):
                 if !after_colon.starts_with("//") {
                     return Err(OwlError::InvalidIRI(format!(
-                        "HTTP/HTTPS IRI must start with '{}://'", scheme
+                        "HTTP/HTTPS IRI must start with '{}://'",
+                        scheme
                     )));
                 }
 
@@ -564,14 +574,14 @@ impl IRI {
                 if let Some(domain_part) = after_colon.get(2..) {
                     if domain_part.is_empty() {
                         return Err(OwlError::InvalidIRI(
-                            "HTTP/HTTPS IRI missing domain".to_string()
+                            "HTTP/HTTPS IRI missing domain".to_string(),
                         ));
                     }
 
                     // Check for at least one dot in domain for common TLDs
                     if !domain_part.contains('/') && !domain_part.contains('.') {
                         return Err(OwlError::InvalidIRI(
-                            "HTTP/HTTPS IRI should contain a domain with TLD".to_string()
+                            "HTTP/HTTPS IRI should contain a domain with TLD".to_string(),
                         ));
                     }
                 }
@@ -580,7 +590,7 @@ impl IRI {
                 // File URIs should have proper structure
                 if !after_colon.starts_with("///") && !after_colon.starts_with("//") {
                     return Err(OwlError::InvalidIRI(
-                        "File IRI should start with 'file:///' or 'file://'".to_string()
+                        "File IRI should start with 'file:///' or 'file://'".to_string(),
                     ));
                 }
             }
@@ -588,7 +598,7 @@ impl IRI {
                 // URN must have colon after urn:
                 if !after_colon.contains(':') {
                     return Err(OwlError::InvalidIRI(
-                        "URN must have namespace identifier".to_string()
+                        "URN must have namespace identifier".to_string(),
                     ));
                 }
             }
@@ -616,7 +626,8 @@ impl IRI {
                 if prev_char == '%' && !c.is_ascii_hexdigit() {
                     return Err(OwlError::InvalidIRI(format!(
                         "Invalid percent encoding at position {}: '%{}'",
-                        i - 1, c
+                        i - 1,
+                        c
                     )));
                 }
             }
@@ -632,7 +643,7 @@ impl IRI {
         let colon_pos = iri.find(':').unwrap();
         if iri[..colon_pos].contains("//") {
             return Err(OwlError::InvalidIRI(
-                "IRI scheme cannot contain '//'".to_string()
+                "IRI scheme cannot contain '//'".to_string(),
             ));
         }
 
@@ -641,7 +652,7 @@ impl IRI {
             let fragment = &iri[fragment_pos + 1..];
             if fragment.len() > 1000 {
                 return Err(OwlError::InvalidIRI(
-                    "IRI fragment exceeds maximum length".to_string()
+                    "IRI fragment exceeds maximum length".to_string(),
                 ));
             }
         }
@@ -653,12 +664,12 @@ impl IRI {
                 let query = &query_part[1..fragment_pos];
                 if query.len() > 2000 {
                     return Err(OwlError::InvalidIRI(
-                        "IRI query exceeds maximum length".to_string()
+                        "IRI query exceeds maximum length".to_string(),
                     ));
                 }
             } else if query_part.len() > 2000 {
                 return Err(OwlError::InvalidIRI(
-                    "IRI query exceeds maximum length".to_string()
+                    "IRI query exceeds maximum length".to_string(),
                 ));
             }
         }
@@ -697,7 +708,7 @@ impl IRI {
         let param_count = iri.matches('&').count() + iri.matches(';').count();
         if param_count > 50 {
             return Err(OwlError::InvalidIRI(
-                "IRI contains excessive number of parameters".to_string()
+                "IRI contains excessive number of parameters".to_string(),
             ));
         }
 
@@ -705,7 +716,7 @@ impl IRI {
         for segment in iri.split('/') {
             if segment.len() > 255 {
                 return Err(OwlError::InvalidIRI(
-                    "IRI path segment exceeds maximum length".to_string()
+                    "IRI path segment exceeds maximum length".to_string(),
                 ));
             }
         }
@@ -722,7 +733,8 @@ impl IRI {
             // Allow letters, digits, and common symbols
             c if c.is_alphabetic() || c.is_numeric() => true,
             // Allow common URI symbols
-            '-' | '_' | '.' | '~' | '!' | '*' | '\'' | '(' | ')' | ';' | ':' | '@' | '&' | '=' | '+' | '$' | ',' | '/' | '?' | '#' | '[' | ']' | '%' => true,
+            '-' | '_' | '.' | '~' | '!' | '*' | '\'' | '(' | ')' | ';' | ':' | '@' | '&' | '='
+            | '+' | '$' | ',' | '/' | '?' | '#' | '[' | ']' | '%' => true,
             // Allow some additional Unicode characters
             _ => !c.is_control() && c != '\u{0000}' && c != '\u{FFFD}',
         }
@@ -861,7 +873,10 @@ impl IRIRegistry {
 
     /// Get cache statistics for this registry
     pub fn cache_stats(&self) -> (u64, u64) {
-        (self.cache_hits.load(Ordering::Relaxed), self.cache_misses.load(Ordering::Relaxed))
+        (
+            self.cache_hits.load(Ordering::Relaxed),
+            self.cache_misses.load(Ordering::Relaxed),
+        )
     }
 
     /// Clear the local cache
@@ -906,8 +921,6 @@ impl IRIRegistry {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -931,8 +944,8 @@ mod tests {
 
     #[test]
     fn test_iri_namespaces() {
-        let owl_iri = IRI::new("http://www.w3.org/2002/07/owl#Class")
-            .expect("Failed to create OWL IRI");
+        let owl_iri =
+            IRI::new("http://www.w3.org/2002/07/owl#Class").expect("Failed to create OWL IRI");
         assert!(owl_iri.is_owl());
         assert!(!owl_iri.is_rdf());
 
@@ -945,10 +958,12 @@ mod tests {
     #[test]
     fn test_iri_registry() {
         let mut registry = IRIRegistry::new();
-        registry.register("ex", "http://example.org/")
+        registry
+            .register("ex", "http://example.org/")
             .expect("Failed to register namespace");
 
-        let iri = registry.iri_with_prefix("ex", "Person")
+        let iri = registry
+            .iri_with_prefix("ex", "Person")
             .expect("Failed to create IRI from registry");
         assert_eq!(iri.as_str(), "http://example.org/Person");
         assert_eq!(iri.prefix(), Some("ex"));
