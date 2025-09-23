@@ -582,22 +582,25 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add some test data
-        let person_iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI for testing");
-        let human_iri = IRI::new("http://example.org/Human")
-            .expect("Failed to create Human IRI for testing");
-        let individual_iri = IRI::new("http://example.org/john")
-            .expect("Failed to create john IRI for testing");
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI for testing");
+        let human_iri =
+            IRI::new("http://example.org/Human").expect("Failed to create Human IRI for testing");
+        let individual_iri =
+            IRI::new("http://example.org/john").expect("Failed to create john IRI for testing");
 
         let person_class = Class::new(person_iri.clone());
         let human_class = Class::new(human_iri.clone());
         let individual = NamedIndividual::new(individual_iri.clone());
 
-        ontology.add_class(person_class.clone())
+        ontology
+            .add_class(person_class.clone())
             .expect("Failed to add Person class");
-        ontology.add_class(human_class.clone())
+        ontology
+            .add_class(human_class.clone())
             .expect("Failed to add Human class");
-        ontology.add_named_individual(individual)
+        ontology
+            .add_named_individual(individual)
             .expect("Failed to add individual");
 
         // Add subclass axiom: Person ⊑ Human
@@ -605,7 +608,8 @@ mod tests {
             ClassExpression::Class(person_class.clone()),
             ClassExpression::Class(human_class.clone()),
         );
-        ontology.add_subclass_axiom(subclass_axiom)
+        ontology
+            .add_subclass_axiom(subclass_axiom)
             .expect("Failed to add subclass axiom");
 
         // Add class assertion: john ∈ Person
@@ -613,21 +617,21 @@ mod tests {
             individual_iri.clone(),
             ClassExpression::Class(person_class.clone()),
         );
-        ontology.add_class_assertion(class_assertion)
+        ontology
+            .add_class_assertion(class_assertion)
             .expect("Failed to add class assertion");
 
         let mut engine = RuleEngine::new(ontology);
-        let rules_applied = engine.run_forward_chaining()
+        let rules_applied = engine
+            .run_forward_chaining()
             .expect("Failed to run forward chaining");
 
         assert!(rules_applied > 0);
 
         // Check that derived fact was created: john ∈ Human
-        assert!(
-            engine
-                .derived_class_assertions()
-                .contains(&(individual_iri, human_iri))
-        );
+        assert!(engine
+            .derived_class_assertions()
+            .contains(&(individual_iri, human_iri)));
     }
 
     #[test]
@@ -638,8 +642,7 @@ mod tests {
         let mut bindings = HashMap::new();
         bindings.insert(
             "?x".to_string(),
-            IRI::new("http://example.org/test")
-                .expect("Failed to create test IRI"),
+            IRI::new("http://example.org/test").expect("Failed to create test IRI"),
         );
 
         let var = PatternVar::Variable("?x".to_string());
@@ -647,8 +650,9 @@ mod tests {
 
         assert_eq!(
             resolved,
-            PatternVar::Constant(IRI::new("http://example.org/test")
-                .expect("Failed to create test IRI"))
+            PatternVar::Constant(
+                IRI::new("http://example.org/test").expect("Failed to create test IRI")
+            )
         );
     }
 }

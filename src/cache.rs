@@ -76,6 +76,12 @@ pub struct CacheConfigBuilder {
     config: CacheConfig,
 }
 
+impl Default for CacheConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CacheConfigBuilder {
     /// Create a new cache configuration builder with defaults
     pub fn new() -> Self {
@@ -495,11 +501,9 @@ where
 
     /// Get a value from the cache
     pub fn get(&self, key: &K) -> OwlResult<Option<V>> {
-        let mut entries = self.entries.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "get".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "get".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
         })?;
 
         if let Some((value, metadata)) = entries.get_mut(key) {
@@ -523,11 +527,9 @@ where
 
     /// Insert a value into the cache
     pub fn insert(&self, key: K, value: V) -> OwlResult<()> {
-        let mut entries = self.entries.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "insert".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "insert".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
         })?;
 
         // Check if we need to evict entries
@@ -554,11 +556,9 @@ where
 
     /// Remove a value from the cache
     pub fn remove(&self, key: &K) -> OwlResult<Option<V>> {
-        let mut entries = self.entries.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "remove".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "remove".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
         })?;
 
         let removed = entries.remove(key);
@@ -575,11 +575,9 @@ where
 
     /// Clear all entries from the cache
     pub fn clear(&self) -> OwlResult<()> {
-        let mut entries = self.entries.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "clear".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "clear".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
         })?;
 
         entries.clear();
@@ -607,22 +605,24 @@ where
 
     /// Get the current cache size
     pub fn len(&self) -> OwlResult<usize> {
-        self.entries.read().map(|entries| entries.len()).map_err(|e| {
-            OwlError::CacheError {
+        self.entries
+            .read()
+            .map(|entries| entries.len())
+            .map_err(|e| OwlError::CacheError {
                 operation: "len".to_string(),
                 message: format!("Failed to acquire read lock: {}", e),
-            }
-        })
+            })
     }
 
     /// Check if the cache is empty
     pub fn is_empty(&self) -> OwlResult<bool> {
-        self.entries.read().map(|entries| entries.is_empty()).map_err(|e| {
-            OwlError::CacheError {
+        self.entries
+            .read()
+            .map(|entries| entries.is_empty())
+            .map_err(|e| OwlError::CacheError {
                 operation: "is_empty".to_string(),
                 message: format!("Failed to acquire read lock: {}", e),
-            }
-        })
+            })
     }
 
     /// Get the cache configuration
@@ -655,7 +655,10 @@ where
     }
 
     /// Select entries for eviction based on strategy
-    fn select_entries_for_eviction(&self, entries: &HashMap<K, (V, CacheMetadata)>) -> OwlResult<Vec<K>> {
+    fn select_entries_for_eviction(
+        &self,
+        entries: &HashMap<K, (V, CacheMetadata)>,
+    ) -> OwlResult<Vec<K>> {
         match self.strategy.name() {
             "LRU" => self.select_lru_entries(entries),
             "LFU" => self.select_lfu_entries(entries),
@@ -667,11 +670,9 @@ where
 
     /// Select entries using LRU strategy
     fn select_lru_entries(&self, _entries: &HashMap<K, (V, CacheMetadata)>) -> OwlResult<Vec<K>> {
-        let access_order = self.access_order.read().map_err(|e| {
-            OwlError::CacheError {
-                operation: "lru_selection".to_string(),
-                message: format!("Failed to acquire read lock: {}", e),
-            }
+        let access_order = self.access_order.read().map_err(|e| OwlError::CacheError {
+            operation: "lru_selection".to_string(),
+            message: format!("Failed to acquire read lock: {}", e),
         })?;
 
         // Evict the oldest 10% of entries
@@ -697,40 +698,49 @@ where
 
     /// Select entries using FIFO strategy
     fn select_fifo_entries(&self, _entries: &HashMap<K, (V, CacheMetadata)>) -> OwlResult<Vec<K>> {
-        let insertion_order = self.insertion_order.read().map_err(|e| {
-            OwlError::CacheError {
+        let insertion_order = self
+            .insertion_order
+            .read()
+            .map_err(|e| OwlError::CacheError {
                 operation: "fifo_selection".to_string(),
                 message: format!("Failed to acquire read lock: {}", e),
-            }
-        })?;
+            })?;
 
         // Evict the oldest 10% of entries
         let to_evict_count = (self.config.max_size / 10).max(1);
-        Ok(insertion_order.iter().take(to_evict_count).cloned().collect())
+        Ok(insertion_order
+            .iter()
+            .take(to_evict_count)
+            .cloned()
+            .collect())
     }
 
     /// Select entries using Random strategy
     fn select_random_entries(&self, entries: &HashMap<K, (V, CacheMetadata)>) -> OwlResult<Vec<K>> {
-          use rand::seq::SliceRandom;
+        use rand::seq::SliceRandom;
         use rand::thread_rng;
 
         let keys: Vec<_> = entries.keys().cloned().collect();
         let to_evict_count = (self.config.max_size / 10).max(1);
 
         let mut rng = thread_rng();
-        let selected: Vec<_> = keys.choose_multiple(&mut rng, to_evict_count).cloned().collect();
+        let selected: Vec<_> = keys
+            .choose_multiple(&mut rng, to_evict_count)
+            .cloned()
+            .collect();
 
         Ok(selected)
     }
 
     /// Update access order for LRU tracking
     fn update_access_order(&self, key: &K) -> OwlResult<()> {
-        let mut access_order = self.access_order.write().map_err(|e| {
-            OwlError::CacheError {
+        let mut access_order = self
+            .access_order
+            .write()
+            .map_err(|e| OwlError::CacheError {
                 operation: "update_access_order".to_string(),
                 message: format!("Failed to acquire write lock: {}", e),
-            }
-        })?;
+            })?;
 
         // Remove key if it exists and re-add to end
         access_order.retain(|k| k != key);
@@ -741,12 +751,13 @@ where
 
     /// Update insertion order for FIFO tracking
     fn update_insertion_order(&self, key: &K) -> OwlResult<()> {
-        let mut insertion_order = self.insertion_order.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "update_insertion_order".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
-        })?;
+        let mut insertion_order =
+            self.insertion_order
+                .write()
+                .map_err(|e| OwlError::CacheError {
+                    operation: "update_insertion_order".to_string(),
+                    message: format!("Failed to acquire write lock: {}", e),
+                })?;
 
         insertion_order.push(key.clone());
         Ok(())
@@ -868,9 +879,7 @@ mod tests {
     #[test]
     fn test_cache_stats() {
         let cache = BoundedCache::<String, usize>::from_builder(
-            CacheConfigBuilder::new()
-                .max_size(10)
-                .enable_stats(true)
+            CacheConfigBuilder::new().max_size(10).enable_stats(true),
         );
 
         // Insert some entries

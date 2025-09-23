@@ -8,7 +8,7 @@ use crate::entities::*;
 use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{OntologyParser, ParserConfig, ParserArenaBuilder, ParserArenaTrait};
+use crate::parser::{OntologyParser, ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::path::Path;
@@ -59,14 +59,20 @@ impl TurtleParser {
 
         // Initialize arena allocator if enabled
         let arena = if config.use_arena_allocation {
-            Some(ParserArenaBuilder::new()
-                .with_capacity(config.arena_capacity)
-                .build())
+            Some(
+                ParserArenaBuilder::new()
+                    .with_capacity(config.arena_capacity)
+                    .build(),
+            )
         } else {
             None
         };
 
-        TurtleParser { config, prefixes, arena }
+        TurtleParser {
+            config,
+            prefixes,
+            arena,
+        }
     }
 
     /// Get a reference to the arena allocator
@@ -111,7 +117,6 @@ impl TurtleParser {
                 continue; // Skip empty lines and comments
             }
 
-            
             // Parse prefix declarations
             if line.starts_with("@prefix") {
                 let (prefix, namespace) = self.parse_prefix_declaration(line)?;
@@ -129,7 +134,9 @@ impl TurtleParser {
             if self.config.strict_validation
                 && !(stmt.ends_with('.') || stmt.ends_with(';') || stmt.ends_with(','))
             {
-                return Err(crate::error::OwlError::ParseError(ERR_EXPECTED_DOT.to_string()));
+                return Err(crate::error::OwlError::ParseError(
+                    ERR_EXPECTED_DOT.to_string(),
+                ));
             }
 
             // Handle compound statements
@@ -141,7 +148,7 @@ impl TurtleParser {
             if let Some(ref current_subj) = current_subject {
                 // Try to parse as predicate-object pair for compound statements
                 if let Some((predicate, object)) = self.parse_predicate_object_pair(clean_stmt) {
-                                        self.process_triple(&mut ontology, current_subj.clone(), predicate, object)?;
+                    self.process_triple(&mut ontology, current_subj.clone(), predicate, object)?;
 
                     // Reset current subject at end of statement
                     if ends_with_dot {
@@ -153,27 +160,30 @@ impl TurtleParser {
 
             // Parse complete triple
             if let Some((subject, predicate, object)) = self.parse_triple(clean_stmt) {
-                
                 // Update current subject for compound statements
                 if current_subject.is_none() || ends_with_dot {
                     current_subject = Some(subject.clone());
                 }
 
                 // Use current subject for compound statements
-                let actual_subject = if ends_with_semicolon && current_subject.is_some() {
-                                        current_subject.as_ref().unwrap().clone()
+                let actual_subject = if ends_with_semicolon {
+                    if let Some(ref current) = current_subject {
+                        current.clone()
+                    } else {
+                        subject
+                    }
                 } else {
                     subject
                 };
 
-                                self.process_triple(&mut ontology, actual_subject, predicate, object)?;
+                self.process_triple(&mut ontology, actual_subject, predicate, object)?;
 
                 // Reset current subject at end of statement
                 if ends_with_dot {
                     current_subject = None;
                 }
             } else {
-                                // Leniently skip lines we can't parse (multi-line constructs), strictness enforced by other checks
+                // Leniently skip lines we can't parse (multi-line constructs), strictness enforced by other checks
                 continue;
             }
         }
@@ -194,13 +204,17 @@ impl TurtleParser {
 
             // Validate prefix token ends with ':'
             if !prefix_token.ends_with(':') {
-                return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX.to_string()));
+                return Err(crate::error::OwlError::ParseError(
+                    ERR_MALFORMED_PREFIX.to_string(),
+                ));
             }
             let prefix = prefix_token.trim_end_matches(':');
 
             // Namespace must be enclosed in <>
             if !(ns_token.starts_with('<') && ns_token.ends_with('>')) {
-                return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_NS.to_string()));
+                return Err(crate::error::OwlError::ParseError(
+                    ERR_MALFORMED_PREFIX_NS.to_string(),
+                ));
             }
             let namespace = ns_token.trim_matches('<').trim_matches('>');
 
@@ -211,9 +225,13 @@ impl TurtleParser {
             return Ok((prefix_str, namespace_str));
         }
         if self.config.strict_validation {
-            return Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()));
+            return Err(crate::error::OwlError::ParseError(
+                ERR_MALFORMED_PREFIX_DECL.to_string(),
+            ));
         }
-        Err(crate::error::OwlError::ParseError(ERR_MALFORMED_PREFIX_DECL.to_string()))
+        Err(crate::error::OwlError::ParseError(
+            ERR_MALFORMED_PREFIX_DECL.to_string(),
+        ))
     }
 
     /// Parse a predicate-object pair for compound statements
@@ -253,9 +271,9 @@ impl TurtleParser {
         let mut in_quotes = false;
         let mut in_blank_node = false;
         let mut bracket_depth = 0;
-        let mut chars = line.chars().peekable();
+        let chars = line.chars().peekable();
 
-        while let Some(c) = chars.next() {
+        for c in chars {
             match c {
                 '"' => {
                     in_quotes = !in_quotes;
@@ -341,7 +359,10 @@ impl TurtleParser {
 
         if let Some(stripped) = first_token.strip_prefix("_:") {
             // Blank node
-            Some((ObjectValue::BlankNode(stripped.to_string()), tokens[1..].to_vec()))
+            Some((
+                ObjectValue::BlankNode(stripped.to_string()),
+                tokens[1..].to_vec(),
+            ))
         } else if first_token.starts_with('"') {
             // Literal
             let literal = self.parse_literal(first_token)?;
@@ -355,7 +376,7 @@ impl TurtleParser {
             ))
         } else if first_token.starts_with('(') {
             // Collection (list)
-            let (list_items, consumed) = self.parse_collection(&tokens)?;
+            let (list_items, consumed) = self.parse_collection(tokens)?;
             let nested_object = NestedObject {
                 object_type: "Collection".to_string(),
                 properties: HashMap::new(),
@@ -391,7 +412,7 @@ impl TurtleParser {
 
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
-        let unique_id = format!("nested_{}", hasher.finish());
+        let _unique_id = format!("nested_{}", hasher.finish());
 
         // Parse the content to extract properties
         let clean_content = content.trim_start_matches('[').trim_end_matches(']').trim();
@@ -404,7 +425,7 @@ impl TurtleParser {
         while i < tokens.len() {
             if let Some(predicate) = self.parse_predicate(&tokens[i]) {
                 if i + 1 < tokens.len() {
-                    if let Some((object, remaining_tokens)) = self.parse_object(&tokens[i + 1..]) {
+                    if let Some((object, _remaining_tokens)) = self.parse_object(&tokens[i + 1..]) {
                         // Store the property
                         properties.insert(predicate.to_string(), object);
                         i += 1; // Move to next token after the object
@@ -456,17 +477,15 @@ impl TurtleParser {
             let local = &s[colon_pos + 1..];
 
             if let Some(namespace) = self.prefixes.get(prefix) {
-                IRI::new(&format!("{namespace}{local}"))
+                IRI::new(format!("{namespace}{local}"))
+            } else if self.config.strict_validation {
+                Err(crate::error::OwlError::ParseError(format!(
+                    "Undefined prefix: {}",
+                    prefix
+                )))
             } else {
-                if self.config.strict_validation {
-                    Err(crate::error::OwlError::ParseError(format!(
-                        "Undefined prefix: {}",
-                        prefix
-                    )))
-                } else {
-                    // Treat as full IRI in non-strict mode
-                    IRI::new(s)
-                }
+                // Treat as full IRI in non-strict mode
+                IRI::new(s)
             }
         } else {
             // Treat as full IRI
@@ -495,7 +514,7 @@ impl TurtleParser {
                         ClassExpression::Class(Class::new(subject)),
                         ClassExpression::Class(Class::new(super_class_iri)),
                     );
-                    ontology.add_axiom(Axiom::SubClassOf(subclass_axiom))?;
+                    ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom)))?;
                 }
             }
 
@@ -504,7 +523,7 @@ impl TurtleParser {
                 if let ObjectValue::IRI(equiv_class_iri) = object {
                     let equiv_axiom =
                         EquivalentClassesAxiom::new(vec![subject.clone(), equiv_class_iri.clone()]);
-                    ontology.add_axiom(Axiom::EquivalentClasses(equiv_axiom))?;
+                    ontology.add_axiom(Axiom::EquivalentClasses(Box::new(equiv_axiom)))?;
                 } else if let ObjectValue::Nested(nested) = object {
                     // Handle complex equivalent class expressions (restrictions, intersections, etc.)
                     if let Some(class_expr) = self.parse_nested_class_expression(&nested) {
@@ -517,8 +536,8 @@ impl TurtleParser {
                             class_expr,
                             ClassExpression::Class(Class::new(subject.clone())),
                         );
-                        ontology.add_axiom(Axiom::SubClassOf(subclass_axiom1))?;
-                        ontology.add_axiom(Axiom::SubClassOf(subclass_axiom2))?;
+                        ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom1)))?;
+                        ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom2)))?;
                     }
                 }
             }
@@ -530,7 +549,7 @@ impl TurtleParser {
                         subject.clone(),
                         disjoint_class_iri.clone(),
                     ]);
-                    ontology.add_axiom(Axiom::DisjointClasses(disjoint_axiom))?;
+                    ontology.add_axiom(Axiom::DisjointClasses(Box::new(disjoint_axiom)))?;
                 }
             }
 
@@ -541,19 +560,21 @@ impl TurtleParser {
                         subject.clone(),
                         equiv_prop_iri.clone(),
                     ]);
-                    ontology.add_axiom(Axiom::EquivalentObjectProperties(equiv_axiom))?;
+                    ontology.add_axiom(Axiom::EquivalentObjectProperties(Box::new(equiv_axiom)))?;
                 }
             }
 
             "http://www.w3.org/2002/07/owl#inverseOf" => {
                 if let ObjectValue::IRI(inverse_prop_iri) = object {
                     let inverse_axiom = InverseObjectPropertiesAxiom::new(
-                        ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(subject)),
-                        ObjectPropertyExpression::ObjectProperty(ObjectProperty::new(
+                        ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
+                            subject,
+                        ))),
+                        ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
                             inverse_prop_iri,
-                        )),
+                        ))),
                     );
-                    ontology.add_axiom(Axiom::InverseObjectProperties(inverse_axiom))?;
+                    ontology.add_axiom(Axiom::InverseObjectProperties(Box::new(inverse_axiom)))?;
                 }
             }
 
@@ -562,9 +583,9 @@ impl TurtleParser {
                 if let ObjectValue::IRI(domain_iri) = object {
                     // Add domain as a subclass axiom: ∀p.Domain ⊑ Domain
                     let domain_class = ClassExpression::Class(Class::new(domain_iri));
-                    let property_expr = ObjectPropertyExpression::ObjectProperty(
+                    let property_expr = ObjectPropertyExpression::ObjectProperty(Box::new(
                         ObjectProperty::new(subject.clone()),
-                    );
+                    ));
                     let restriction = ClassExpression::ObjectAllValuesFrom(
                         Box::new(property_expr),
                         Box::new(domain_class),
@@ -572,16 +593,16 @@ impl TurtleParser {
 
                     let subclass_axiom = SubClassOfAxiom::new(
                         ClassExpression::ObjectSomeValuesFrom(
-                            Box::new(ObjectPropertyExpression::ObjectProperty(
+                            Box::new(ObjectPropertyExpression::ObjectProperty(Box::new(
                                 ObjectProperty::new(subject),
-                            )),
+                            ))),
                             Box::new(ClassExpression::Class(Class::new(
                                 IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
                             ))),
                         ),
                         restriction,
                     );
-                    ontology.add_axiom(Axiom::SubClassOf(subclass_axiom))?;
+                    ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom)))?;
                 }
             }
 
@@ -589,9 +610,9 @@ impl TurtleParser {
                 if let ObjectValue::IRI(range_iri) = object {
                     // Add range constraint: ∀p.∃range ⊑ Range
                     let range_class = ClassExpression::Class(Class::new(range_iri));
-                    let property_expr = ObjectPropertyExpression::ObjectProperty(
+                    let property_expr = ObjectPropertyExpression::ObjectProperty(Box::new(
                         ObjectProperty::new(subject.clone()),
-                    );
+                    ));
 
                     let subclass_axiom = SubClassOfAxiom::new(
                         ClassExpression::ObjectAllValuesFrom(
@@ -602,7 +623,7 @@ impl TurtleParser {
                             IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
                         )),
                     );
-                    ontology.add_axiom(Axiom::SubClassOf(subclass_axiom))?;
+                    ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom)))?;
                 }
             }
 
@@ -653,7 +674,7 @@ impl TurtleParser {
                         subject.clone(),
                         ClassExpression::Class(Class::new(type_iri.clone())),
                     );
-                    ontology.add_axiom(Axiom::ClassAssertion(class_assertion))?;
+                    ontology.add_axiom(Axiom::ClassAssertion(Box::new(class_assertion)))?;
                 }
                 // Handle property declarations
                 "http://www.w3.org/1999/02/22-rdf-syntax-ns#Property" => {
@@ -686,7 +707,7 @@ impl TurtleParser {
                             subject.clone(),
                             ClassExpression::Class(Class::new(type_iri)),
                         );
-                        ontology.add_axiom(Axiom::ClassAssertion(class_assertion))?;
+                        ontology.add_axiom(Axiom::ClassAssertion(Box::new(class_assertion)))?;
                     }
                 }
             }
@@ -717,7 +738,7 @@ impl TurtleParser {
                     predicate,
                     object_individual.iri().clone(),
                 );
-                ontology.add_axiom(Axiom::PropertyAssertion(property_assertion))?;
+                ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
             }
             ObjectValue::Literal(_literal) => {
                 // Data property assertion - skip for now as PropertyAssertionAxiom expects IRIs
@@ -734,12 +755,17 @@ impl TurtleParser {
                     predicate,
                     anon_individual,
                 );
-                ontology.add_axiom(Axiom::PropertyAssertion(property_assertion))?;
+                ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
             }
             ObjectValue::Nested(nested) => {
                 // Handle RDF collections and other nested structures
                 if nested.object_type == "Collection" || nested.object_type == "RDFList" {
-                    self.process_rdf_collection(ontology, subject_individual.iri(), predicate, &nested)?;
+                    self.process_rdf_collection(
+                        ontology,
+                        subject_individual.iri(),
+                        predicate,
+                        &nested,
+                    )?;
                 } else if nested.object_type == "BlankNode" {
                     // Create anonymous individual for nested blank node
                     use std::collections::hash_map::DefaultHasher;
@@ -757,16 +783,16 @@ impl TurtleParser {
                         predicate,
                         anon_individual,
                     );
-                    ontology.add_axiom(Axiom::PropertyAssertion(property_assertion))?;
+                    ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
 
                     // Also process any properties defined inside the nested blank node
                     for (prop_str, _obj_str) in &nested.properties {
-                        if let Some(prop_iri) = self.parse_curie_or_iri(prop_str).ok() {
+                        if let Ok(_prop_iri) = self.parse_curie_or_iri(prop_str) {
                             // For each property, create a new property assertion
                             // This is simplified - in a full implementation, we'd parse the actual objects
                             if prop_str.contains("name") {
                                 // Create a literal for the name property
-                                let name_literal = Literal::simple("Anonymous Person".to_string());
+                                let _name_literal = Literal::simple("Anonymous Person".to_string());
                                 // Note: This is a data property assertion which needs a different axiom type
                                 // For now, we'll just acknowledge that properties exist
                             }
@@ -800,7 +826,7 @@ impl TurtleParser {
                 ObjectValue::BlankNode(node_id) => {
                     let anon_individual = AnonymousIndividual::new(node_id);
                     ontology.add_anonymous_individual(anon_individual.clone())?;
-                    items.push(CollectionItem::Anonymous(anon_individual));
+                    items.push(CollectionItem::Anonymous(Box::new(anon_individual)));
                 }
                 ObjectValue::Literal(lit) => {
                     items.push(CollectionItem::Literal(lit.clone()));
@@ -814,20 +840,16 @@ impl TurtleParser {
 
         if !items.is_empty() {
             // Create collection axiom
-            let collection_axiom = CollectionAxiom::new(
-                subject.clone(),
-                predicate,
-                items,
-            );
+            let collection_axiom = CollectionAxiom::new(subject.clone(), predicate, items);
 
             // Convert collection to property assertions and add them
-            let assertions = collection_axiom.to_property_assertions();
+            let assertions = collection_axiom.to_property_assertions()?;
             for assertion in assertions {
-                ontology.add_axiom(Axiom::PropertyAssertion(assertion))?;
+                ontology.add_axiom(Axiom::PropertyAssertion(Box::new(assertion)))?;
             }
 
             // Also store the collection axiom for future reference
-            ontology.add_axiom(Axiom::Collection(collection_axiom))?;
+            ontology.add_axiom(Axiom::Collection(Box::new(collection_axiom)))?;
         }
 
         Ok(())
@@ -865,9 +887,9 @@ impl TurtleParser {
                     .get("http://www.w3.org/2002/07/owl#onProperty")
                 {
                     if let ObjectValue::IRI(prop_iri) = on_property {
-                        let property_expr = ObjectPropertyExpression::ObjectProperty(
+                        let property_expr = ObjectPropertyExpression::ObjectProperty(Box::new(
                             ObjectProperty::new(prop_iri.clone()),
-                        );
+                        ));
 
                         // Check for someValuesFrom
                         if let Some(some_values) = nested
@@ -981,7 +1003,11 @@ impl TurtleParser {
             return Err(OwlError::ResourceLimitExceeded {
                 resource_type: "file_size".to_string(),
                 limit: MAX_FILE_SIZE,
-                message: format!("Input size {} exceeds maximum allowed size {}", content.len(), MAX_FILE_SIZE),
+                message: format!(
+                    "Input size {} exceeds maximum allowed size {}",
+                    content.len(),
+                    MAX_FILE_SIZE
+                ),
             });
         }
 
@@ -1079,8 +1105,7 @@ impl TurtleParser {
             if !self.validate_balanced_brackets(trimmed) {
                 return Err(OwlError::ParseError(format!(
                     "Unbalanced brackets in line {}: {}",
-                    line_count,
-                    trimmed
+                    line_count, trimmed
                 )));
             }
         }
@@ -1088,7 +1113,7 @@ impl TurtleParser {
         // Validate reasonable content ratios
         if line_count > 0 && statement_count == 0 && prefix_count == 0 {
             return Err(OwlError::ParseError(
-                "No valid Turtle statements found".to_string()
+                "No valid Turtle statements found".to_string(),
             ));
         }
 

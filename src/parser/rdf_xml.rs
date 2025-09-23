@@ -5,23 +5,22 @@
 use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::{
     AsymmetricPropertyAxiom, Axiom, ClassAssertionAxiom, DataPropertyAssertionAxiom,
-    DisjointClassesAxiom,
-    DisjointObjectPropertiesAxiom, EquivalentClassesAxiom, EquivalentObjectPropertiesAxiom,
-    FunctionalPropertyAxiom, InverseFunctionalPropertyAxiom, IrreflexivePropertyAxiom,
-    InverseObjectPropertiesAxiom,
-    PropertyAssertionAxiom, ReflexivePropertyAxiom, SubClassOfAxiom, SubObjectPropertyAxiom,
-    SymmetricPropertyAxiom, TransitivePropertyAxiom,
+    DisjointClassesAxiom, DisjointObjectPropertiesAxiom, EquivalentClassesAxiom,
+    EquivalentObjectPropertiesAxiom, FunctionalPropertyAxiom, InverseFunctionalPropertyAxiom,
+    InverseObjectPropertiesAxiom, IrreflexivePropertyAxiom, PropertyAssertionAxiom,
+    ReflexivePropertyAxiom, SubClassOfAxiom, SubObjectPropertyAxiom, SymmetricPropertyAxiom,
+    TransitivePropertyAxiom,
 };
 use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{OntologyParser, ParserConfig, ParserArenaBuilder, ParserArenaTrait};
+use crate::parser::{OntologyParser, ParserArenaBuilder, ParserArenaTrait, ParserConfig};
+use hashbrown::HashMap;
 #[cfg(feature = "rio-xml")]
 use rio_api::parser::TriplesParser as _;
 #[cfg(feature = "rio-xml")]
 use rio_xml::RdfXmlParser as RioRdfXmlParser;
-use hashbrown::HashMap;
 #[cfg(feature = "rio-xml")]
 use std::io::Cursor;
 use std::path::Path;
@@ -113,9 +112,11 @@ impl RdfXmlParser {
 
         // Initialize arena allocator if enabled
         let arena = if config.use_arena_allocation {
-            Some(ParserArenaBuilder::new()
-                .with_capacity(config.arena_capacity)
-                .build())
+            Some(
+                ParserArenaBuilder::new()
+                    .with_capacity(config.arena_capacity)
+                    .build(),
+            )
         } else {
             None
         };
@@ -231,47 +232,61 @@ impl RdfXmlParser {
                             match o_str {
                                 "http://www.w3.org/2002/07/owl#FunctionalProperty" => {
                                     let prop_iri = s.clone();
-                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(prop_iri.clone()));
                                     let ax = FunctionalPropertyAxiom::new(prop_iri);
-                                    let _ = ontology.add_axiom(Axiom::FunctionalProperty(ax));
+                                    let _ =
+                                        ontology.add_axiom(Axiom::FunctionalProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#InverseFunctionalProperty" => {
                                     let prop_iri = s.clone();
-                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(prop_iri.clone()));
                                     let ax = InverseFunctionalPropertyAxiom::new(prop_iri);
-                                    let _ = ontology.add_axiom(Axiom::InverseFunctionalProperty(ax));
+                                    let _ = ontology
+                                        .add_axiom(Axiom::InverseFunctionalProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#SymmetricProperty" => {
                                     let prop_iri = s.clone();
-                                    let _ = ontology.add_object_property(ObjectProperty::new(prop_iri.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(prop_iri.clone()));
                                     let ax = SymmetricPropertyAxiom::new(prop_iri);
-                                    let _ = ontology.add_axiom(Axiom::SymmetricProperty(ax));
+                                    let _ =
+                                        ontology.add_axiom(Axiom::SymmetricProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#TransitiveProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(s.clone()));
                                     let ax = TransitivePropertyAxiom::new(s.clone());
-                                    let _ = ontology.add_axiom(Axiom::TransitiveProperty(ax));
+                                    let _ =
+                                        ontology.add_axiom(Axiom::TransitiveProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#ReflexiveProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(s.clone()));
                                     let ax = ReflexivePropertyAxiom::new(s.clone());
-                                    let _ = ontology.add_axiom(Axiom::ReflexiveProperty(ax));
+                                    let _ =
+                                        ontology.add_axiom(Axiom::ReflexiveProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#IrreflexiveProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(s.clone()));
                                     let ax = IrreflexivePropertyAxiom::new(s.clone());
-                                    let _ = ontology.add_axiom(Axiom::IrreflexiveProperty(ax));
+                                    let _ = ontology
+                                        .add_axiom(Axiom::IrreflexiveProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 "http://www.w3.org/2002/07/owl#AsymmetricProperty" => {
-                                    let _ = ontology.add_object_property(ObjectProperty::new(s.clone()));
+                                    let _ = ontology
+                                        .add_object_property(ObjectProperty::new(s.clone()));
                                     let ax = AsymmetricPropertyAxiom::new(s.clone());
-                                    let _ = ontology.add_axiom(Axiom::AsymmetricProperty(ax));
+                                    let _ =
+                                        ontology.add_axiom(Axiom::AsymmetricProperty(Box::new(ax)));
                                     return Ok(());
                                 }
                                 _ => {}
@@ -297,7 +312,7 @@ impl RdfXmlParser {
                                 let _ = ontology.add_named_individual(individual);
                                 let class = Class::new(o.clone());
                                 let ax = ClassAssertionAxiom::new(s.clone(), class.into());
-                                let _ = ontology.add_axiom(Axiom::ClassAssertion(ax));
+                                let _ = ontology.add_axiom(Axiom::ClassAssertion(Box::new(ax)));
                             }
                         }
                     }
@@ -307,7 +322,7 @@ impl RdfXmlParser {
                             // ∃P.Thing ⊑ C
                             let prop_expr =
                                 crate::axioms::property_expressions::ObjectPropertyExpression::ObjectProperty(
-                                    ObjectProperty::new(p.clone()),
+                                    Box::new(ObjectProperty::new(p.clone())),
                                 );
                             let thing = Class::new(
                                 IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
@@ -318,7 +333,7 @@ impl RdfXmlParser {
                             );
                             let super_c = ClassExpression::Class(Class::new(domain_class));
                             let ax = SubClassOfAxiom::new(some, super_c);
-                            let _ = ontology.add_axiom(Axiom::SubClassOf(ax));
+                            let _ = ontology.add_axiom(Axiom::SubClassOf(Box::new(ax)));
                         }
                     }
                     // rdfs:range
@@ -327,7 +342,7 @@ impl RdfXmlParser {
                             // ⊤ ⊑ ∀P.C
                             let prop_expr =
                                 crate::axioms::property_expressions::ObjectPropertyExpression::ObjectProperty(
-                                    ObjectProperty::new(p.clone()),
+                                    Box::new(ObjectProperty::new(p.clone())),
                                 );
                             let thing = Class::new(
                                 IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
@@ -338,62 +353,68 @@ impl RdfXmlParser {
                             );
                             let sub = ClassExpression::Class(thing);
                             let ax = SubClassOfAxiom::new(sub, all);
-                            let _ = ontology.add_axiom(Axiom::SubClassOf(ax));
+                            let _ = ontology.add_axiom(Axiom::SubClassOf(Box::new(ax)));
                         }
                     }
                     // rdfs:subClassOf
                     "http://www.w3.org/2000/01/rdf-schema#subClassOf" => {
                         if let Some(o) = obj_iri {
-                            let ax = SubClassOfAxiom::new(Class::new(s.clone()).into(), Class::new(o).into());
-                            let _ = ontology.add_axiom(Axiom::SubClassOf(ax));
+                            let ax = SubClassOfAxiom::new(
+                                Class::new(s.clone()).into(),
+                                Class::new(o).into(),
+                            );
+                            let _ = ontology.add_axiom(Axiom::SubClassOf(Box::new(ax)));
                         }
                     }
                     // owl:equivalentClass
                     "http://www.w3.org/2002/07/owl#equivalentClass" => {
                         if let Some(o) = obj_iri {
                             let ax = EquivalentClassesAxiom::new(vec![s.clone(), o]);
-                            let _ = ontology.add_axiom(Axiom::EquivalentClasses(ax));
+                            let _ = ontology.add_axiom(Axiom::EquivalentClasses(Box::new(ax)));
                         }
                     }
                     // rdfs:subPropertyOf
                     "http://www.w3.org/2000/01/rdf-schema#subPropertyOf" => {
                         if let Some(o) = obj_iri {
                             let ax = SubObjectPropertyAxiom::new(s.clone(), o);
-                            let _ = ontology.add_axiom(Axiom::SubObjectProperty(ax));
+                            let _ = ontology.add_axiom(Axiom::SubObjectProperty(Box::new(ax)));
                         }
                     }
                     // owl:equivalentProperty
                     "http://www.w3.org/2002/07/owl#equivalentProperty" => {
                         if let Some(o) = obj_iri {
                             let ax = EquivalentObjectPropertiesAxiom::new(vec![s.clone(), o]);
-                            let _ = ontology.add_axiom(Axiom::EquivalentObjectProperties(ax));
+                            let _ =
+                                ontology.add_axiom(Axiom::EquivalentObjectProperties(Box::new(ax)));
                         }
                     }
                     // owl:propertyDisjointWith
                     "http://www.w3.org/2002/07/owl#propertyDisjointWith" => {
                         if let Some(o) = obj_iri {
                             let ax = DisjointObjectPropertiesAxiom::new(vec![s.clone(), o]);
-                            let _ = ontology.add_axiom(Axiom::DisjointObjectProperties(ax));
+                            let _ =
+                                ontology.add_axiom(Axiom::DisjointObjectProperties(Box::new(ax)));
                         }
                     }
                     // owl:inverseOf
                     "http://www.w3.org/2002/07/owl#inverseOf" => {
                         if let Some(o) = obj_iri {
                             let p1 = crate::axioms::property_expressions::ObjectPropertyExpression::ObjectProperty(
-                                ObjectProperty::new(s.clone()),
+                                Box::new(ObjectProperty::new(s.clone())),
                             );
                             let p2 = crate::axioms::property_expressions::ObjectPropertyExpression::ObjectProperty(
-                                ObjectProperty::new(o),
+                                Box::new(ObjectProperty::new(o)),
                             );
                             let ax = InverseObjectPropertiesAxiom::new(p1, p2);
-                            let _ = ontology.add_axiom(Axiom::InverseObjectProperties(ax));
+                            let _ =
+                                ontology.add_axiom(Axiom::InverseObjectProperties(Box::new(ax)));
                         }
                     }
                     // owl:disjointWith
                     "http://www.w3.org/2002/07/owl#disjointWith" => {
                         if let Some(o) = obj_iri {
                             let ax = DisjointClassesAxiom::new(vec![s.clone(), o]);
-                            let _ = ontology.add_axiom(Axiom::DisjointClasses(ax));
+                            let _ = ontology.add_axiom(Axiom::DisjointClasses(Box::new(ax)));
                         }
                     }
                     // owl:imports
@@ -415,7 +436,8 @@ impl RdfXmlParser {
                                         // Extract blank node ID from temporary IRI
                                         let node_id = &obj.as_str()[2..];
                                         let anon_individual = AnonymousIndividual::new(node_id);
-                                        let _ = ontology.add_anonymous_individual(anon_individual.clone());
+                                        let _ = ontology
+                                            .add_anonymous_individual(anon_individual.clone());
 
                                         // Create property assertion with anonymous individual
                                         let assertion = PropertyAssertionAxiom::new_with_anonymous(
@@ -423,7 +445,9 @@ impl RdfXmlParser {
                                             pred.iri().clone(),
                                             anon_individual,
                                         );
-                                        let _ = ontology.add_axiom(Axiom::PropertyAssertion(assertion));
+                                        let _ = ontology.add_axiom(Axiom::PropertyAssertion(
+                                            Box::new(assertion),
+                                        ));
                                     } else {
                                         // Regular named individual - create individuals first
                                         let subj_individual = NamedIndividual::new(subj.clone());
@@ -432,9 +456,13 @@ impl RdfXmlParser {
                                         let obj_individual = NamedIndividual::new(obj.clone());
                                         let _ = ontology.add_named_individual(obj_individual);
 
-                                        let ax =
-                                            PropertyAssertionAxiom::new(subj, pred.iri().clone(), obj);
-                                        let _ = ontology.add_axiom(Axiom::PropertyAssertion(ax));
+                                        let ax = PropertyAssertionAxiom::new(
+                                            subj,
+                                            pred.iri().clone(),
+                                            obj,
+                                        );
+                                        let _ = ontology
+                                            .add_axiom(Axiom::PropertyAssertion(Box::new(ax)));
                                     }
                                 }
                             }
@@ -446,16 +474,22 @@ impl RdfXmlParser {
                                     rio_api::model::Literal::Simple { value } => {
                                         crate::entities::Literal::simple(value)
                                     }
-                                    rio_api::model::Literal::LanguageTaggedString { value, language } => {
-                                        crate::entities::Literal::lang_tagged(value, language)
-                                    }
+                                    rio_api::model::Literal::LanguageTaggedString {
+                                        value,
+                                        language,
+                                    } => crate::entities::Literal::lang_tagged(value, language),
                                     rio_api::model::Literal::Typed { value, datatype } => {
-                                        let dt = IRI::new(datatype.iri).unwrap_or_else(|_| IRI::new("http://www.w3.org/2001/XMLSchema#string").unwrap());
+                                        let dt = IRI::new(datatype.iri).unwrap_or_else(|_| {
+                                            IRI::new("http://www.w3.org/2001/XMLSchema#string")
+                                                .unwrap()
+                                        });
                                         crate::entities::Literal::typed(value, dt)
                                     }
                                 };
-                                let ax = DataPropertyAssertionAxiom::new(s.clone(), p.clone(), value);
-                                let _ = ontology.add_axiom(Axiom::DataPropertyAssertion(ax));
+                                let ax =
+                                    DataPropertyAssertionAxiom::new(s.clone(), p.clone(), value);
+                                let _ =
+                                    ontology.add_axiom(Axiom::DataPropertyAssertion(Box::new(ax)));
                             }
                             Term::BlankNode(bn) => {
                                 // Handle object property assertion with blank node object
@@ -467,7 +501,8 @@ impl RdfXmlParser {
                                     p.clone(),
                                     anon_individual,
                                 );
-                                let _ = ontology.add_axiom(Axiom::PropertyAssertion(assertion));
+                                let _ = ontology
+                                    .add_axiom(Axiom::PropertyAssertion(Box::new(assertion)));
                             }
                             _ => {}
                         }
@@ -886,7 +921,7 @@ impl RdfXmlParser {
                     chars.next(); // Consume '/'
 
                     let mut closing_name = String::new();
-                    while let Some((_, c)) = chars.next() {
+                    for (_, c) in chars.by_ref() {
                         if c == '>' {
                             break;
                         }
@@ -906,20 +941,14 @@ impl RdfXmlParser {
                     }
                 } else if is_comment {
                     // Skip comment
-                    {
-                    self.skip_comment(chars)?
-                };
+                    self.skip_comment(chars)?;
                 } else if is_cdata {
                     // Parse CDATA
-                    let cdata_content = {
-                    self.parse_cdata(chars)?
-                };
+                    let cdata_content = { self.parse_cdata(chars)? };
                     content.push_str(&cdata_content);
                 } else {
                     // Parse child element
-                    if let Some(child) = {
-                    self.parse_element(chars)?
-                } {
+                    if let Some(child) = { self.parse_element(chars)? } {
                         element.children.push(child);
                         // Don't increment depth here - depth is only for tracking the current element's closing tag
                     }
@@ -1030,13 +1059,21 @@ impl RdfXmlParser {
         match element_name {
             s if s == OWL_ONTOLOGY => self.process_ontology_element(ontology, element),
             s if s == OWL_CLASS => self.process_class_element(ontology, element),
-            s if s == OWL_OBJECT_PROPERTY => self.process_object_property_element(ontology, element),
-            s if s == OWL_DATATYPE_PROPERTY => self.process_data_property_element(ontology, element),
-            s if s == OWL_NAMED_INDIVIDUAL => self.process_named_individual_element(ontology, element),
+            s if s == OWL_OBJECT_PROPERTY => {
+                self.process_object_property_element(ontology, element)
+            }
+            s if s == OWL_DATATYPE_PROPERTY => {
+                self.process_data_property_element(ontology, element)
+            }
+            s if s == OWL_NAMED_INDIVIDUAL => {
+                self.process_named_individual_element(ontology, element)
+            }
             s if s == OWL_RESTRICTION => self.process_restriction_element(ontology, element),
             s if s == RDF_DESCRIPTION => self.process_description_element(ontology, element),
             s if s == RDFS_SUBCLASSOF => self.process_subclass_element(ontology, element),
-            s if s == OWL_EQUIVALENT_CLASS => self.process_equivalent_class_element(ontology, element),
+            s if s == OWL_EQUIVALENT_CLASS => {
+                self.process_equivalent_class_element(ontology, element)
+            }
             s if s == OWL_DISJOINT_WITH => self.process_disjoint_class_element(ontology, element),
             s if s == RDFS_DOMAIN => self.process_domain_range_element(ontology, element),
             s if s == RDFS_RANGE => self.process_domain_range_element(ontology, element),
@@ -1295,7 +1332,7 @@ impl RdfXmlParser {
                             // Add class assertion
                             let class = Class::new(type_iri);
                             let axiom = ClassAssertionAxiom::new(subject_iri.clone(), class.into());
-                            ontology.add_axiom(Axiom::ClassAssertion(axiom))?;
+                            ontology.add_axiom(Axiom::ClassAssertion(Box::new(axiom)))?;
                         }
                     }
                 } else {
@@ -1321,7 +1358,7 @@ impl RdfXmlParser {
             let sub_class = Class::new(subject);
             let super_class = Class::new(object);
             let axiom = SubClassOfAxiom::new(sub_class.into(), super_class.into());
-            ontology.add_axiom(Axiom::SubClassOf(axiom))?;
+            ontology.add_axiom(Axiom::SubClassOf(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1337,7 +1374,7 @@ impl RdfXmlParser {
             self.get_element_object(element),
         ) {
             let axiom = EquivalentClassesAxiom::new(vec![subject, object]);
-            ontology.add_axiom(Axiom::EquivalentClasses(axiom))?;
+            ontology.add_axiom(Axiom::EquivalentClasses(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1353,7 +1390,7 @@ impl RdfXmlParser {
             self.get_element_object(element),
         ) {
             let axiom = DisjointClassesAxiom::new(vec![subject, object]);
-            ontology.add_axiom(Axiom::DisjointClasses(axiom))?;
+            ontology.add_axiom(Axiom::DisjointClasses(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1369,7 +1406,7 @@ impl RdfXmlParser {
             self.get_element_object(element),
         ) {
             let axiom = SubObjectPropertyAxiom::new(subject, object);
-            ontology.add_axiom(Axiom::SubObjectProperty(axiom))?;
+            ontology.add_axiom(Axiom::SubObjectProperty(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1385,7 +1422,7 @@ impl RdfXmlParser {
             self.get_element_object(element),
         ) {
             let axiom = EquivalentObjectPropertiesAxiom::new(vec![subject, object]);
-            ontology.add_axiom(Axiom::EquivalentObjectProperties(axiom))?;
+            ontology.add_axiom(Axiom::EquivalentObjectProperties(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1402,7 +1439,7 @@ impl RdfXmlParser {
             self.get_element_object(element),
         ) {
             let axiom = DisjointObjectPropertiesAxiom::new(vec![subject, object]);
-            ontology.add_axiom(Axiom::DisjointObjectProperties(axiom))?;
+            ontology.add_axiom(Axiom::DisjointObjectProperties(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1430,7 +1467,7 @@ impl RdfXmlParser {
         ) {
             let class = Class::new(class_iri);
             let axiom = ClassAssertionAxiom::new(individual, class.into());
-            ontology.add_axiom(Axiom::ClassAssertion(axiom))?;
+            ontology.add_axiom(Axiom::ClassAssertion(Box::new(axiom)))?;
         }
         Ok(())
     }
@@ -1592,7 +1629,7 @@ impl RdfXmlParser {
             let object_iri = self.resolve_iri(resource)?;
             let axiom =
                 PropertyAssertionAxiom::new(individual_iri.clone(), property_iri, object_iri);
-            ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
+            ontology.add_axiom(Axiom::PropertyAssertion(Box::new(axiom)))?;
         } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
             // Object property with blank node
             let anon_individual = AnonymousIndividual::new(node_id);
@@ -1603,7 +1640,7 @@ impl RdfXmlParser {
                 property_iri,
                 anon_individual,
             );
-            ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
+            ontology.add_axiom(Axiom::PropertyAssertion(Box::new(axiom)))?;
         } else if let Some(_content) = element.attributes.get("rdf:datatype") {
             // Datatype property
             // This would need the actual literal value and datatype
@@ -1613,7 +1650,8 @@ impl RdfXmlParser {
         } else if !element.children.is_empty() {
             // Handle nested blank nodes (anonymous individuals)
             // This is where rdf:Description elements without rdf:about or rdf:resource become blank nodes
-            let anon_individual = AnonymousIndividual::new(format!("anon_{}", self.blank_node_counter));
+            let anon_individual =
+                AnonymousIndividual::new(format!("anon_{}", self.blank_node_counter));
             self.blank_node_counter += 1;
             ontology.add_anonymous_individual(anon_individual.clone())?;
 
@@ -1627,7 +1665,7 @@ impl RdfXmlParser {
                 property_iri,
                 anon_individual,
             );
-            ontology.add_axiom(Axiom::PropertyAssertion(axiom))?;
+            ontology.add_axiom(Axiom::PropertyAssertion(Box::new(axiom)))?;
         }
 
         Ok(())
@@ -1644,43 +1682,51 @@ impl RdfXmlParser {
         match char_iri.as_str() {
             "http://www.w3.org/2002/07/owl#FunctionalProperty" => {
                 // Add functional object property axiom
-                let axiom =
-                    Axiom::FunctionalProperty(FunctionalPropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::FunctionalProperty(Box::new(FunctionalPropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#InverseFunctionalProperty" => {
                 // Add inverse functional object property axiom
-                let axiom = Axiom::InverseFunctionalProperty(InverseFunctionalPropertyAxiom::new(
-                    prop_iri.clone(),
+                let axiom = Axiom::InverseFunctionalProperty(Box::new(
+                    InverseFunctionalPropertyAxiom::new(prop_iri.clone()),
                 ));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#TransitiveProperty" => {
                 // Add transitive object property axiom
-                let axiom =
-                    Axiom::TransitiveProperty(TransitivePropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::TransitiveProperty(Box::new(TransitivePropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#SymmetricProperty" => {
                 // Add symmetric object property axiom
-                let axiom = Axiom::SymmetricProperty(SymmetricPropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::SymmetricProperty(Box::new(SymmetricPropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#AsymmetricProperty" => {
                 // Add asymmetric object property axiom
-                let axiom =
-                    Axiom::AsymmetricProperty(AsymmetricPropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::AsymmetricProperty(Box::new(AsymmetricPropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#ReflexiveProperty" => {
                 // Add reflexive object property axiom
-                let axiom = Axiom::ReflexiveProperty(ReflexivePropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::ReflexiveProperty(Box::new(ReflexivePropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             "http://www.w3.org/2002/07/owl#IrreflexiveProperty" => {
                 // Add irreflexive object property axiom
-                let axiom =
-                    Axiom::IrreflexiveProperty(IrreflexivePropertyAxiom::new(prop_iri.clone()));
+                let axiom = Axiom::IrreflexiveProperty(Box::new(IrreflexivePropertyAxiom::new(
+                    prop_iri.clone(),
+                )));
                 ontology.add_axiom(axiom)?;
             }
             _ => {
@@ -1709,7 +1755,7 @@ impl RdfXmlParser {
                                 let super_class = Class::new(super_class_iri.clone());
                                 let axiom =
                                     SubClassOfAxiom::new(sub_class.into(), super_class.into());
-                                ontology.add_axiom(Axiom::SubClassOf(axiom))?;
+                                ontology.add_axiom(Axiom::SubClassOf(Box::new(axiom)))?;
                             }
                         }
                     }
@@ -1724,7 +1770,7 @@ impl RdfXmlParser {
                                     class_iri.clone(),
                                     equiv_class_iri.clone(),
                                 ]);
-                                ontology.add_axiom(Axiom::EquivalentClasses(axiom))?;
+                                ontology.add_axiom(Axiom::EquivalentClasses(Box::new(axiom)))?;
                             }
                         }
                     }
@@ -1780,7 +1826,9 @@ impl RdfXmlParser {
         } else {
             // For blank nodes, create a temporary IRI for reference
             // The actual AnonymousIndividual will be created in process_individual_property
-            element.attributes.get("rdf:nodeID")
+            element
+                .attributes
+                .get("rdf:nodeID")
                 .map(|node_id| IRI::new(format!("_:{}", node_id)).unwrap())
         }
     }
@@ -2015,7 +2063,10 @@ mod tests {
         let mut parser = RdfXmlParser::new();
         parser.config.strict_validation = false; // streaming path
         let onto = parser.parse_str(rdf_xml_content).expect("parse");
-        assert!(onto.subclass_axioms().len() >= 2, "Expected domain/range axioms");
+        assert!(
+            onto.subclass_axioms().len() >= 2,
+            "Expected domain/range axioms"
+        );
     }
 
     #[cfg(feature = "rio-xml")]
@@ -2045,16 +2096,35 @@ mod tests {
 
         // Verify rio-xml parser correctly extracts all entities
         assert_eq!(ontology.classes().len(), 2, "Should have parsed 2 classes");
-        assert_eq!(ontology.object_properties().len(), 1, "Should have parsed 1 object property");
-        assert_eq!(ontology.named_individuals().len(), 2, "Should have parsed 2 individuals");
-        assert!(ontology.property_assertions().len() >= 1, "Should have property assertions");
+        assert_eq!(
+            ontology.object_properties().len(),
+            1,
+            "Should have parsed 1 object property"
+        );
+        assert_eq!(
+            ontology.named_individuals().len(),
+            2,
+            "Should have parsed 2 individuals"
+        );
+        assert!(
+            ontology.property_assertions().len() >= 1,
+            "Should have property assertions"
+        );
 
         // Verify specific entities were parsed correctly
-        let class_iris: Vec<String> = ontology.classes().iter().map(|c| c.iri().to_string()).collect();
+        let class_iris: Vec<String> = ontology
+            .classes()
+            .iter()
+            .map(|c| c.iri().to_string())
+            .collect();
         assert!(class_iris.contains(&"http://example.org/Person".to_string()));
         assert!(class_iris.contains(&"http://example.org/Animal".to_string()));
 
-        let individual_iris: Vec<String> = ontology.named_individuals().iter().map(|i| i.iri().to_string()).collect();
+        let individual_iris: Vec<String> = ontology
+            .named_individuals()
+            .iter()
+            .map(|i| i.iri().to_string())
+            .collect();
         assert!(individual_iris.contains(&"http://example.org/john".to_string()));
         assert!(individual_iris.contains(&"http://example.org/mary".to_string()));
 
@@ -2228,10 +2298,8 @@ mod tests {
 
         if let Ok(ontology) = result {
             // Debug: Check what was actually parsed
-            for _cls in ontology.classes() {
-            }
-            for _ind in ontology.named_individuals() {
-            }
+            for _cls in ontology.classes() {}
+            for _ind in ontology.named_individuals() {}
 
             // Should have parsed 1 class and 1 individual
             assert_eq!(ontology.classes().len(), 1, "Should have parsed 1 class");

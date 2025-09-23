@@ -1939,8 +1939,9 @@ mod tests {
         let knows_iri = IRI::new("http://example.org/knows").unwrap();
         let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
 
-        let functional_axiom =
-            Axiom::FunctionalProperty(Box::new(FunctionalPropertyAxiom::new(has_father_iri.clone())));
+        let functional_axiom = Axiom::FunctionalProperty(Box::new(FunctionalPropertyAxiom::new(
+            has_father_iri.clone(),
+        )));
         let reflexive_axiom =
             Axiom::ReflexiveProperty(Box::new(ReflexivePropertyAxiom::new(knows_iri.clone())));
         let transitive_axiom =
@@ -2094,10 +2095,11 @@ mod tests {
             individual1.clone(),
             individual2.clone(),
         ])));
-        let different_axiom = Axiom::DifferentIndividuals(Box::new(DifferentIndividualsAxiom::new(vec![
-            individual1.clone(),
-            individual2.clone(),
-        ])));
+        let different_axiom =
+            Axiom::DifferentIndividuals(Box::new(DifferentIndividualsAxiom::new(vec![
+                individual1.clone(),
+                individual2.clone(),
+            ])));
 
         match same_axiom {
             Axiom::SameIndividual(_) => assert!(true),
@@ -2208,10 +2210,9 @@ mod tests {
             has_child_iri.clone(),
         )));
 
-        let inverse_axiom = Axiom::InverseObjectProperties(Box::new(InverseObjectPropertiesAxiom::new(
-            has_parent.clone(),
-            has_child.clone(),
-        )));
+        let inverse_axiom = Axiom::InverseObjectProperties(Box::new(
+            InverseObjectPropertiesAxiom::new(has_parent.clone(), has_child.clone()),
+        ));
 
         match inverse_axiom {
             Axiom::InverseObjectProperties(_) => assert!(true),

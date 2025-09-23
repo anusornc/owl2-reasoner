@@ -3,12 +3,12 @@
 //! This module provides encapsulated management for global caches
 //! with proper synchronization and monitoring capabilities.
 
-use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 use crate::cache::BoundedCache;
-use crate::iri::IRI;
 use crate::error::OwlError;
+use crate::iri::IRI;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 /// Global cache manager that encapsulates IRI caching operations
 #[derive(Debug)]
@@ -91,7 +91,6 @@ impl CacheStats {
         self.iri_misses.fetch_add(1, Ordering::Relaxed);
     }
 
-  
     /// Record memory pressure event
     fn record_memory_pressure(&self) {
         self.memory_pressure_events.fetch_add(1, Ordering::Relaxed);
@@ -111,7 +110,17 @@ impl CacheStatsSnapshot {
     /// Calculate IRI cache hit rate
     pub fn iri_hit_rate(&self) -> f64 {
         let total = self.iri_hits + self.iri_misses;
-        if total == 0 { 0.0 } else { self.iri_hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.iri_hits as f64 / total as f64
+        }
+    }
+}
+
+impl Default for GlobalCacheManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -124,9 +133,7 @@ impl GlobalCacheManager {
     /// Create a new global cache manager with custom configuration
     pub fn with_config(config: GlobalCacheConfig) -> Self {
         // Create IRI cache - use simple constructor for now
-        let iri_cache = Arc::new(RwLock::new(
-            BoundedCache::new(config.iri_cache_max_size)
-        ));
+        let iri_cache = Arc::new(RwLock::new(BoundedCache::new(config.iri_cache_max_size)));
 
         let stats = CacheStats::new();
 
@@ -141,11 +148,9 @@ impl GlobalCacheManager {
     pub fn get_or_create_iri(&self, iri_str: String) -> Result<Arc<IRI>, OwlError> {
         // Try to get from cache first
         {
-            let cache = self.iri_cache.read().map_err(|e| {
-                OwlError::CacheError {
-                    operation: "read".to_string(),
-                    message: format!("Failed to acquire read lock: {}", e),
-                }
+            let cache = self.iri_cache.read().map_err(|e| OwlError::CacheError {
+                operation: "read".to_string(),
+                message: format!("Failed to acquire read lock: {}", e),
             })?;
             if let Ok(Some(iri)) = cache.get(&iri_str) {
                 self.stats.record_iri_hit();
@@ -157,11 +162,9 @@ impl GlobalCacheManager {
         let iri = IRI::new(iri_str.clone())?;
 
         {
-            let cache = self.iri_cache.write().map_err(|e| {
-                OwlError::CacheError {
-                    operation: "write".to_string(),
-                    message: format!("Failed to acquire write lock: {}", e),
-                }
+            let cache = self.iri_cache.write().map_err(|e| OwlError::CacheError {
+                operation: "write".to_string(),
+                message: format!("Failed to acquire write lock: {}", e),
             })?;
             cache.insert(iri_str, iri.clone())?;
         }
@@ -172,11 +175,9 @@ impl GlobalCacheManager {
 
     /// Get an IRI from the cache if it exists
     pub fn get_iri(&self, iri_str: &str) -> Result<Option<Arc<IRI>>, OwlError> {
-        let cache = self.iri_cache.read().map_err(|e| {
-            OwlError::CacheError {
-                operation: "read".to_string(),
-                message: format!("Failed to acquire read lock: {}", e),
-            }
+        let cache = self.iri_cache.read().map_err(|e| OwlError::CacheError {
+            operation: "read".to_string(),
+            message: format!("Failed to acquire read lock: {}", e),
         })?;
 
         match cache.get(&iri_str.to_string())? {
@@ -195,11 +196,9 @@ impl GlobalCacheManager {
 
     /// Clear IRI cache
     pub fn clear_iri_cache(&self) -> Result<(), OwlError> {
-        let mut cache = self.iri_cache.write().map_err(|e| {
-            OwlError::CacheError {
-                operation: "write".to_string(),
-                message: format!("Failed to acquire write lock: {}", e),
-            }
+        let mut cache = self.iri_cache.write().map_err(|e| OwlError::CacheError {
+            operation: "write".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
         })?;
 
         // Clear the cache by creating a new empty one
@@ -209,14 +208,12 @@ impl GlobalCacheManager {
 
     /// Get IRI cache size
     pub fn get_iri_cache_size(&self) -> Result<usize, OwlError> {
-        let cache = self.iri_cache.read().map_err(|e| {
-            OwlError::CacheError {
-                operation: "read".to_string(),
-                message: format!("Failed to acquire read lock: {}", e),
-            }
+        let cache = self.iri_cache.read().map_err(|e| OwlError::CacheError {
+            operation: "read".to_string(),
+            message: format!("Failed to acquire read lock: {}", e),
         })?;
 
-        Ok(cache.len()?)
+        cache.len()
     }
 
     /// Check if cache is under memory pressure
@@ -241,7 +238,9 @@ impl Clone for CacheStats {
             iri_hits: AtomicU64::new(self.iri_hits.load(Ordering::Relaxed)),
             iri_misses: AtomicU64::new(self.iri_misses.load(Ordering::Relaxed)),
             evictions: AtomicU64::new(self.evictions.load(Ordering::Relaxed)),
-            memory_pressure_events: AtomicU64::new(self.memory_pressure_events.load(Ordering::Relaxed)),
+            memory_pressure_events: AtomicU64::new(
+                self.memory_pressure_events.load(Ordering::Relaxed),
+            ),
         }
     }
 }
@@ -328,7 +327,8 @@ mod tests {
         // Generate some cache activity
         for i in 0..10 {
             manager.get_or_create_iri(format!("http://example.org/test{}", i))?;
-            manager.get_or_create_iri(format!("http://example.org/test{}", i))?; // Hit
+            manager.get_or_create_iri(format!("http://example.org/test{}", i))?;
+            // Hit
         }
 
         let stats = manager.get_stats();
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn test_memory_pressure_detection() -> Result<(), OwlError> {
         let manager = GlobalCacheManager::with_config(GlobalCacheConfig {
-            iri_cache_max_size: 5, // Very small cache
+            iri_cache_max_size: 5,          // Very small cache
             memory_pressure_threshold: 0.6, // Low threshold
             ..Default::default()
         });
@@ -355,7 +355,10 @@ mod tests {
         assert!(is_under_pressure, "Should be under memory pressure");
 
         let stats = manager.get_stats();
-        assert!(stats.memory_pressure_events > 0, "Should have recorded memory pressure events");
+        assert!(
+            stats.memory_pressure_events > 0,
+            "Should have recorded memory pressure events"
+        );
         Ok(())
     }
 }

@@ -8,21 +8,21 @@
 //! Each profile has specific restrictions on which OWL2 constructs are allowed.
 //! This module provides efficient validation algorithms inspired by owl2_rs.
 
+use crate::axioms::ClassExpression;
+use crate::axioms::ClassExpression::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::ObjectPropertyExpression;
 use crate::DataRange;
-use crate::axioms::ClassExpression;
-use crate::axioms::ClassExpression::*;
-use dashmap::DashMap;
-use std::sync::Arc;
+use crate::ObjectPropertyExpression;
 use bumpalo::Bump;
-use smallvec::SmallVec;
-use std::mem;
-use std::collections::{HashMap, HashSet};
-use std::time::{Duration, Instant};
+use dashmap::DashMap;
 use lru::LruCache;
+use smallvec::SmallVec;
+use std::collections::{HashMap, HashSet};
+use std::mem;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// OWL2 Profile types
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -164,7 +164,7 @@ pub struct OntologyStats {
 pub struct Owl2ProfileValidator {
     ontology: Arc<Ontology>,
     cache: DashMap<Owl2Profile, ProfileValidationResult>, // Legacy cache for backward compatibility
-    advanced_cache: AdvancedCacheManager,                // New advanced caching system
+    advanced_cache: AdvancedCacheManager,                 // New advanced caching system
     result_arena: Bump,
     violation_pool: ViolationPool,
     indexes: ProfileIndexes,
@@ -321,13 +321,17 @@ impl Owl2ProfileValidator {
             violations.push("Contains disjoint classes axioms (not allowed in EL)".to_string());
         }
         if self.indexes.el_has_complex_restrictions {
-            violations.push("Contains complex property restrictions (not allowed in EL)".to_string());
+            violations
+                .push("Contains complex property restrictions (not allowed in EL)".to_string());
         }
         if self.indexes.el_has_nominals {
             violations.push("Contains nominals (ObjectOneOf) (not allowed in EL)".to_string());
         }
         if self.indexes.el_property_hierarchy_depth > 3 {
-            violations.push(format!("Property hierarchy too deep: {} (should be ≤ 3 for EL)", self.indexes.el_property_hierarchy_depth));
+            violations.push(format!(
+                "Property hierarchy too deep: {} (should be ≤ 3 for EL)",
+                self.indexes.el_property_hierarchy_depth
+            ));
         }
 
         violations
@@ -346,7 +350,8 @@ impl Owl2ProfileValidator {
             violations.push("Contains irreflexive properties (not allowed in QL)".to_string());
         }
         if self.indexes.ql_has_complex_cardinality {
-            violations.push("Contains complex cardinality restrictions (not allowed in QL)".to_string());
+            violations
+                .push("Contains complex cardinality restrictions (not allowed in QL)".to_string());
         }
         if self.indexes.ql_has_property_chains {
             violations.push("Contains property chain axioms (not allowed in QL)".to_string());
@@ -365,7 +370,8 @@ impl Owl2ProfileValidator {
             violations.push("Contains data complement expressions (not allowed in RL)".to_string());
         }
         if self.indexes.rl_has_object_complements {
-            violations.push("Contains object complement expressions (not allowed in RL)".to_string());
+            violations
+                .push("Contains object complement expressions (not allowed in RL)".to_string());
         }
         if self.indexes.rl_has_complex_class_expressions {
             violations.push("Contains complex class expressions (not allowed in RL)".to_string());
@@ -381,25 +387,28 @@ impl Owl2ProfileValidator {
             Owl2Profile::RL => self.get_rl_violation_summary(),
         };
 
-        violations_summary.into_iter().map(|message| {
-            // Map specific messages to specific violation types for better test compatibility
-            let violation_type = if message.contains("disjoint classes") {
-                ProfileViolationType::DisjointClassesAxiom
-            } else if message.contains("equivalent classes") {
-                ProfileViolationType::EquivalentClassesAxiom
-            } else if message.contains("property restrictions") {
-                ProfileViolationType::ComplexPropertyRestrictions
-            } else {
-                ProfileViolationType::ComplexClassExpressions // Generic fallback
-            };
+        violations_summary
+            .into_iter()
+            .map(|message| {
+                // Map specific messages to specific violation types for better test compatibility
+                let violation_type = if message.contains("disjoint classes") {
+                    ProfileViolationType::DisjointClassesAxiom
+                } else if message.contains("equivalent classes") {
+                    ProfileViolationType::EquivalentClassesAxiom
+                } else if message.contains("property restrictions") {
+                    ProfileViolationType::ComplexPropertyRestrictions
+                } else {
+                    ProfileViolationType::ComplexClassExpressions // Generic fallback
+                };
 
-            ProfileViolation {
-                violation_type,
-                message,
-                affected_entities: Vec::new(), // Detailed entities not available in fast check
-                severity: ViolationSeverity::Error,
-            }
-        }).collect()
+                ProfileViolation {
+                    violation_type,
+                    message,
+                    affected_entities: Vec::new(), // Detailed entities not available in fast check
+                    severity: ViolationSeverity::Error,
+                }
+            })
+            .collect()
     }
 
     /// Get memory pool statistics
@@ -453,7 +462,8 @@ impl ValidationStats {
         if self.peak_memory_usage_bytes == 0 {
             0.0
         } else {
-            (self.arena_allocations as f64 * mem::size_of::<ProfileViolation>() as f64) / self.peak_memory_usage_bytes as f64
+            (self.arena_allocations as f64 * mem::size_of::<ProfileViolation>() as f64)
+                / self.peak_memory_usage_bytes as f64
         }
     }
 }
@@ -499,11 +509,12 @@ impl ProfileIndexes {
 
         // Basic statistics
         indexes.total_classes = ontology.classes().len();
-        indexes.total_properties = ontology.object_properties().len() + ontology.data_properties().len();
+        indexes.total_properties =
+            ontology.object_properties().len() + ontology.data_properties().len();
         indexes.total_individuals = ontology.named_individuals().len();
-        indexes.total_axioms = ontology.subclass_axioms().len() +
-                             ontology.equivalent_classes_axioms().len() +
-                             ontology.disjoint_classes_axioms().len();
+        indexes.total_axioms = ontology.subclass_axioms().len()
+            + ontology.equivalent_classes_axioms().len()
+            + ontology.disjoint_classes_axioms().len();
 
         // EL Profile analysis
         indexes.el_has_disjoint_classes = !ontology.disjoint_classes_axioms().is_empty();
@@ -532,25 +543,25 @@ impl ProfileIndexes {
     }
 
     fn is_el_compliant(&self) -> bool {
-        !self.el_has_disjoint_classes &&
-        !self.el_has_complex_restrictions &&
-        !self.el_has_nominals &&
-        self.el_property_hierarchy_depth <= 3 // EL prefers shallow hierarchies
+        !self.el_has_disjoint_classes
+            && !self.el_has_complex_restrictions
+            && !self.el_has_nominals
+            && self.el_property_hierarchy_depth <= 3 // EL prefers shallow hierarchies
     }
 
     fn is_ql_compliant(&self) -> bool {
-        !self.ql_has_transitive_properties &&
-        !self.ql_has_asymmetric_properties &&
-        !self.ql_has_irreflexive_properties &&
-        !self.ql_has_complex_cardinality &&
-        !self.ql_has_property_chains
+        !self.ql_has_transitive_properties
+            && !self.ql_has_asymmetric_properties
+            && !self.ql_has_irreflexive_properties
+            && !self.ql_has_complex_cardinality
+            && !self.ql_has_property_chains
     }
 
     fn is_rl_compliant(&self) -> bool {
-        !self.rl_has_nominals &&
-        !self.rl_has_data_complements &&
-        !self.rl_has_object_complements &&
-        !self.rl_has_complex_class_expressions
+        !self.rl_has_nominals
+            && !self.rl_has_data_complements
+            && !self.rl_has_object_complements
+            && !self.rl_has_complex_class_expressions
     }
 
     // Helper methods for analysis
@@ -558,8 +569,9 @@ impl ProfileIndexes {
         // Check for ObjectOneOf expressions in class expressions
 
         for axiom in ontology.subclass_axioms() {
-            if Self::expression_contains_nominals(axiom.sub_class()) ||
-               Self::expression_contains_nominals(axiom.super_class()) {
+            if Self::expression_contains_nominals(axiom.sub_class())
+                || Self::expression_contains_nominals(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -577,11 +589,14 @@ impl ProfileIndexes {
     }
 
     fn expression_contains_nominals(expr: &crate::axioms::ClassExpression) -> bool {
-
         match expr {
             ObjectOneOf(_) => true,
-            ObjectIntersectionOf(classes) => classes.iter().any(|c| Self::expression_contains_nominals(c)),
-            ObjectUnionOf(classes) => classes.iter().any(|c| Self::expression_contains_nominals(c)),
+            ObjectIntersectionOf(classes) => classes
+                .iter()
+                .any(|c| Self::expression_contains_nominals(c)),
+            ObjectUnionOf(classes) => classes
+                .iter()
+                .any(|c| Self::expression_contains_nominals(c)),
             ObjectComplementOf(class) => Self::expression_contains_nominals(class),
             ObjectSomeValuesFrom(_, class) => Self::expression_contains_nominals(class),
             ObjectAllValuesFrom(_, class) => Self::expression_contains_nominals(class),
@@ -594,10 +609,10 @@ impl ProfileIndexes {
     }
 
     fn has_complex_restrictions(ontology: &Ontology) -> bool {
-
         for axiom in ontology.subclass_axioms() {
-            if Self::is_complex_expression(axiom.sub_class()) ||
-               Self::is_complex_expression(axiom.super_class()) {
+            if Self::is_complex_expression(axiom.sub_class())
+                || Self::is_complex_expression(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -606,7 +621,6 @@ impl ProfileIndexes {
     }
 
     fn is_complex_expression(expr: &crate::axioms::ClassExpression) -> bool {
-
         matches!(expr, ObjectUnionOf(_) | ObjectComplementOf(_))
     }
 
@@ -627,10 +641,10 @@ impl ProfileIndexes {
     }
 
     fn has_complex_cardinality(ontology: &Ontology) -> bool {
-
         for axiom in ontology.subclass_axioms() {
-            if Self::has_complex_cardinality_in_expression(axiom.sub_class()) ||
-               Self::has_complex_cardinality_in_expression(axiom.super_class()) {
+            if Self::has_complex_cardinality_in_expression(axiom.sub_class())
+                || Self::has_complex_cardinality_in_expression(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -639,8 +653,10 @@ impl ProfileIndexes {
     }
 
     fn has_complex_cardinality_in_expression(expr: &crate::axioms::ClassExpression) -> bool {
-
-        matches!(expr, ObjectMinCardinality(_, _) | ObjectMaxCardinality(_, _) | ObjectExactCardinality(_, _))
+        matches!(
+            expr,
+            ObjectMinCardinality(_, _) | ObjectMaxCardinality(_, _) | ObjectExactCardinality(_, _)
+        )
     }
 
     fn has_property_chains(_ontology: &Ontology) -> bool {
@@ -649,10 +665,10 @@ impl ProfileIndexes {
     }
 
     fn has_data_complements(ontology: &Ontology) -> bool {
-
         for axiom in ontology.subclass_axioms() {
-            if Self::has_data_complement_in_expression(axiom.sub_class()) ||
-               Self::has_data_complement_in_expression(axiom.super_class()) {
+            if Self::has_data_complement_in_expression(axiom.sub_class())
+                || Self::has_data_complement_in_expression(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -661,15 +677,14 @@ impl ProfileIndexes {
     }
 
     fn has_data_complement_in_expression(_expr: &crate::axioms::ClassExpression) -> bool {
-
         false // DataComplementOf is a DataRange, not ClassExpression
     }
 
     fn has_object_complements(ontology: &Ontology) -> bool {
-
         for axiom in ontology.subclass_axioms() {
-            if Self::has_object_complement_in_expression(axiom.sub_class()) ||
-               Self::has_object_complement_in_expression(axiom.super_class()) {
+            if Self::has_object_complement_in_expression(axiom.sub_class())
+                || Self::has_object_complement_in_expression(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -678,15 +693,14 @@ impl ProfileIndexes {
     }
 
     fn has_object_complement_in_expression(expr: &crate::axioms::ClassExpression) -> bool {
-
         matches!(expr, ObjectComplementOf(_))
     }
 
     fn has_complex_class_expressions(ontology: &Ontology) -> bool {
-
         for axiom in ontology.subclass_axioms() {
-            if Self::is_complex_expression(axiom.sub_class()) ||
-               Self::is_complex_expression(axiom.super_class()) {
+            if Self::is_complex_expression(axiom.sub_class())
+                || Self::is_complex_expression(axiom.super_class())
+            {
                 return true;
             }
         }
@@ -700,7 +714,6 @@ impl ProfileIndexes {
     }
 
     fn calculate_max_class_expression_depth(ontology: &Ontology) -> usize {
-
         let mut max_depth = 0;
 
         for axiom in ontology.subclass_axioms() {
@@ -712,11 +725,22 @@ impl ProfileIndexes {
     }
 
     fn expression_depth(expr: &crate::axioms::ClassExpression) -> usize {
-
         match expr {
             Class(_) => 1,
-            ObjectIntersectionOf(classes) => 1 + classes.iter().map(|c| Self::expression_depth(c)).max().unwrap_or(0),
-            ObjectUnionOf(classes) => 1 + classes.iter().map(|c| Self::expression_depth(c)).max().unwrap_or(0),
+            ObjectIntersectionOf(classes) => {
+                1 + classes
+                    .iter()
+                    .map(|c| Self::expression_depth(c))
+                    .max()
+                    .unwrap_or(0)
+            }
+            ObjectUnionOf(classes) => {
+                1 + classes
+                    .iter()
+                    .map(|c| Self::expression_depth(c))
+                    .max()
+                    .unwrap_or(0)
+            }
             ObjectComplementOf(class) => 1 + Self::expression_depth(class),
             ObjectOneOf(_) => 1,
             ObjectSomeValuesFrom(_, class) => 1 + Self::expression_depth(class),
@@ -740,8 +764,10 @@ impl ProfileIndexes {
 
         match range {
             Datatype(_) => 1,
-            DataIntersectionOf(ranges) => 1 + ranges.iter().map(|r| Self::data_range_depth(r)).max().unwrap_or(0),
-            DataUnionOf(ranges) => 1 + ranges.iter().map(|r| Self::data_range_depth(r)).max().unwrap_or(0),
+            DataIntersectionOf(ranges) => {
+                1 + ranges.iter().map(Self::data_range_depth).max().unwrap_or(0)
+            }
+            DataUnionOf(ranges) => 1 + ranges.iter().map(Self::data_range_depth).max().unwrap_or(0),
             DataComplementOf(range) => 1 + Self::data_range_depth(range),
             DataOneOf(_) => 1,
             DatatypeRestriction(_, _) => 1,
@@ -859,7 +885,8 @@ impl ProfileValidator for Owl2ProfileValidator {
             };
 
             // Update statistics
-            self.validation_stats.total_validation_time_ms += validation_time.as_secs_f64() * 1000.0;
+            self.validation_stats.total_validation_time_ms +=
+                validation_time.as_secs_f64() * 1000.0;
             self.validation_stats.arena_allocations += 1;
 
             // Cache result using appropriate caching strategy
@@ -892,7 +919,8 @@ impl ProfileValidator for Owl2ProfileValidator {
             };
 
             // Update statistics
-            self.validation_stats.total_validation_time_ms += validation_time.as_secs_f64() * 1000.0;
+            self.validation_stats.total_validation_time_ms +=
+                validation_time.as_secs_f64() * 1000.0;
 
             // Cache result using appropriate caching strategy
             if self.use_advanced_caching {
@@ -1122,7 +1150,10 @@ impl Owl2ProfileValidator {
 
         // Check subclass axioms for complex property restrictions
         for axiom in self.ontology.subclass_axioms() {
-            violations.extend(self.validate_property_restrictions_in_expression(axiom.super_class(), axiom.sub_class())?);
+            violations.extend(self.validate_property_restrictions_in_expression(
+                axiom.super_class(),
+                axiom.sub_class(),
+            )?);
         }
 
         // Check equivalent classes axioms
@@ -1131,61 +1162,74 @@ impl Owl2ProfileValidator {
                 let class_expr = crate::axioms::ClassExpression::Class(
                     crate::entities::Class::new(class_iri.as_str()),
                 );
-                violations.extend(self.validate_property_restrictions_in_expression(&class_expr, &class_expr)?);
+                violations.extend(
+                    self.validate_property_restrictions_in_expression(&class_expr, &class_expr)?,
+                );
             }
         }
 
         Ok(violations)
     }
 
-    fn validate_property_restrictions_in_expression(&self, expr: &crate::axioms::ClassExpression, context: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn validate_property_restrictions_in_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+        context: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
             // These are allowed in EL
-            ClassExpression::Class(_) => {},
-            ClassExpression::ObjectSomeValuesFrom(_, _) => {},
+            ClassExpression::Class(_) => {}
+            ClassExpression::ObjectSomeValuesFrom(_, _) => {}
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
-                    violations.extend(self.validate_property_restrictions_in_expression(class_expr, context)?);
+                    violations.extend(
+                        self.validate_property_restrictions_in_expression(class_expr, context)?,
+                    );
                 }
-            },
+            }
 
             // These are NOT allowed in EL
             ClassExpression::ObjectAllValuesFrom(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexPropertyRestrictions,
-                    message: "Universal restrictions (ObjectAllValuesFrom) are not allowed in EL profile".to_string(),
+                    message:
+                        "Universal restrictions (ObjectAllValuesFrom) are not allowed in EL profile"
+                            .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectHasValue(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexPropertyRestrictions,
-                    message: "Has-value restrictions (ObjectHasValue) are not allowed in EL profile".to_string(),
+                    message:
+                        "Has-value restrictions (ObjectHasValue) are not allowed in EL profile"
+                            .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
-            ClassExpression::ObjectMinCardinality(_, _) |
-            ClassExpression::ObjectMaxCardinality(_, _) |
-            ClassExpression::ObjectExactCardinality(_, _) => {
+            }
+            ClassExpression::ObjectMinCardinality(_, _)
+            | ClassExpression::ObjectMaxCardinality(_, _)
+            | ClassExpression::ObjectExactCardinality(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexCardinalityRestrictions,
                     message: "Cardinality restrictions are not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectHasSelf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexPropertyRestrictions,
-                    message: "Has-self restrictions (ObjectHasSelf) are not allowed in EL profile".to_string(),
+                    message: "Has-self restrictions (ObjectHasSelf) are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectOneOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::Nominals,
@@ -1193,25 +1237,28 @@ impl Owl2ProfileValidator {
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectUnionOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexClassExpressions,
-                    message: "Union expressions (ObjectUnionOf) are not allowed in EL profile".to_string(),
+                    message: "Union expressions (ObjectUnionOf) are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectComplementOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ObjectComplementOf,
-                    message: "Complement expressions (ObjectComplementOf) are not allowed in EL profile".to_string(),
+                    message:
+                        "Complement expressions (ObjectComplementOf) are not allowed in EL profile"
+                            .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             // Data property restrictions - simplified check
-            ClassExpression::DataSomeValuesFrom(_, _) => {},
+            ClassExpression::DataSomeValuesFrom(_, _) => {}
             ClassExpression::DataAllValuesFrom(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexPropertyRestrictions,
@@ -1219,12 +1266,15 @@ impl Owl2ProfileValidator {
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             _ => {
                 // Other expressions are not allowed in EL
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexClassExpressions,
-                    message: format!("Complex class expression {:?} is not allowed in EL profile", expr),
+                    message: format!(
+                        "Complex class expression {:?} is not allowed in EL profile",
+                        expr
+                    ),
                     affected_entities: self.extract_entities_from_class_expression(context)?,
                     severity: ViolationSeverity::Error,
                 });
@@ -1234,7 +1284,10 @@ impl Owl2ProfileValidator {
         Ok(violations)
     }
 
-    fn extract_iri_from_property_expression(&self, prop_expr: &ObjectPropertyExpression) -> OwlResult<IRI> {
+    fn extract_iri_from_property_expression(
+        &self,
+        prop_expr: &ObjectPropertyExpression,
+    ) -> OwlResult<IRI> {
         match prop_expr {
             ObjectPropertyExpression::ObjectProperty(prop) => Ok(prop.iri().clone()),
             ObjectPropertyExpression::ObjectInverseOf(prop_expr) => {
@@ -1243,36 +1296,39 @@ impl Owl2ProfileValidator {
         }
     }
 
-    fn extract_entities_from_class_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<IRI>> {
+    fn extract_entities_from_class_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<IRI>> {
         let mut entities = Vec::new();
 
         match expr {
             ClassExpression::Class(class) => {
                 entities.push(class.iri().clone());
-            },
-            ClassExpression::ObjectSomeValuesFrom(prop, class_expr) |
-            ClassExpression::ObjectAllValuesFrom(prop, class_expr) => {
+            }
+            ClassExpression::ObjectSomeValuesFrom(prop, class_expr)
+            | ClassExpression::ObjectAllValuesFrom(prop, class_expr) => {
                 entities.push(self.extract_iri_from_property_expression(prop)?);
                 entities.extend(self.extract_entities_from_class_expression(class_expr)?);
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     entities.extend(self.extract_entities_from_class_expression(class_expr)?);
                 }
-            },
+            }
             ClassExpression::ObjectHasValue(prop, individual) => {
                 entities.push(self.extract_iri_from_property_expression(prop)?);
                 if let Some(iri) = individual.iri() {
                     entities.push(iri.clone());
                 }
-            },
+            }
             ClassExpression::ObjectOneOf(individuals) => {
-                for individual in individuals {
+                for individual in individuals.iter() {
                     if let Some(iri) = individual.iri() {
                         entities.push(iri.clone());
                     }
                 }
-            },
+            }
             _ => {}
         }
 
@@ -1299,21 +1355,25 @@ impl Owl2ProfileValidator {
     }
 
     // Note: This method is currently unused since data property range axioms are not directly accessible
-// It would be used when data property range validation is fully implemented
-#[allow(dead_code)]
-fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entities::DataProperty) -> OwlResult<Vec<ProfileViolation>> {
+    // It would be used when data property range validation is fully implemented
+    #[allow(dead_code)]
+    fn validate_data_range_for_el(
+        &self,
+        range: &DataRange,
+        property: &crate::entities::DataProperty,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         use crate::axioms::DataRange;
         let mut violations = Vec::new();
 
         match range {
             // These are allowed in EL
-            DataRange::Datatype(_) => {},  // Basic datatypes are allowed
+            DataRange::Datatype(_) => {} // Basic datatypes are allowed
             DataRange::DataIntersectionOf(ranges) => {
                 // Intersection of basic datatypes is allowed
                 for sub_range in ranges {
                     violations.extend(self.validate_data_range_for_el(sub_range, property)?);
                 }
-            },
+            }
 
             // These are NOT allowed in EL
             DataRange::DataComplementOf(_) => {
@@ -1323,7 +1383,7 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: vec![property.iri().clone()],
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DataOneOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::DataOneOf,
@@ -1331,7 +1391,7 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: vec![property.iri().clone()],
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DataUnionOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
@@ -1339,7 +1399,7 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: vec![property.iri().clone()],
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DatatypeRestriction(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
@@ -1347,57 +1407,64 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: vec![property.iri().clone()],
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
         }
 
         Ok(violations)
     }
 
-    fn validate_data_ranges_in_class_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn validate_data_ranges_in_class_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
-            ClassExpression::DataSomeValuesFrom(_, range) |
-            ClassExpression::DataAllValuesFrom(_, range) => {
+            ClassExpression::DataSomeValuesFrom(_, range)
+            | ClassExpression::DataAllValuesFrom(_, range) => {
                 // For EL profile, we'd need to check the data range
                 // But for now, we'll check if it contains complex ranges
                 violations.extend(self.validate_data_range_in_expression(range)?);
-            },
-            ClassExpression::DataMinCardinality(_, _) |
-            ClassExpression::DataMaxCardinality(_, _) |
-            ClassExpression::DataExactCardinality(_, _) => {
+            }
+            ClassExpression::DataMinCardinality(_, _)
+            | ClassExpression::DataMaxCardinality(_, _)
+            | ClassExpression::DataExactCardinality(_, _) => {
                 // Skip data cardinality restrictions for now
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.validate_data_ranges_in_class_expression(class_expr)?);
                 }
-            },
+            }
             _ => {}
         }
 
         Ok(violations)
     }
 
-    fn validate_data_range_in_expression(&self, range: &DataRange) -> OwlResult<Vec<ProfileViolation>> {
+    fn validate_data_range_in_expression(
+        &self,
+        range: &DataRange,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         use crate::axioms::DataRange;
         let mut violations = Vec::new();
 
         match range {
-            DataRange::Datatype(_) => {}, // Allowed
+            DataRange::Datatype(_) => {} // Allowed
             DataRange::DataIntersectionOf(ranges) => {
                 for sub_range in ranges {
                     violations.extend(self.validate_data_range_in_expression(sub_range)?);
                 }
-            },
+            }
             DataRange::DataComplementOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::DataComplementOf,
-                    message: "Data complement of expressions are not allowed in EL profile".to_string(),
+                    message: "Data complement of expressions are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: Vec::new(),
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DataOneOf(_) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::DataOneOf,
@@ -1405,7 +1472,7 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: Vec::new(),
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DatatypeRestriction(_, _) => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
@@ -1413,7 +1480,7 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: Vec::new(),
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             _ => {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
@@ -1485,37 +1552,43 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
         Ok(violations)
     }
 
-    fn check_cardinality_in_ql_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_cardinality_in_ql_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
-            ClassExpression::ObjectMinCardinality(_, _) |
-            ClassExpression::ObjectMaxCardinality(_, _) |
-            ClassExpression::ObjectExactCardinality(_, _) => {
+            ClassExpression::ObjectMinCardinality(_, _)
+            | ClassExpression::ObjectMaxCardinality(_, _)
+            | ClassExpression::ObjectExactCardinality(_, _) => {
                 // Unqualified cardinality restrictions are not allowed in QL
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexCardinalityRestrictions,
-                    message: "Unqualified cardinality restrictions are not allowed in QL profile".to_string(),
+                    message: "Unqualified cardinality restrictions are not allowed in QL profile"
+                        .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(expr)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
-            ClassExpression::DataMinCardinality(_, _) |
-            ClassExpression::DataMaxCardinality(_, _) |
-            ClassExpression::DataExactCardinality(_, _) => {
+            }
+            ClassExpression::DataMinCardinality(_, _)
+            | ClassExpression::DataMaxCardinality(_, _)
+            | ClassExpression::DataExactCardinality(_, _) => {
                 // Unqualified data cardinality restrictions are not allowed in QL
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexCardinalityRestrictions,
-                    message: "Unqualified data cardinality restrictions are not allowed in QL profile".to_string(),
+                    message:
+                        "Unqualified data cardinality restrictions are not allowed in QL profile"
+                            .to_string(),
                     affected_entities: self.extract_entities_from_class_expression(expr)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_cardinality_in_ql_expression(class_expr)?);
                 }
-            },
+            }
             _ => {}
         }
 
@@ -1532,8 +1605,9 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
             // In a full implementation, this would analyze property expressions
             violations.push(ProfileViolation {
                 violation_type: ProfileViolationType::PropertyChainAxioms,
-                message: "Property chain axioms are not allowed in QL profile (simplified check)".to_string(),
-                affected_entities: vec![],
+                message: "Property chain axioms are not allowed in QL profile (simplified check)"
+                    .to_string(),
+                affected_entities: Vec::new(),
                 severity: ViolationSeverity::Warning,
             });
         }
@@ -1542,7 +1616,11 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
     }
 
     #[allow(dead_code)]
-    fn is_complex_subproperty_expression(&self, sub_prop: &ObjectPropertyExpression, super_prop: &ObjectPropertyExpression) -> bool {
+    fn is_complex_subproperty_expression(
+        &self,
+        sub_prop: &ObjectPropertyExpression,
+        super_prop: &ObjectPropertyExpression,
+    ) -> bool {
         // In QL, property chains would be represented as complex subproperty expressions
         // For now, we use a simplified check
         // In a full implementation, this would analyze the property expressions
@@ -1550,8 +1628,10 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
         // Basic heuristic: if the subproperty expression is not a simple property reference,
         // it might be a property chain
         match (sub_prop, super_prop) {
-            (ObjectPropertyExpression::ObjectProperty(_),
-             ObjectPropertyExpression::ObjectProperty(_)) => false,
+            (
+                ObjectPropertyExpression::ObjectProperty(_),
+                ObjectPropertyExpression::ObjectProperty(_),
+            ) => false,
             _ => true, // Any complex expression is considered a potential property chain
         }
     }
@@ -1586,7 +1666,10 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
         Ok(violations)
     }
 
-    fn check_nominals_in_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_nominals_in_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
@@ -1597,17 +1680,17 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: self.extract_entities_from_class_expression(expr)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_nominals_in_expression(class_expr)?);
                 }
-            },
+            }
             ClassExpression::ObjectUnionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_nominals_in_expression(class_expr)?);
                 }
-            },
+            }
             _ => {}
         }
 
@@ -1632,7 +1715,10 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
         Ok(violations)
     }
 
-    fn check_data_complement_in_range(&self, range: &DataRange) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_data_complement_in_range(
+        &self,
+        range: &DataRange,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         use crate::axioms::DataRange;
         let mut violations = Vec::new();
 
@@ -1644,47 +1730,50 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: Vec::new(),
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             DataRange::DataIntersectionOf(ranges) => {
                 for sub_range in ranges {
                     violations.extend(self.check_data_complement_in_range(sub_range)?);
                 }
-            },
+            }
             DataRange::DataUnionOf(ranges) => {
                 for sub_range in ranges {
                     violations.extend(self.check_data_complement_in_range(sub_range)?);
                 }
-            },
+            }
             _ => {}
         }
 
         Ok(violations)
     }
 
-    fn check_data_complement_in_class_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_data_complement_in_class_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
-            ClassExpression::DataSomeValuesFrom(_, range) |
-            ClassExpression::DataAllValuesFrom(_, range) => {
+            ClassExpression::DataSomeValuesFrom(_, range)
+            | ClassExpression::DataAllValuesFrom(_, range) => {
                 violations.extend(self.check_data_complement_in_range(range)?);
-            },
-            ClassExpression::DataMinCardinality(_, _) |
-            ClassExpression::DataMaxCardinality(_, _) |
-            ClassExpression::DataExactCardinality(_, _) => {
+            }
+            ClassExpression::DataMinCardinality(_, _)
+            | ClassExpression::DataMaxCardinality(_, _)
+            | ClassExpression::DataExactCardinality(_, _) => {
                 // For data cardinality restrictions, we'd need to check if they have ranges
                 // But for now, we'll skip this check
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_data_complement_in_class_expression(class_expr)?);
                 }
-            },
+            }
             ClassExpression::ObjectUnionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_data_complement_in_class_expression(class_expr)?);
                 }
-            },
+            }
             _ => {}
         }
 
@@ -1716,7 +1805,10 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
         Ok(violations)
     }
 
-    fn check_object_complement_in_expression(&self, expr: &crate::axioms::ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_object_complement_in_expression(
+        &self,
+        expr: &crate::axioms::ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
@@ -1727,17 +1819,17 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
                     affected_entities: self.extract_entities_from_class_expression(expr)?,
                     severity: ViolationSeverity::Error,
                 });
-            },
+            }
             ClassExpression::ObjectIntersectionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_object_complement_in_expression(class_expr)?);
                 }
-            },
+            }
             ClassExpression::ObjectUnionOf(classes) => {
                 for class_expr in classes {
                     violations.extend(self.check_object_complement_in_expression(class_expr)?);
                 }
-            },
+            }
             _ => {}
         }
 
@@ -1828,20 +1920,28 @@ fn validate_data_range_for_el(&self, range: &DataRange, property: &crate::entiti
     #[allow(dead_code)]
     fn allocate_violation_message(&self, message: &str) -> &str {
         // Allocate string in arena and return reference
-        let arena_str = self.result_arena.alloc_str(message);
-        unsafe { std::str::from_utf8_unchecked(arena_str.as_bytes()) }
+        // alloc_str() already returns a &str, so no unsafe conversion needed
+        self.result_arena.alloc_str(message)
     }
 
     // Allocate IRI vectors in arena for efficient storage
     #[allow(dead_code)]
     fn allocate_iri_vector(&self, iris: Vec<IRI>) -> &[IRI] {
-        let arena_iris = self.result_arena.alloc_slice_fill_with(iris.len(), |i| iris[i].clone());
+        let arena_iris = self
+            .result_arena
+            .alloc_slice_fill_with(iris.len(), |i| iris[i].clone());
         arena_iris
     }
 
     // Performance-optimized violation creation using arena allocation
     #[allow(dead_code)]
-    fn create_violation_optimized(&mut self, violation_type: ProfileViolationType, message: String, affected_entities: Vec<IRI>, severity: ViolationSeverity) -> ProfileViolation {
+    fn create_violation_optimized(
+        &mut self,
+        violation_type: ProfileViolationType,
+        message: String,
+        affected_entities: Vec<IRI>,
+        severity: ViolationSeverity,
+    ) -> ProfileViolation {
         // Use arena for message string
         let arena_message = self.allocate_violation_message(&message);
 
@@ -2175,7 +2275,7 @@ impl Default for ProfileCacheConfig {
             _hot_cache_size: 100,
             compressed_cache_size: 500,
             ttl_duration: Duration::from_secs(3600), // 1 hour
-            compression_threshold: 1024, // 1KB
+            compression_threshold: 1024,             // 1KB
             hot_cache_threshold: 5,
         }
     }
@@ -2185,7 +2285,10 @@ impl AdvancedCacheManager {
     /// Create a new advanced cache manager
     fn new() -> Self {
         Self {
-            primary_cache: LruCache::new(std::num::NonZeroUsize::new(ProfileCacheConfig::default().primary_cache_size).unwrap()),
+            primary_cache: LruCache::new(
+                std::num::NonZeroUsize::new(ProfileCacheConfig::default().primary_cache_size)
+                    .unwrap(),
+            ),
             hot_cache: DashMap::new(),
             compressed_cache: HashMap::new(),
             invalidation_tokens: HashSet::new(),
@@ -2197,7 +2300,9 @@ impl AdvancedCacheManager {
     /// Create a new advanced cache manager with custom configuration
     fn with_config(config: ProfileCacheConfig) -> Self {
         Self {
-            primary_cache: LruCache::new(std::num::NonZeroUsize::new(config.primary_cache_size).unwrap()),
+            primary_cache: LruCache::new(
+                std::num::NonZeroUsize::new(config.primary_cache_size).unwrap(),
+            ),
             hot_cache: DashMap::new(),
             compressed_cache: HashMap::new(),
             invalidation_tokens: HashSet::new(),
@@ -2312,8 +2417,11 @@ impl AdvancedCacheManager {
     fn put_compressed(&mut self, profile: Owl2Profile, result: ProfileValidationResult) {
         if self.compressed_cache.len() >= self.config.compressed_cache_size {
             // Remove oldest entry
-            if let Some((oldest_key, _)) = self.compressed_cache.iter()
-                .min_by_key(|(_, entry)| entry.metadata.timestamp) {
+            if let Some((oldest_key, _)) = self
+                .compressed_cache
+                .iter()
+                .min_by_key(|(_, entry)| entry.metadata.timestamp)
+            {
                 let oldest_key = oldest_key.clone();
                 if let Some(removed) = self.compressed_cache.remove(&oldest_key) {
                     self.cache_stats.total_memory_bytes -= removed.original_memory;
@@ -2334,7 +2442,8 @@ impl AdvancedCacheManager {
         let compressed_data = json_data; // Placeholder - real compression would go here
 
         let original_memory = self.estimate_result_memory(result);
-        self.cache_stats.compressed_memory_saved += original_memory.saturating_sub(compressed_data.len());
+        self.cache_stats.compressed_memory_saved +=
+            original_memory.saturating_sub(compressed_data.len());
 
         CompressedCacheEntry {
             compressed_data,
@@ -2352,10 +2461,13 @@ impl AdvancedCacheManager {
     }
 
     /// Decompress a cache entry back to validation result
-    fn decompress_cache_entry(&self, compressed_entry: &CompressedCacheEntry) -> ProfileValidationResult {
+    fn decompress_cache_entry(
+        &self,
+        compressed_entry: &CompressedCacheEntry,
+    ) -> ProfileValidationResult {
         // For now, use simple JSON decompression
-        serde_json::from_slice(&compressed_entry.compressed_data)
-            .unwrap_or_else(|_| ProfileValidationResult {
+        serde_json::from_slice(&compressed_entry.compressed_data).unwrap_or_else(|_| {
+            ProfileValidationResult {
                 profile: compressed_entry.metadata.profile.clone(),
                 is_valid: compressed_entry.metadata.summary.is_valid,
                 violations: Vec::new(),
@@ -2365,7 +2477,8 @@ impl AdvancedCacheManager {
                     validation_time_ms: compressed_entry.metadata.summary.validation_time_ms,
                     memory_usage_bytes: 0,
                 },
-            })
+            }
+        })
     }
 
     /// Estimate memory usage of a validation result
@@ -2394,13 +2507,15 @@ impl AdvancedCacheManager {
     /// Update average access time
     fn update_access_time(&mut self, start_time: Instant) {
         let access_time = start_time.elapsed().as_nanos() as u64;
-        self.cache_stats.hit_rate = self.cache_stats.hits as f64 / (self.cache_stats.hits + self.cache_stats.misses) as f64;
+        self.cache_stats.hit_rate =
+            self.cache_stats.hits as f64 / (self.cache_stats.hits + self.cache_stats.misses) as f64;
 
         // Update average access time (simple moving average)
         if self.cache_stats.average_access_time_ns == 0 {
             self.cache_stats.average_access_time_ns = access_time;
         } else {
-            self.cache_stats.average_access_time_ns = (self.cache_stats.average_access_time_ns + access_time) / 2;
+            self.cache_stats.average_access_time_ns =
+                (self.cache_stats.average_access_time_ns + access_time) / 2;
         }
     }
 

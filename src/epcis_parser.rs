@@ -226,10 +226,8 @@ impl EPCISDocumentParser {
 
         // Add EPC individuals
         for epc in &event.epcs {
-            let epc_individual = NamedIndividual::new(format!(
-                "http://example.org/epcis/epcs/{}",
-                epc
-            ));
+            let epc_individual =
+                NamedIndividual::new(format!("http://example.org/epcis/epcs/{}", epc));
             ontology.add_named_individual(epc_individual)?;
         }
 

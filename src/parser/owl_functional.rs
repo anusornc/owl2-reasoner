@@ -115,17 +115,15 @@ impl OwlFunctionalSyntaxParser {
     fn parse_ontology_declaration(&self, content: &str) -> Option<String> {
         for line in content.lines() {
             let line = line.trim();
-            if line.starts_with("Ontology(") {
+            if let Some(content) = line.strip_prefix("Ontology(") {
                 // Handle both single-line and multi-line ontology declarations
-                if line.ends_with(")") {
+                if let Some(ontology_content) = content.strip_suffix(")") {
                     // Single-line declaration
-                    let ontology_content = &line[9..line.len() - 1];
                     let iri = ontology_content.trim().trim_matches('<').trim_matches('>');
                     return Some(iri.to_string());
                 } else {
                     // Multi-line declaration - extract IRI from first line
-                    let ontology_content = &line[9..];
-                    let iri = ontology_content.trim().trim_matches('<').trim_matches('>');
+                    let iri = content.trim().trim_matches('<').trim_matches('>');
                     if !iri.is_empty() {
                         return Some(iri.to_string());
                     }
@@ -174,7 +172,8 @@ impl OwlFunctionalSyntaxParser {
         } else if content.starts_with("AnonymousIndividual(") {
             let node_id_str = &content[19..content.len() - 1];
             // Clean up the node ID by removing unwanted characters
-            let node_id = node_id_str.trim()
+            let node_id = node_id_str
+                .trim()
                 .trim_start_matches('(')
                 .trim_start_matches('"')
                 .trim_end_matches('"')
@@ -371,7 +370,10 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse a class expression from OWL Functional Syntax
-    fn parse_class_expression(&mut self, expr_str: &str) -> OwlResult<crate::axioms::class_expressions::ClassExpression> {
+    fn parse_class_expression(
+        &mut self,
+        expr_str: &str,
+    ) -> OwlResult<crate::axioms::class_expressions::ClassExpression> {
         use crate::axioms::class_expressions::ClassExpression;
 
         // Handle complex class expressions
@@ -379,13 +381,13 @@ impl OwlFunctionalSyntaxParser {
             let content = &expr_str["ObjectIntersectionOf(".len()..expr_str.len() - 1];
             let operands = self.parse_class_expression_list(content)?;
             Ok(ClassExpression::ObjectIntersectionOf(SmallVec::from_vec(
-                operands.into_iter().map(Box::new).collect()
+                operands.into_iter().map(Box::new).collect(),
             )))
         } else if expr_str.starts_with("ObjectUnionOf(") {
             let content = &expr_str["ObjectUnionOf(".len()..expr_str.len() - 1];
             let operands = self.parse_class_expression_list(content)?;
             Ok(ClassExpression::ObjectUnionOf(SmallVec::from_vec(
-                operands.into_iter().map(Box::new).collect()
+                operands.into_iter().map(Box::new).collect(),
             )))
         } else if expr_str.starts_with("ObjectComplementOf(") {
             let content = &expr_str["ObjectComplementOf(".len()..expr_str.len() - 1];
@@ -415,26 +417,27 @@ impl OwlFunctionalSyntaxParser {
         } else if expr_str.starts_with("ObjectHasSelf(") {
             let content = &expr_str["ObjectHasSelf(".len()..expr_str.len() - 1];
             let property = self.parse_object_property_expression(content)?;
-            Ok(ClassExpression::ObjectHasSelf(
-                Box::new(property)
-            ))
+            Ok(ClassExpression::ObjectHasSelf(Box::new(property)))
         } else if expr_str.starts_with("ObjectMinCardinality(") {
             let content = &expr_str["ObjectMinCardinality(".len()..expr_str.len() - 1];
-            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            let (cardinality, property) =
+                self.parse_cardinality_restriction_with_expression(content)?;
             Ok(ClassExpression::ObjectMinCardinality(
                 cardinality,
                 Box::new(property),
             ))
         } else if expr_str.starts_with("ObjectMaxCardinality(") {
             let content = &expr_str["ObjectMaxCardinality(".len()..expr_str.len() - 1];
-            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            let (cardinality, property) =
+                self.parse_cardinality_restriction_with_expression(content)?;
             Ok(ClassExpression::ObjectMaxCardinality(
                 cardinality,
                 Box::new(property),
             ))
         } else if expr_str.starts_with("ObjectExactCardinality(") {
             let content = &expr_str["ObjectExactCardinality(".len()..expr_str.len() - 1];
-            let (cardinality, property) = self.parse_cardinality_restriction_with_expression(content)?;
+            let (cardinality, property) =
+                self.parse_cardinality_restriction_with_expression(content)?;
             Ok(ClassExpression::ObjectExactCardinality(
                 cardinality,
                 Box::new(property),
@@ -457,10 +460,7 @@ impl OwlFunctionalSyntaxParser {
         } else if expr_str.starts_with("DataHasValue(") {
             let content = &expr_str["DataHasValue(".len()..expr_str.len() - 1];
             let (property, literal) = self.parse_data_has_value(content)?;
-            Ok(ClassExpression::DataHasValue(
-                Box::new(property),
-                literal,
-            ))
+            Ok(ClassExpression::DataHasValue(Box::new(property), literal))
         } else if expr_str.starts_with("DataMinCardinality(") {
             let content = &expr_str["DataMinCardinality(".len()..expr_str.len() - 1];
             let (cardinality, property) = self.parse_data_cardinality_restriction(content)?;
@@ -485,7 +485,9 @@ impl OwlFunctionalSyntaxParser {
         } else if expr_str.starts_with("ObjectOneOf(") {
             let content = &expr_str["ObjectOneOf(".len()..expr_str.len() - 1];
             let individuals = self.parse_individual_list(content)?;
-            Ok(ClassExpression::ObjectOneOf(Box::new(SmallVec::from_vec(individuals))))
+            Ok(ClassExpression::ObjectOneOf(Box::new(SmallVec::from_vec(
+                individuals,
+            ))))
         } else {
             // Simple named class
             let class_iri = self.resolve_iri(expr_str)?;
@@ -495,7 +497,10 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse a list of individuals for ObjectOneOf
-    fn parse_individual_list(&mut self, content: &str) -> OwlResult<Vec<crate::entities::Individual>> {
+    fn parse_individual_list(
+        &mut self,
+        content: &str,
+    ) -> OwlResult<Vec<crate::entities::Individual>> {
         let mut individuals = Vec::new();
         let mut current = String::new();
         let mut paren_depth = 0;
@@ -542,8 +547,10 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse an object property expression (handle inverse properties)
-    fn parse_object_property_expression(&self, expr_str: &str) -> OwlResult<crate::axioms::property_expressions::ObjectPropertyExpression> {
-        
+    fn parse_object_property_expression(
+        &self,
+        expr_str: &str,
+    ) -> OwlResult<crate::axioms::property_expressions::ObjectPropertyExpression> {
         if expr_str.starts_with("ObjectInverseOf(") {
             let inverse_content = &expr_str["ObjectInverseOf(".len()..expr_str.len() - 1];
             let base_property = Box::new(self.parse_object_property_expression(inverse_content)?);
@@ -557,7 +564,13 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse a property restriction with property expression support
-    fn parse_property_restriction_with_expression(&mut self, content: &str) -> OwlResult<(crate::axioms::property_expressions::ObjectPropertyExpression, crate::axioms::class_expressions::ClassExpression)> {
+    fn parse_property_restriction_with_expression(
+        &mut self,
+        content: &str,
+    ) -> OwlResult<(
+        crate::axioms::property_expressions::ObjectPropertyExpression,
+        crate::axioms::class_expressions::ClassExpression,
+    )> {
         // Find the split between property and filler expressions
         let mut paren_count = 0;
         let mut split_pos = None;
@@ -582,14 +595,21 @@ impl OwlFunctionalSyntaxParser {
 
             Ok((property, filler))
         } else {
-            Err(crate::error::OwlError::ParseError(
-                format!("Invalid property restriction format: {}", content)
-            ))
+            Err(crate::error::OwlError::ParseError(format!(
+                "Invalid property restriction format: {}",
+                content
+            )))
         }
     }
 
     /// Parse ObjectHasValue expression with property expression support
-    fn parse_object_has_value_with_expression(&self, content: &str) -> OwlResult<(crate::axioms::property_expressions::ObjectPropertyExpression, crate::entities::Individual)> {
+    fn parse_object_has_value_with_expression(
+        &self,
+        content: &str,
+    ) -> OwlResult<(
+        crate::axioms::property_expressions::ObjectPropertyExpression,
+        crate::entities::Individual,
+    )> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
             let property_expr = parts[0];
@@ -599,14 +619,21 @@ impl OwlFunctionalSyntaxParser {
             let individual = crate::entities::NamedIndividual::new(individual_iri);
             Ok((property, crate::entities::Individual::Named(individual)))
         } else {
-            Err(crate::error::OwlError::ParseError(
-                format!("Invalid ObjectHasValue format: {}", content)
-            ))
+            Err(crate::error::OwlError::ParseError(format!(
+                "Invalid ObjectHasValue format: {}",
+                content
+            )))
         }
     }
 
     /// Parse cardinality restriction with property expression support
-    fn parse_cardinality_restriction_with_expression(&self, content: &str) -> OwlResult<(u32, crate::axioms::property_expressions::ObjectPropertyExpression)> {
+    fn parse_cardinality_restriction_with_expression(
+        &self,
+        content: &str,
+    ) -> OwlResult<(
+        u32,
+        crate::axioms::property_expressions::ObjectPropertyExpression,
+    )> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
             let cardinality_str = parts[0];
@@ -614,22 +641,27 @@ impl OwlFunctionalSyntaxParser {
 
             // Parse cardinality as u32
             let cardinality = cardinality_str.parse::<u32>().map_err(|_| {
-                crate::error::OwlError::ParseError(
-                    format!("Invalid cardinality number: {}", cardinality_str)
-                )
+                crate::error::OwlError::ParseError(format!(
+                    "Invalid cardinality number: {}",
+                    cardinality_str
+                ))
             })?;
 
             let property = self.parse_object_property_expression(property_expr)?;
             Ok((cardinality, property))
         } else {
-            Err(crate::error::OwlError::ParseError(
-                format!("Invalid cardinality restriction format: {}", content)
-            ))
+            Err(crate::error::OwlError::ParseError(format!(
+                "Invalid cardinality restriction format: {}",
+                content
+            )))
         }
     }
 
     /// Parse a list of class expressions
-    fn parse_class_expression_list(&mut self, content: &str) -> OwlResult<Vec<crate::axioms::class_expressions::ClassExpression>> {
+    fn parse_class_expression_list(
+        &mut self,
+        content: &str,
+    ) -> OwlResult<Vec<crate::axioms::class_expressions::ClassExpression>> {
         let mut expressions = Vec::new();
         let mut current_expr = String::new();
         let mut paren_count = 0;
@@ -750,14 +782,19 @@ impl OwlFunctionalSyntaxParser {
     fn extract_iri_from_class_expression(&self, expr: &ClassExpression) -> OwlResult<IRI> {
         match expr {
             ClassExpression::Class(class) => Ok(class.iri().clone()),
-            _ => Err(crate::error::OwlError::ParseError(
-                format!("Expected simple class, found complex expression: {:?}", expr)
-            ))
+            _ => Err(crate::error::OwlError::ParseError(format!(
+                "Expected simple class, found complex expression: {:?}",
+                expr
+            ))),
         }
     }
 
     /// Parse EquivalentClasses axiom
-    fn parse_equivalent_classes(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_equivalent_classes(
+        &mut self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
         let class_expressions = self.parse_class_expression_list(content)?;
         if class_expressions.len() >= 2 {
             let mut class_iris = Vec::new();
@@ -922,7 +959,9 @@ impl OwlFunctionalSyntaxParser {
     ) -> OwlResult<()> {
         let iri = self.resolve_iri(content.trim())?;
         let inverse_functional_axiom = InverseFunctionalPropertyAxiom::new(iri);
-        ontology.add_axiom(Axiom::InverseFunctionalProperty(Box::new(inverse_functional_axiom)))?;
+        ontology.add_axiom(Axiom::InverseFunctionalProperty(Box::new(
+            inverse_functional_axiom,
+        )))?;
         Ok(())
     }
 
@@ -1101,11 +1140,8 @@ impl OwlFunctionalSyntaxParser {
             let (literal, _remaining_parts) = self.parse_literal_from_parts(&parts[2..])?;
 
             if let Some(lit) = literal {
-                let assertion = DataPropertyAssertionAxiom::new(
-                    subject_iri.clone(),
-                    prop_iri.clone(),
-                    lit,
-                );
+                let assertion =
+                    DataPropertyAssertionAxiom::new(subject_iri.clone(), prop_iri.clone(), lit);
                 ontology.add_axiom(Axiom::DataPropertyAssertion(Box::new(assertion)))?;
             }
         }
@@ -1113,7 +1149,10 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse a literal from parts, handling different literal formats
-    fn parse_literal_from_parts<'a>(&self, parts: &[&'a str]) -> OwlResult<(Option<crate::entities::Literal>, Vec<&'a str>)> {
+    fn parse_literal_from_parts<'a>(
+        &self,
+        parts: &[&'a str],
+    ) -> OwlResult<(Option<crate::entities::Literal>, Vec<&'a str>)> {
         if parts.is_empty() {
             return Ok((None, Vec::new()));
         }
@@ -1138,31 +1177,41 @@ impl OwlFunctionalSyntaxParser {
             }
 
             // Extract the literal value and any datatype/language tag
-            let (literal_value, datatype, language_tag) = if let Some(closing_quote_pos) = full_literal.rfind('"') {
-                let after_quote = &full_literal[closing_quote_pos + 1..];
+            let (literal_value, datatype, language_tag) =
+                if let Some(closing_quote_pos) = full_literal.rfind('"') {
+                    let after_quote = &full_literal[closing_quote_pos + 1..];
 
-                if after_quote.starts_with("^^") {
-                    // Typed literal: "value"^^datatype
-                    let datatype_part = &after_quote[2..];
-                    let datatype_iri = self.resolve_iri(datatype_part)?;
-                    (full_literal[1..closing_quote_pos].to_string(), Some(datatype_iri), None)
-                } else if after_quote.starts_with('@') {
-                    // Language-tagged literal: "value"@language
-                    let language_part = &after_quote[1..];
-                    (full_literal[1..closing_quote_pos].to_string(), None, Some(language_part.to_string()))
+                    if let Some(datatype_part) = after_quote.strip_prefix("^^") {
+                        // Typed literal: "value"^^datatype
+                        let datatype_iri = self.resolve_iri(datatype_part)?;
+                        (
+                            full_literal[1..closing_quote_pos].to_string(),
+                            Some(datatype_iri),
+                            None,
+                        )
+                    } else if let Some(language_part) = after_quote.strip_prefix('@') {
+                        // Language-tagged literal: "value"@language
+                        (
+                            full_literal[1..closing_quote_pos].to_string(),
+                            None,
+                            Some(language_part.to_string()),
+                        )
+                    } else {
+                        // Simple string literal
+                        (full_literal[1..closing_quote_pos].to_string(), None, None)
+                    }
                 } else {
-                    // Simple string literal
-                    (full_literal[1..closing_quote_pos].to_string(), None, None)
-                }
-            } else {
-                return Ok((None, parts.to_vec()));
-            };
+                    return Ok((None, parts.to_vec()));
+                };
 
             // Create the literal
             let literal = if let Some(datatype_iri) = datatype {
                 Some(crate::entities::Literal::typed(literal_value, datatype_iri))
             } else if let Some(lang_tag) = language_tag {
-                Some(crate::entities::Literal::lang_tagged(literal_value, lang_tag))
+                Some(crate::entities::Literal::lang_tagged(
+                    literal_value,
+                    lang_tag,
+                ))
             } else {
                 Some(crate::entities::Literal::simple(literal_value))
             };
@@ -1192,7 +1241,9 @@ impl OwlFunctionalSyntaxParser {
                 prop_iri.clone(),
                 object_iri.clone(),
             );
-            ontology.add_axiom(Axiom::NegativeObjectPropertyAssertion(Box::new(neg_assertion)))?;
+            ontology.add_axiom(Axiom::NegativeObjectPropertyAssertion(Box::new(
+                neg_assertion,
+            )))?;
         }
         Ok(())
     }
@@ -1217,7 +1268,9 @@ impl OwlFunctionalSyntaxParser {
                     prop_iri.clone(),
                     lit,
                 );
-                ontology.add_axiom(Axiom::NegativeDataPropertyAssertion(Box::new(neg_assertion)))?;
+                ontology.add_axiom(Axiom::NegativeDataPropertyAssertion(Box::new(
+                    neg_assertion,
+                )))?;
             }
         }
         Ok(())
@@ -1523,7 +1576,7 @@ impl OwlFunctionalSyntaxParser {
                 if paren_count == 0 {
                     if !current.trim().is_empty() {
                         // Parse facet restriction like "minInclusive 18"
-                        let facet_parts: Vec<&str> = current.trim().split_whitespace().collect();
+                        let facet_parts: Vec<&str> = current.split_whitespace().collect();
                         if facet_parts.len() >= 2 {
                             let facet_iri = self.resolve_iri(facet_parts[0])?;
                             let literal = self.parse_literal(facet_parts[1])?;
@@ -1534,7 +1587,7 @@ impl OwlFunctionalSyntaxParser {
                 }
             } else if ch.is_whitespace() && paren_count == 0 {
                 if !current.trim().is_empty() {
-                    let facet_parts: Vec<&str> = current.trim().split_whitespace().collect();
+                    let facet_parts: Vec<&str> = current.split_whitespace().collect();
                     if facet_parts.len() >= 2 {
                         let facet_iri = self.resolve_iri(facet_parts[0])?;
                         let literal = self.parse_literal(facet_parts[1])?;
@@ -1599,19 +1652,35 @@ impl OwlFunctionalSyntaxParser {
 
         // Check for boolean literals
         match input {
-            "true" => return Ok(Literal::typed("true", "http://www.w3.org/2001/XMLSchema#boolean")),
-            "false" => return Ok(Literal::typed("false", "http://www.w3.org/2001/XMLSchema#boolean")),
+            "true" => {
+                return Ok(Literal::typed(
+                    "true",
+                    "http://www.w3.org/2001/XMLSchema#boolean",
+                ))
+            }
+            "false" => {
+                return Ok(Literal::typed(
+                    "false",
+                    "http://www.w3.org/2001/XMLSchema#boolean",
+                ))
+            }
             _ => {}
         }
 
         // Check for integer literals
         if let Ok(int_value) = input.parse::<i64>() {
-            return Ok(Literal::typed(int_value.to_string(), "http://www.w3.org/2001/XMLSchema#integer"));
+            return Ok(Literal::typed(
+                int_value.to_string(),
+                "http://www.w3.org/2001/XMLSchema#integer",
+            ));
         }
 
         // Check for float literals
         if let Ok(float_value) = input.parse::<f64>() {
-            return Ok(Literal::typed(float_value.to_string(), "http://www.w3.org/2001/XMLSchema#double"));
+            return Ok(Literal::typed(
+                float_value.to_string(),
+                "http://www.w3.org/2001/XMLSchema#double",
+            ));
         }
 
         // Try to parse as IRI (could be an individual IRI used as a value)
@@ -1626,15 +1695,22 @@ impl OwlFunctionalSyntaxParser {
             return self.resolve_iri(input).map(|_iri| Literal::simple(input));
         }
 
-        Err(ParserError::ParseError(format!("Invalid literal: {}", input)))
+        Err(ParserError::ParseError(format!(
+            "Invalid literal: {}",
+            input
+        )))
     }
 
     /// Parse AnnotationAssertion axiom
-    fn parse_annotation_assertion(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_annotation_assertion(
+        &mut self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
         // Parse the annotation property (first token)
         let mut chars = content.chars();
         let mut property_str = String::new();
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             if c.is_whitespace() {
                 break;
             }
@@ -1642,14 +1718,14 @@ impl OwlFunctionalSyntaxParser {
         }
 
         // Skip whitespace and parse the subject (second token)
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             if !c.is_whitespace() {
                 break;
             }
         }
 
         let mut subject_str = String::new();
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             if c.is_whitespace() {
                 break;
             }
@@ -1673,14 +1749,19 @@ impl OwlFunctionalSyntaxParser {
                 crate::entities::AnnotationValue::IRI(value_iri)
             };
 
-            let annotation_assertion = AnnotationAssertionAxiom::new(property_iri, subject_iri, annotation_value);
+            let annotation_assertion =
+                AnnotationAssertionAxiom::new(property_iri, subject_iri, annotation_value);
             ontology.add_axiom(Axiom::AnnotationAssertion(Box::new(annotation_assertion)))?;
         }
         Ok(())
     }
 
     /// Parse SubAnnotationPropertyOf axiom
-    fn parse_sub_annotation_property_of(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_sub_annotation_property_of(
+        &mut self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
             let sub_prop_iri = self.resolve_iri(parts[0])?;
@@ -1693,7 +1774,11 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse AnnotationPropertyDomain axiom
-    fn parse_annotation_property_domain(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_annotation_property_domain(
+        &mut self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
             let prop_iri = self.resolve_iri(parts[0])?;
@@ -1706,7 +1791,11 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Parse AnnotationPropertyRange axiom
-    fn parse_annotation_property_range(&mut self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
+    fn parse_annotation_property_range(
+        &mut self,
+        content: &str,
+        ontology: &mut Ontology,
+    ) -> OwlResult<()> {
         let parts: Vec<&str> = content.split_whitespace().collect();
         if parts.len() >= 2 {
             let prop_iri = self.resolve_iri(parts[0])?;

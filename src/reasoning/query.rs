@@ -153,7 +153,76 @@ pub enum FilterExpression {
     Not(Box<FilterExpression>),
 }
 
+/// RDF vocabulary constants
+const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+
+/// Types of triple pattern queries
+#[derive(Debug, Clone, PartialEq)]
+enum QueryType {
+    TypeQuery,
+    PropertyQuery,
+    VariablePredicate,
+}
+
 impl QueryEngine {
+    /// Determine the type of query based on the triple pattern
+    fn determine_query_type(&self, triple: &TriplePattern) -> QueryType {
+        match &triple.predicate {
+            PatternTerm::IRI(pred_iri) => {
+                if pred_iri.as_str() == RDF_TYPE {
+                    QueryType::TypeQuery
+                } else {
+                    QueryType::PropertyQuery
+                }
+            }
+            _ => QueryType::VariablePredicate,
+        }
+    }
+
+    /// Collect bindings for type queries (rdf:type)
+    fn collect_type_query_bindings(
+        &self,
+        triple: &TriplePattern,
+        bindings: &mut Vec<QueryBinding>,
+    ) {
+        for axiom in self.ontology.class_assertions() {
+            if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
+                bindings.push(binding);
+            }
+        }
+    }
+
+    /// Collect bindings for property queries
+    fn collect_property_query_bindings(
+        &self,
+        triple: &TriplePattern,
+        bindings: &mut Vec<QueryBinding>,
+    ) {
+        for axiom in self.ontology.property_assertions() {
+            if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
+                bindings.push(binding);
+            }
+        }
+    }
+
+    /// Collect bindings for variable predicate queries
+    fn collect_variable_predicate_bindings(
+        &self,
+        triple: &TriplePattern,
+        bindings: &mut Vec<QueryBinding>,
+    ) {
+        for axiom in self.ontology.class_assertions() {
+            if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
+                bindings.push(binding);
+            }
+        }
+
+        for axiom in self.ontology.property_assertions() {
+            if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
+                bindings.push(binding);
+            }
+        }
+    }
     /// Create a new query engine
     pub fn new(ontology: Ontology) -> Self {
         Self::with_config(ontology, QueryConfig::default())
@@ -265,37 +334,15 @@ impl QueryEngine {
     ) -> OwlResult<Vec<QueryBinding>> {
         let mut bindings = Vec::new();
 
-        // Use indexed storage for O(1) access instead of iterating through all axioms
-
-        // Check if this is a type query (rdf:type)
-        if let PatternTerm::IRI(pred_iri) = &triple.predicate {
-            if pred_iri.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
-                // This is a type query - use class assertions directly
-                for axiom in self.ontology.class_assertions() {
-                    if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
-                        bindings.push(binding);
-                    }
-                }
-            } else {
-                // This is a property query - use property assertions directly
-                for axiom in self.ontology.property_assertions() {
-                    if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
-                        bindings.push(binding);
-                    }
-                }
+        match self.determine_query_type(triple) {
+            QueryType::TypeQuery => {
+                self.collect_type_query_bindings(triple, &mut bindings);
             }
-        } else {
-            // Predicate is a variable - match both class and property assertions
-            for axiom in self.ontology.class_assertions() {
-                if let Some(binding) = self.match_class_assertion_optimized(triple, axiom) {
-                    bindings.push(binding);
-                }
+            QueryType::PropertyQuery => {
+                self.collect_property_query_bindings(triple, &mut bindings);
             }
-
-            for axiom in self.ontology.property_assertions() {
-                if let Some(binding) = self.match_property_assertion_optimized(triple, axiom) {
-                    bindings.push(binding);
-                }
+            QueryType::VariablePredicate => {
+                self.collect_variable_predicate_bindings(triple, &mut bindings);
             }
         }
 
@@ -308,33 +355,54 @@ impl QueryEngine {
         triple: &TriplePattern,
         axiom: &crate::axioms::ClassAssertionAxiom,
     ) -> Option<QueryBinding> {
-        let type_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        let type_iri = IRI::new(RDF_TYPE)
             .map_err(|e| OwlError::IriParseError {
-                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                iri: RDF_TYPE.to_string(),
                 context: format!("Failed to create rdf:type IRI: {}", e),
             })
             .expect("Failed to create rdf:type IRI");
 
         let individual_iri = axiom.individual();
-        // Clone once and reuse
         let individual_term = PatternTerm::IRI(individual_iri.clone());
 
-        let subject_match = self.match_term(&triple.subject, &individual_term);
-        let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
-        let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
-
-        if subject_match && predicate_match && object_match {
-            let mut binding = QueryBinding {
-                variables: HashMap::new(),
-            };
-
-            self.add_binding(&mut binding, &triple.subject, &individual_term);
-            self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
-
-            Some(binding)
+        if self.is_class_assertion_match(triple, &individual_term, &type_iri, axiom.class_expr()) {
+            Some(self.create_class_assertion_binding(triple, &individual_term, axiom.class_expr()))
         } else {
             None
         }
+    }
+
+    /// Check if a class assertion matches the triple pattern
+    fn is_class_assertion_match(
+        &self,
+        triple: &TriplePattern,
+        individual_term: &PatternTerm,
+        type_iri: &IRI,
+        class_expr: &crate::axioms::ClassExpression,
+    ) -> bool {
+        let subject_match = self.match_term(&triple.subject, individual_term);
+        let predicate_match =
+            self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri.clone()));
+        let object_match = self.match_class_expr_term(&triple.object, class_expr);
+
+        subject_match && predicate_match && object_match
+    }
+
+    /// Create a binding for a class assertion match
+    fn create_class_assertion_binding(
+        &self,
+        triple: &TriplePattern,
+        individual_term: &PatternTerm,
+        class_expr: &crate::axioms::ClassExpression,
+    ) -> QueryBinding {
+        let mut binding = QueryBinding {
+            variables: HashMap::new(),
+        };
+
+        self.add_binding(&mut binding, &triple.subject, individual_term);
+        self.add_class_expr_binding(&mut binding, &triple.object, class_expr);
+
+        binding
     }
 
     /// Match triple pattern against property assertion (optimized)
@@ -345,34 +413,75 @@ impl QueryEngine {
     ) -> Option<QueryBinding> {
         let subject_iri = axiom.subject();
         let property_iri = axiom.property();
-        let _object_iri = axiom.object();
 
-        // Clone once and reuse terms
         let subject_term = PatternTerm::IRI(subject_iri.clone());
         let property_term = PatternTerm::IRI(property_iri.clone());
 
-        let subject_match = self.match_term(&triple.subject, &subject_term);
-        let predicate_match = self.match_term(&triple.predicate, &property_term);
-        let object_match =
-            self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
-
-        if subject_match && predicate_match && object_match {
-            let mut binding = QueryBinding {
-                variables: HashMap::new(),
-            };
-
-            self.add_binding(&mut binding, &triple.subject, &subject_term);
-            self.add_binding(&mut binding, &triple.predicate, &property_term);
-            self.add_binding(
-                &mut binding,
-                &triple.object,
-                &PatternTerm::IRI(axiom.object().clone()),
-            );
-
-            Some(binding)
+        if self.is_property_assertion_match(triple, &subject_term, &property_term, axiom) {
+            Some(self.create_property_assertion_binding(
+                triple,
+                &subject_term,
+                &property_term,
+                axiom,
+            ))
         } else {
             None
         }
+    }
+
+    /// Check if a property assertion matches the triple pattern
+    fn is_property_assertion_match(
+        &self,
+        triple: &TriplePattern,
+        subject_term: &PatternTerm,
+        property_term: &PatternTerm,
+        axiom: &crate::axioms::PropertyAssertionAxiom,
+    ) -> bool {
+        let subject_match = self.match_term(&triple.subject, subject_term);
+        let predicate_match = self.match_term(&triple.predicate, property_term);
+        let object_match = self.match_property_object(&triple.object, axiom);
+
+        subject_match && predicate_match && object_match
+    }
+
+    /// Match property object term
+    fn match_property_object(
+        &self,
+        object_term: &PatternTerm,
+        axiom: &crate::axioms::PropertyAssertionAxiom,
+    ) -> bool {
+        if let Some(object_iri) = axiom.object_iri() {
+            self.match_term(object_term, &PatternTerm::IRI(object_iri.clone()))
+        } else {
+            // Skip anonymous individuals in query matching for now
+            false
+        }
+    }
+
+    /// Create a binding for a property assertion match
+    fn create_property_assertion_binding(
+        &self,
+        triple: &TriplePattern,
+        subject_term: &PatternTerm,
+        property_term: &PatternTerm,
+        axiom: &crate::axioms::PropertyAssertionAxiom,
+    ) -> QueryBinding {
+        let mut binding = QueryBinding {
+            variables: HashMap::new(),
+        };
+
+        self.add_binding(&mut binding, &triple.subject, subject_term);
+        self.add_binding(&mut binding, &triple.predicate, property_term);
+
+        if let Some(object_iri) = axiom.object_iri() {
+            self.add_binding(
+                &mut binding,
+                &triple.object,
+                &PatternTerm::IRI(object_iri.clone()),
+            );
+        }
+
+        binding
     }
 
     /// Perform hash join between two sets of bindings
@@ -420,10 +529,7 @@ impl QueryEngine {
                 .map(|var| right_binding.variables.get(var).cloned().unwrap())
                 .collect();
 
-            hash_table
-                .entry(key)
-                .or_insert_with(Vec::new)
-                .push(right_binding);
+            hash_table.entry(key).or_default().push(right_binding);
         }
 
         // Probe with left bindings
@@ -499,8 +605,12 @@ impl QueryEngine {
             &triple.predicate,
             &PatternTerm::IRI(axiom.property().clone()),
         );
-        let object_match =
-            self.match_term(&triple.object, &PatternTerm::IRI(axiom.object().clone()));
+        let object_match = if let Some(object_iri) = axiom.object_iri() {
+            self.match_term(&triple.object, &PatternTerm::IRI(object_iri.clone()))
+        } else {
+            // Skip anonymous individuals in query matching for now
+            false
+        };
 
         if subject_match && predicate_match && object_match {
             let mut binding = QueryBinding {
@@ -517,11 +627,13 @@ impl QueryEngine {
                 &triple.predicate,
                 &PatternTerm::IRI(axiom.property().clone()),
             );
-            self.add_binding(
-                &mut binding,
-                &triple.object,
-                &PatternTerm::IRI(axiom.object().clone()),
-            );
+            if let Some(object_iri) = axiom.object_iri() {
+                self.add_binding(
+                    &mut binding,
+                    &triple.object,
+                    &PatternTerm::IRI(object_iri.clone()),
+                );
+            }
 
             Some(binding)
         } else {
@@ -849,9 +961,9 @@ impl QueryEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ontology::Ontology;
     use crate::Class;
     use crate::NamedIndividual;
-    use crate::ontology::Ontology;
 
     #[test]
     fn test_query_engine_creation() {
@@ -868,23 +980,26 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add test data
-        let person_iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI for testing");
-        let john_iri = IRI::new("http://example.org/john")
-            .expect("Failed to create john IRI for testing");
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI for testing");
+        let john_iri =
+            IRI::new("http://example.org/john").expect("Failed to create john IRI for testing");
 
         let person_class = Class::new(person_iri.clone());
         let john_individual = NamedIndividual::new(john_iri.clone());
 
-        ontology.add_class(person_class.clone())
+        ontology
+            .add_class(person_class.clone())
             .expect("Failed to add Person class");
-        ontology.add_named_individual(john_individual)
+        ontology
+            .add_named_individual(john_individual)
             .expect("Failed to add john individual");
 
         // Add class assertion
         let class_assertion =
             ClassAssertionAxiom::new(john_iri.clone(), ClassExpression::Class(person_class));
-        ontology.add_class_assertion(class_assertion)
+        ontology
+            .add_class_assertion(class_assertion)
             .expect("Failed to add class assertion");
 
         let mut engine = QueryEngine::new(ontology);
@@ -902,7 +1017,8 @@ mod tests {
             object: PatternTerm::IRI(person_iri),
         }]);
 
-        let result = engine.execute_query(&pattern)
+        let result = engine
+            .execute_query(&pattern)
             .expect("Failed to execute query");
 
         assert_eq!(result.bindings.len(), 1);
@@ -925,8 +1041,9 @@ mod tests {
                 let mut vars = HashMap::new();
                 vars.insert(
                     "?x".to_string(),
-                    QueryValue::IRI(IRI::new("http://example.org/test")
-                        .expect("Failed to create test IRI")),
+                    QueryValue::IRI(
+                        IRI::new("http://example.org/test").expect("Failed to create test IRI"),
+                    ),
                 );
                 vars
             },
@@ -934,8 +1051,9 @@ mod tests {
 
         let expression = FilterExpression::Equals {
             left: PatternTerm::Variable("?x".to_string()),
-            right: PatternTerm::IRI(IRI::new("http://example.org/test")
-                .expect("Failed to create test IRI")),
+            right: PatternTerm::IRI(
+                IRI::new("http://example.org/test").expect("Failed to create test IRI"),
+            ),
         };
 
         assert!(engine.evaluate_filter_expression(&binding, &expression));

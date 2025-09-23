@@ -4,13 +4,13 @@
 //! memory monitoring, leak detection, and automatic cleanup mechanisms.
 
 use crate::cache_manager;
-use crate::iri::clear_global_iri_cache;
 use crate::entities::clear_global_entity_cache;
-use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
+use crate::iri::clear_global_iri_cache;
 use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 /// Memory usage statistics
 #[derive(Debug, Clone)]
@@ -54,9 +54,8 @@ impl Default for MemoryMonitorConfig {
 }
 
 /// Global memory monitor
-static GLOBAL_MEMORY_MONITOR: Lazy<MemoryMonitor> = Lazy::new(|| {
-    MemoryMonitor::new(MemoryMonitorConfig::default())
-});
+static GLOBAL_MEMORY_MONITOR: Lazy<MemoryMonitor> =
+    Lazy::new(|| MemoryMonitor::new(MemoryMonitorConfig::default()));
 
 /// Memory leak prevention and monitoring system
 pub struct MemoryMonitor {
@@ -112,7 +111,10 @@ impl MemoryMonitor {
 
     /// Get current memory statistics
     pub fn get_stats(&self) -> MemoryStats {
-        let mut stats = self.stats.lock().expect("Failed to acquire lock for memory statistics");
+        let mut stats = self
+            .stats
+            .lock()
+            .expect("Failed to acquire lock for memory statistics");
 
         // Update current usage
         stats.total_usage = self.get_current_memory_usage();
@@ -159,13 +161,15 @@ impl MemoryMonitor {
             // Use mach APIs on macOS
             #[allow(deprecated)]
             unsafe {
-                use libc::{mach_task_self, task_info, mach_task_basic_info,
-                          mach_msg_type_number_t};
+                use libc::{
+                    mach_msg_type_number_t, mach_task_basic_info, mach_task_self, task_info,
+                };
 
                 // SAFETY: These macOS APIs are system calls and are safe to use
                 // The zeroed() call is safe for mach_task_basic_info
                 let mut info: mach_task_basic_info = std::mem::zeroed();
-                let mut count = (std::mem::size_of::<mach_task_basic_info>() / std::mem::size_of::<i32>())
+                let mut count = (std::mem::size_of::<mach_task_basic_info>()
+                    / std::mem::size_of::<i32>())
                     as mach_msg_type_number_t;
 
                 // SAFETY: task_info is a system call that writes to the info struct
@@ -177,8 +181,9 @@ impl MemoryMonitor {
                     mach_task_self(),
                     4, // MACH_TASK_BASIC_INFO
                     &mut info as *mut _ as *mut _,
-                    &mut count
-                ) == 0 {
+                    &mut count,
+                ) == 0
+                {
                     return info.virtual_size as usize;
                 }
             }
@@ -188,8 +193,10 @@ impl MemoryMonitor {
         {
             // Use Windows APIs
             unsafe {
-                use winapi::um::psapi::{GetCurrentProcess, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
                 use winapi::um::processthreadsapi::OpenProcess;
+                use winapi::um::psapi::{
+                    GetCurrentProcess, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
+                };
 
                 // SAFETY: These Windows APIs are system calls that are safe to use
                 // GetCurrentProcess and OpenProcess return valid process handles
@@ -199,7 +206,11 @@ impl MemoryMonitor {
                 let process = OpenProcess(PROCESS_QUERY_INFORMATION, 0, GetCurrentProcess());
                 if !process.is_null() {
                     let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
-                    if GetProcessMemoryInfo(process, &mut pmc, std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() != 0) {
+                    if GetProcessMemoryInfo(
+                        process,
+                        &mut pmc,
+                        std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() != 0,
+                    ) {
                         return pmc.WorkingSetSize as usize;
                     }
                 }
@@ -218,11 +229,17 @@ impl MemoryMonitor {
     /// Check for memory pressure and perform cleanup if needed
     pub fn check_and_cleanup(&self) -> Result<(), String> {
         let stats = self.get_stats();
-        let mut last_cleanup = self.last_cleanup.lock().expect("Failed to acquire lock for cleanup timing");
+        let mut last_cleanup = self
+            .last_cleanup
+            .lock()
+            .expect("Failed to acquire lock for cleanup timing");
 
         // Check if we're above pressure threshold
         if stats.pressure_level > self.config.pressure_threshold {
-            println!("Memory pressure detected: {:.2}%", stats.pressure_level * 100.0);
+            println!(
+                "Memory pressure detected: {:.2}%",
+                stats.pressure_level * 100.0
+            );
             self.perform_cleanup()?;
             *last_cleanup = Instant::now();
             self.cleanup_count.fetch_add(1, Ordering::Relaxed);
@@ -387,7 +404,8 @@ pub fn detect_memory_leaks() -> LeakDetectionReport {
         1.0 - (stats.pressure_level * 0.5)
     } else {
         0.5 - ((stats.pressure_level - 0.5) * 2.0)
-    }.max(0.0);
+    }
+    .max(0.0);
 
     LeakDetectionReport {
         potential_leaks,

@@ -98,6 +98,12 @@ pub struct NtriplesParser {
     config: ParserConfig,
 }
 
+impl Default for NtriplesParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NtriplesParser {
     pub fn new() -> Self {
         Self {
@@ -207,7 +213,7 @@ impl NtriplesParser {
                 '<' => {
                     // IRI
                     let mut iri_str = String::new();
-                    while let Some((_, next_c)) = chars.next() {
+                    for (_, next_c) in chars.by_ref() {
                         if next_c == '>' {
                             break;
                         }
@@ -310,7 +316,7 @@ impl NtriplesParser {
                                     if let Some((_, c2)) = chars.next() {
                                         if c2 == '<' {
                                             let mut dt_iri = String::new();
-                                            while let Some((_, dt_c)) = chars.next() {
+                                            for (_, dt_c) in chars.by_ref() {
                                                 if dt_c == '>' {
                                                     break;
                                                 }
@@ -358,27 +364,25 @@ impl NtriplesParser {
                             }
                             Ok(NtriplesTerm::BlankNode(bnode_id))
                         } else {
-                            return Err(crate::error::OwlError::ParseError(
+                            Err(crate::error::OwlError::ParseError(
                                 "Expected ':' after '_' for blank node".to_string(),
-                            ));
+                            ))
                         }
                     } else {
-                        return Err(crate::error::OwlError::ParseError(
+                        Err(crate::error::OwlError::ParseError(
                             "Incomplete blank node".to_string(),
-                        ));
+                        ))
                     }
                 }
-                _ => {
-                    return Err(crate::error::OwlError::ParseError(format!(
-                        "Unexpected character '{}' at start of term",
-                        c
-                    )));
-                }
+                _ => Err(crate::error::OwlError::ParseError(format!(
+                    "Unexpected character '{}' at start of term",
+                    c
+                ))),
             }
         } else {
-            return Err(crate::error::OwlError::ParseError(
+            Err(crate::error::OwlError::ParseError(
                 "Unexpected end of input while parsing term".to_string(),
-            ));
+            ))
         }
     }
 
