@@ -41,7 +41,7 @@ impl EdgeStorage {
 
         // Update index
         let key = (from, property.clone());
-        self.index.entry(key).or_insert_with(SmallVec::new).push(to);
+        self.index.entry(key).or_default().push(to);
     }
 
     fn get_targets(&self, from: NodeId, property: &IRI) -> Option<&[NodeId]> {
@@ -190,7 +190,12 @@ pub struct BlockingConstraint {
 }
 
 impl BlockingConstraint {
-    fn new(blocked_node: NodeId, blocking_node: NodeId, blocking_type: BlockingType, reason: String) -> Self {
+    fn new(
+        blocked_node: NodeId,
+        blocking_node: NodeId,
+        blocking_type: BlockingType,
+        reason: String,
+    ) -> Self {
         let strength = match blocking_type {
             BlockingType::Subset => 0.7,
             BlockingType::Equality => 1.0,
@@ -208,8 +213,7 @@ impl BlockingConstraint {
             strength,
         }
     }
-
-  }
+}
 
 /// Optimized tableaux graph structure
 #[derive(Debug)]
@@ -271,8 +275,12 @@ impl ArenaTableauxGraph {
         };
 
         // Create root node
-        let root_node = graph.arena_manager.allocate_node(TableauxNode::new(graph.root));
-        graph.nodes.insert(graph.root, NonNull::new(root_node).unwrap());
+        let root_node = graph
+            .arena_manager
+            .allocate_node(TableauxNode::new(graph.root));
+        graph
+            .nodes
+            .insert(graph.root, NonNull::new(root_node).unwrap());
 
         graph
     }
@@ -295,6 +303,10 @@ impl ArenaTableauxGraph {
     /// Add a concept to a node in arena memory
     pub fn add_concept(&mut self, node_id: NodeId, concept: ClassExpression) {
         if let Some(node_ptr) = self.nodes.get_mut(&node_id) {
+            // SAFETY: The node_ptr is guaranteed to be valid because:
+            // 1. It was allocated from the same arena (self.arena)
+            // 2. The arena is still alive (we have &mut self)
+            // 3. No other references exist to this node due to exclusive access
             unsafe {
                 let node = node_ptr.as_mut();
                 node.concepts.push(concept);
@@ -312,17 +324,35 @@ impl ArenaTableauxGraph {
 
     /// Get a node from the arena-optimized graph
     pub fn get_node(&self, node_id: NodeId) -> Option<&TableauxNode> {
-        self.nodes.get(&node_id).map(|node_ptr| unsafe { node_ptr.as_ref() })
+        self.nodes.get(&node_id).map(|node_ptr| {
+            // SAFETY: The node_ptr is guaranteed to be valid because:
+            // 1. It was allocated from the same arena (self.arena)
+            // 2. The arena is still alive (we have &self)
+            // 3. The reference lifetime is tied to &self
+            unsafe { node_ptr.as_ref() }
+        })
     }
 
     /// Get a mutable node from the arena-optimized graph
     pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut TableauxNode> {
-        self.nodes.get_mut(&node_id).map(|node_ptr| unsafe { node_ptr.as_mut() })
+        self.nodes.get_mut(&node_id).map(|node_ptr| {
+            // SAFETY: The node_ptr is guaranteed to be valid because:
+            // 1. It was allocated from the same arena (self.arena)
+            // 2. The arena is still alive (we have &mut self)
+            // 3. We have exclusive access via &mut self
+            unsafe { node_ptr.as_mut() }
+        })
     }
 
     /// Get all nodes from the arena-optimized graph
     pub fn get_nodes(&self) -> impl Iterator<Item = &TableauxNode> {
-        self.nodes.values().map(|node_ptr| unsafe { node_ptr.as_ref() })
+        self.nodes.values().map(|node_ptr| {
+            // SAFETY: The node_ptr is guaranteed to be valid because:
+            // 1. It was allocated from the same arena (self.arena)
+            // 2. The arena is still alive (we have &self)
+            // 3. The iterator lifetime is tied to &self
+            unsafe { node_ptr.as_ref() }
+        })
     }
 
     /// Get successors of a node
@@ -350,7 +380,9 @@ impl ArenaTableauxGraph {
         if total_traditional_allocations == 0 {
             1.0
         } else {
-            let total_arena_allocations = stats.arena_allocated_nodes + stats.arena_allocated_expressions + stats.arena_allocated_constraints;
+            let total_arena_allocations = stats.arena_allocated_nodes
+                + stats.arena_allocated_expressions
+                + stats.arena_allocated_constraints;
             total_traditional_allocations as f64 / total_arena_allocations.max(1) as f64
         }
     }
@@ -381,7 +413,8 @@ impl ArenaTableauxGraph {
         self.blocking_constraints.push(arena_constraint);
 
         // Update blocking index
-        self.blocking_index.insert(blocked_node, self.blocking_constraints.len() - 1);
+        self.blocking_index
+            .insert(blocked_node, self.blocking_constraints.len() - 1);
 
         // Update blocking statistics
         self.blocking_stats.total_blocks += 1;
@@ -394,7 +427,8 @@ impl ArenaTableauxGraph {
 
     /// Check if a node is blocked
     pub fn is_node_blocked(&self, node_id: NodeId) -> bool {
-        self.blocking_index.contains_key(&node_id) || self.blocking_stats.blocked_nodes.contains(&node_id)
+        self.blocking_index.contains_key(&node_id)
+            || self.blocking_stats.blocked_nodes.contains(&node_id)
     }
 
     /// Get blocking statistics
@@ -536,7 +570,10 @@ impl ArenaManager {
     }
 
     /// Allocate a blocking constraint in the constraint arena
-    pub fn allocate_constraint(&mut self, constraint: BlockingConstraint) -> &mut BlockingConstraint {
+    pub fn allocate_constraint(
+        &mut self,
+        constraint: BlockingConstraint,
+    ) -> &mut BlockingConstraint {
         self.stats.constraint_allocations += 1;
         self.stats.total_bytes_allocated += mem::size_of::<BlockingConstraint>();
         self.constraint_arena.alloc(constraint)
@@ -546,7 +583,14 @@ impl ArenaManager {
     pub fn intern_string(&mut self, s: &str) -> &str {
         if let Some(&ptr) = self.string_interner.get(s) {
             self.stats.string_intern_hits += 1;
-            return unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len())) };
+            // SAFETY: This is safe because:
+            // 1. The pointer was originally allocated from the string arena
+            // 2. The string content is identical (it was used as the map key)
+            // 3. The arena is still alive (we have &mut self)
+            // 4. The pointer points to valid UTF-8 data (it was a &str originally)
+            return unsafe {
+                std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len()))
+            };
         }
 
         let allocated = self.string_arena.alloc_str(s);
@@ -574,10 +618,10 @@ impl ArenaManager {
 
     /// Get total memory usage across all arenas
     pub fn total_memory_usage(&self) -> usize {
-        self.node_arena.allocated_bytes() +
-        self.expression_arena.allocated_bytes() +
-        self.constraint_arena.allocated_bytes() +
-        self.string_arena.allocated_bytes()
+        self.node_arena.allocated_bytes()
+            + self.expression_arena.allocated_bytes()
+            + self.constraint_arena.allocated_bytes()
+            + self.string_arena.allocated_bytes()
     }
 }
 
@@ -602,11 +646,19 @@ impl ArenaTableauxNode {
 
     /// Get mutable reference to the node
     pub fn get_mut(&mut self) -> &mut TableauxNode {
+        // SAFETY: The node_ptr is guaranteed to be valid because:
+        // 1. It was allocated from an arena that outlives this struct
+        // 2. The _arena field ensures the arena stays alive
+        // 3. We have exclusive access via &mut self
         unsafe { self.node_ptr.as_mut() }
     }
 
     /// Get immutable reference to the node
     pub fn get(&self) -> &TableauxNode {
+        // SAFETY: The node_ptr is guaranteed to be valid because:
+        // 1. It was allocated from an arena that outlives this struct
+        // 2. The _arena field ensures the arena stays alive
+        // 3. The reference lifetime is tied to &self
         unsafe { self.node_ptr.as_ref() }
     }
 }
@@ -635,12 +687,13 @@ impl ArenaEdgeStorage {
         self.edges.push(edge);
 
         let key = (from, property.clone());
-        self.index.entry(key).or_insert_with(SmallVec::new).push(to);
+        self.index.entry(key).or_default().push(to);
     }
 
     /// Get successors of a node
     pub fn get_successors(&self, node: NodeId, property: &IRI) -> Option<&[NodeId]> {
-        self.index.get(&(node, property.clone()))
+        self.index
+            .get(&(node, property.clone()))
             .map(|vec| vec.as_slice())
     }
 
@@ -770,7 +823,12 @@ impl DependencyManager {
     }
 
     /// Push a new reasoning choice onto the stack
-    pub fn push_choice(&mut self, node_id: NodeId, choice: ReasoningChoice, alternatives: Vec<ReasoningChoice>) {
+    pub fn push_choice(
+        &mut self,
+        node_id: NodeId,
+        choice: ReasoningChoice,
+        alternatives: Vec<ReasoningChoice>,
+    ) {
         let backtrack_point = BacktrackPoint {
             node_id,
             choice: choice.clone(),
@@ -786,7 +844,12 @@ impl DependencyManager {
     }
 
     /// Add a dependency created by the current choice
-    pub fn add_dependency(&mut self, dependent_node: NodeId, source_node: NodeId, choice: &ReasoningChoice) {
+    pub fn add_dependency(
+        &mut self,
+        dependent_node: NodeId,
+        source_node: NodeId,
+        choice: &ReasoningChoice,
+    ) {
         if let Some(current_point) = self.backtrack_stack.last_mut() {
             let dependency = Dependency {
                 source_node,
@@ -799,8 +862,9 @@ impl DependencyManager {
             current_point.dependencies.push(dependency.clone());
 
             // Add to node dependency index
-            self.node_dependencies.entry(dependent_node)
-                .or_insert_with(Vec::new)
+            self.node_dependencies
+                .entry(dependent_node)
+                .or_default()
                 .push(dependency);
         }
     }
@@ -841,7 +905,11 @@ impl DependencyManager {
     }
 
     /// Execute backtracking to a specific point
-    pub fn backtrack_to(&mut self, target_level: usize, graph: &mut TableauxGraph) -> OwlResult<()> {
+    pub fn backtrack_to(
+        &mut self,
+        target_level: usize,
+        graph: &mut TableauxGraph,
+    ) -> OwlResult<()> {
         // Remove all nodes and dependencies created after the target level
         self.revert_to_level(target_level, graph)?;
 
@@ -854,7 +922,9 @@ impl DependencyManager {
     /// Revert graph state to a specific level
     fn revert_to_level(&mut self, target_level: usize, graph: &mut TableauxGraph) -> OwlResult<()> {
         // Remove nodes created after target level
-        let nodes_to_remove: Vec<NodeId> = graph.nodes.keys()
+        let nodes_to_remove: Vec<NodeId> = graph
+            .nodes
+            .keys()
             .filter(|&&_node_id| {
                 // Determine if this node was created after target level
                 // This is a simplified check - in practice, you'd track creation levels
@@ -868,9 +938,8 @@ impl DependencyManager {
         }
 
         // Remove dependencies after target level
-        self.node_dependencies.retain(|_, dependencies| {
-            dependencies.iter().any(|dep| dep.level <= target_level)
-        });
+        self.node_dependencies
+            .retain(|_, dependencies| dependencies.iter().any(|dep| dep.level <= target_level));
 
         // Mark backtrack points as exhausted up to target level
         for point in &mut self.backtrack_stack {
@@ -1049,7 +1118,8 @@ impl TableauxReasoner {
         let result = self.run_tableaux(&mut graph, ReasoningConfig::default())?;
 
         // Cache result
-        self.cache.set_concept_satisfiability(concept.clone(), result.is_satisfiable);
+        self.cache
+            .set_concept_satisfiability(concept.clone(), result.is_satisfiable);
 
         Ok(result.is_satisfiable)
     }
@@ -1071,7 +1141,7 @@ impl TableauxReasoner {
                 Box::new(sub_concept),
                 Box::new(ClassExpression::ObjectComplementOf(Box::new(sup_concept))),
             ]
-            .into()
+            .into(),
         );
 
         Ok(!self.is_satisfiable(&intersection)?)
@@ -1089,7 +1159,7 @@ impl TableauxReasoner {
 
         // A and B are disjoint iff A ⊓ B is unsatisfiable
         let intersection = ClassExpression::ObjectIntersectionOf(
-            vec![Box::new(a_concept), Box::new(b_concept)].into()
+            vec![Box::new(a_concept), Box::new(b_concept)].into(),
         );
 
         Ok(!self.is_satisfiable(&intersection)?)
@@ -1170,8 +1240,9 @@ impl TableauxReasoner {
             }
 
             // Apply reasoning rules with dependency tracking
-            let node = graph.nodes.get(&node_id)
-                .ok_or_else(|| OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0)))?;
+            let node = graph.nodes.get(&node_id).ok_or_else(|| {
+                OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0))
+            })?;
             let concepts: Vec<_> = node.concepts.iter().cloned().collect();
 
             for concept in concepts {
@@ -1187,7 +1258,8 @@ impl TableauxReasoner {
                 }
 
                 // Track this reasoning choice
-                self.dependency_manager.push_choice(node_id, choice.clone(), Vec::new());
+                self.dependency_manager
+                    .push_choice(node_id, choice.clone(), Vec::new());
 
                 if let Some((new_concepts, new_nodes_created)) =
                     self.apply_rules_with_dependencies(&concept, node_id, graph)?
@@ -1197,21 +1269,24 @@ impl TableauxReasoner {
                     // Add new concepts to current node and track dependencies
                     for new_concept in new_concepts {
                         graph.add_concept(node_id, new_concept);
-                        self.dependency_manager.add_dependency(node_id, node_id, &choice);
+                        self.dependency_manager
+                            .add_dependency(node_id, node_id, &choice);
                     }
 
                     // Add new nodes to queue and track dependencies
                     for new_node_id in new_nodes_created {
                         queue.push_back(new_node_id);
                         stats.nodes_created += 1;
-                        self.dependency_manager.add_dependency(new_node_id, node_id, &choice);
+                        self.dependency_manager
+                            .add_dependency(new_node_id, node_id, &choice);
                     }
                 }
             }
 
             // Check for contradictions with dependency-directed backtracking
-            let node = graph.nodes.get(&node_id)
-                .ok_or_else(|| OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0)))?;
+            let node = graph.nodes.get(&node_id).ok_or_else(|| {
+                OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0))
+            })?;
 
             if self.has_contradiction(node) {
                 // Handle contradiction with backtracking
@@ -1226,8 +1301,11 @@ impl TableauxReasoner {
                 let backtrack_index = self.dependency_manager.find_backtrack_point(node_id);
 
                 if let Some(index) = backtrack_index {
-                    if let Some(backtrack_point) = self.dependency_manager.backtrack_stack.get(index) {
-                        self.dependency_manager.backtrack_to(backtrack_point.level, graph)?;
+                    if let Some(backtrack_point) =
+                        self.dependency_manager.backtrack_stack.get(index)
+                    {
+                        self.dependency_manager
+                            .backtrack_to(backtrack_point.level, graph)?;
                         continue;
                     }
                 }
@@ -1250,7 +1328,9 @@ impl TableauxReasoner {
             if self.is_complete_model(graph) {
                 return Ok(ReasoningResult {
                     is_satisfiable: true,
-                    explanation: Some("Complete model found with dependency-directed backtracking".to_string()),
+                    explanation: Some(
+                        "Complete model found with dependency-directed backtracking".to_string(),
+                    ),
                     model: Some(self.extract_model(graph)),
                     stats: stats.clone(),
                 });
@@ -1276,7 +1356,8 @@ impl TableauxReasoner {
         match concept {
             ClassExpression::ObjectIntersectionOf(operands) => {
                 // Decompose intersection: C ⊓ D → C, D
-                let operands_vec: Vec<ClassExpression> = operands.iter().map(|op| (**op).clone()).collect();
+                let operands_vec: Vec<ClassExpression> =
+                    operands.iter().map(|op| (**op).clone()).collect();
                 Ok(Some((operands_vec, Vec::new())))
             }
 
@@ -1318,7 +1399,7 @@ impl TableauxReasoner {
 
             ClassExpression::ObjectOneOf(individuals) => {
                 // {a₁, ..., aₙ} → create nominal nodes with individual equality
-                self.apply_nominal_rule(individuals, node_id, graph)
+                self.apply_nominal_rule(&individuals, node_id, graph)
             }
 
             ClassExpression::ObjectMinCardinality(n, property) => {
@@ -1470,7 +1551,11 @@ impl TableauxReasoner {
     }
 
     /// Check sophisticated blocking conditions (non-mutating)
-    fn check_sophisticated_blocking_conditions(&self, node_id: NodeId, graph: &TableauxGraph) -> bool {
+    fn check_sophisticated_blocking_conditions(
+        &self,
+        node_id: NodeId,
+        graph: &TableauxGraph,
+    ) -> bool {
         let _node = &graph.nodes[&node_id];
 
         // Strategy 1: Enhanced Subset Blocking
@@ -1631,13 +1716,17 @@ impl TableauxReasoner {
 
     /// Get the current reasoning choice from the dependency manager
     fn get_current_choice(&self) -> Option<ReasoningChoice> {
-        self.dependency_manager.backtrack_stack.last()
+        self.dependency_manager
+            .backtrack_stack
+            .last()
             .map(|point| point.choice.clone())
     }
 
     /// Check if dependency-directed backtracking is available
     fn has_backtrack_options(&self) -> bool {
-        self.dependency_manager.backtrack_stack.iter()
+        self.dependency_manager
+            .backtrack_stack
+            .iter()
             .any(|point| !point.exhausted && !point.alternatives.is_empty())
     }
 
@@ -1647,7 +1736,11 @@ impl TableauxReasoner {
     }
 
     /// Apply sophisticated blocking strategies
-    fn apply_sophisticated_blocking_strategies(&self, node_id: NodeId, graph: &mut TableauxGraph) -> bool {
+    fn apply_sophisticated_blocking_strategies(
+        &self,
+        node_id: NodeId,
+        graph: &mut TableauxGraph,
+    ) -> bool {
         let _node = &graph.nodes[&node_id];
 
         // Strategy 1: Enhanced Subset Blocking
@@ -1763,7 +1856,10 @@ impl TableauxReasoner {
                             node_id,
                             *other_id,
                             BlockingType::Equality,
-                            format!("Equality blocking: both nodes represent individual {:?}", individual.iri())
+                            format!(
+                                "Equality blocking: both nodes represent individual {:?}",
+                                individual.iri()
+                            ),
                         );
                         return true;
                     }
@@ -1821,7 +1917,10 @@ impl TableauxReasoner {
                         node_id,
                         parent,
                         BlockingType::Nominal,
-                        format!("Nominal blocking: both nodes represent nominal {:?}", individuals)
+                        format!(
+                            "Nominal blocking: both nodes represent nominal {:?}",
+                            individuals
+                        ),
                     );
                     return true;
                 }
@@ -1874,8 +1973,10 @@ impl TableauxReasoner {
                         node_id,
                         parent,
                         BlockingType::Dynamic,
-                        format!("Dynamic blocking: self-restriction pattern similarity ({} vs {})",
-                                self_restriction_count, parent_self_count)
+                        format!(
+                            "Dynamic blocking: self-restriction pattern similarity ({} vs {})",
+                            self_restriction_count, parent_self_count
+                        ),
                     );
                     return true;
                 }
@@ -1994,8 +2095,9 @@ impl TableauxReasoner {
         graph: &mut TableauxGraph,
     ) -> OwlResult<Option<(Vec<ClassExpression>, Vec<NodeId>)>> {
         // Check if the complement concept exists in the node (contradiction)
-        let node = graph.nodes.get(&node_id)
-            .ok_or_else(|| OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0)))?;
+        let node = graph.nodes.get(&node_id).ok_or_else(|| {
+            OwlError::ReasoningError(format!("Node {} not found in graph", node_id.0))
+        })?;
 
         // Check for direct contradiction
         if node.concepts.contains(concept) {
@@ -2018,7 +2120,10 @@ impl TableauxReasoner {
                     .iter()
                     .map(|op| Box::new(ClassExpression::ObjectComplementOf((*op).clone())))
                     .collect();
-                return Ok(Some((vec![ClassExpression::ObjectUnionOf(new_concepts)], Vec::new())));
+                return Ok(Some((
+                    vec![ClassExpression::ObjectUnionOf(new_concepts)],
+                    Vec::new(),
+                )));
             }
             ClassExpression::ObjectUnionOf(operands) => {
                 // De Morgan's law: ¬(C₁ ⊔ ... ⊔ Cₙ) ≡ ¬C₁ ⊓ ... ⊓ ¬Cₙ
@@ -2130,7 +2235,12 @@ impl TableauxReasoner {
             graph.add_individual_constraint(new_node_id, individual.clone());
 
             // Add the individual class to the new node
-            let individual_class = ClassExpression::Class(Class::new(individual.iri().expect("Individual must have an IRI").clone()));
+            let individual_class = ClassExpression::Class(Class::new(
+                individual
+                    .iri()
+                    .expect("Individual must have an IRI")
+                    .clone(),
+            ));
             graph.add_concept(new_node_id, individual_class);
 
             return Ok(Some((Vec::new(), vec![new_node_id])));
@@ -2152,12 +2262,14 @@ impl TableauxReasoner {
 
         // Check if the self-edge already exists
         let self_edge_exists = if !is_inverse {
-            graph.get_successors(node_id, property_iri)
+            graph
+                .get_successors(node_id, property_iri)
                 .map(|successors| successors.contains(&node_id))
                 .unwrap_or(false)
         } else {
             // For inverse properties, check if node is its own predecessor
-            graph.get_predecessors(node_id, property_iri)
+            graph
+                .get_predecessors(node_id, property_iri)
                 .contains(&node_id)
         };
 
@@ -2208,8 +2320,12 @@ impl TableauxReasoner {
         if !is_inverse {
             if let Some(successors) = graph.get_successors(node_id, property_iri) {
                 for successor_id in successors {
-                    let successor_node = graph.nodes.get(successor_id)
-                        .ok_or_else(|| OwlError::ReasoningError(format!("Successor node {} not found in graph", successor_id.0)))?;
+                    let successor_node = graph.nodes.get(successor_id).ok_or_else(|| {
+                        OwlError::ReasoningError(format!(
+                            "Successor node {} not found in graph",
+                            successor_id.0
+                        ))
+                    })?;
                     if successor_node.concepts.contains(filler) {
                         matching_successors += 1;
                     }
@@ -2228,8 +2344,12 @@ impl TableauxReasoner {
             // For inverse properties, count predecessors and create new predecessors if needed
             let predecessors = graph.get_predecessors(node_id, property_iri);
             for pred_id in predecessors {
-                let pred_node = graph.nodes.get(&pred_id)
-                    .ok_or_else(|| OwlError::ReasoningError(format!("Predecessor node {} not found in graph", pred_id.0)))?;
+                let pred_node = graph.nodes.get(&pred_id).ok_or_else(|| {
+                    OwlError::ReasoningError(format!(
+                        "Predecessor node {} not found in graph",
+                        pred_id.0
+                    ))
+                })?;
                 if pred_node.concepts.contains(filler) {
                     matching_successors += 1;
                 }
@@ -2279,7 +2399,8 @@ impl TableauxReasoner {
 
         // Get all relevant successors/predecessors
         let relevant_nodes = if !is_inverse {
-            graph.get_successors(node_id, property_iri)
+            graph
+                .get_successors(node_id, property_iri)
                 .map(|s| s.to_vec())
                 .unwrap_or_default()
         } else {
@@ -2474,12 +2595,20 @@ impl TableauxGraph {
     }
 
     /// Add individual equality constraint for nominal reasoning
-    pub fn add_individual_constraint(&mut self, node_id: NodeId, individual: crate::entities::Individual) {
+    pub fn add_individual_constraint(
+        &mut self,
+        node_id: NodeId,
+        individual: crate::entities::Individual,
+    ) {
         self._individual_constraints.insert(node_id, individual);
     }
 
     /// Check if a node is equal to an individual
-    pub fn is_equal_to_individual(&self, node_id: NodeId, individual: &crate::entities::Individual) -> bool {
+    pub fn is_equal_to_individual(
+        &self,
+        node_id: NodeId,
+        individual: &crate::entities::Individual,
+    ) -> bool {
         self._individual_constraints.get(&node_id) == Some(individual)
     }
 
@@ -2489,7 +2618,7 @@ impl TableauxGraph {
             blocked_node,
             blocking_node,
             BlockingType::Cardinality,
-            "Cardinality restriction".to_string()
+            "Cardinality restriction".to_string(),
         );
     }
 
@@ -2499,9 +2628,10 @@ impl TableauxGraph {
         blocked_node: NodeId,
         blocking_node: NodeId,
         blocking_type: BlockingType,
-        reason: String
+        reason: String,
     ) {
-        let constraint = BlockingConstraint::new(blocked_node, blocking_node, blocking_type.clone(), reason);
+        let constraint =
+            BlockingConstraint::new(blocked_node, blocking_node, blocking_type.clone(), reason);
         let constraint_index = self.blocking_constraints.len();
 
         self.blocking_constraints.push(constraint);
@@ -2522,13 +2652,15 @@ impl TableauxGraph {
 
     /// Check if a node is blocked and return the strongest blocking constraint
     pub fn is_blocked_by(&self, node_id: NodeId) -> Option<&BlockingConstraint> {
-        self.blocking_index.get(&node_id)
+        self.blocking_index
+            .get(&node_id)
             .and_then(|&index| self.blocking_constraints.get(index))
     }
 
     /// Check if a node is blocked by a specific type
     pub fn is_blocked_by_type(&self, node_id: NodeId, blocking_type: BlockingType) -> bool {
-        self.blocking_index.get(&node_id)
+        self.blocking_index
+            .get(&node_id)
             .and_then(|&index| self.blocking_constraints.get(index))
             .map(|constraint| constraint.blocking_type == blocking_type)
             .unwrap_or(false)
@@ -2567,9 +2699,9 @@ impl TableauxGraph {
         self.nodes.remove(&node_id);
 
         // Remove any edges associated with this node
-        self.edges.edges.retain(|(from, _, to)| {
-            *from != node_id && *to != node_id
-        });
+        self.edges
+            .edges
+            .retain(|(from, _, to)| *from != node_id && *to != node_id);
 
         // Remove any individual constraints
         self._individual_constraints.remove(&node_id);
@@ -2602,7 +2734,9 @@ impl ReasoningCache {
                     }
                 }
                 parents.push(sup_class.iri().clone());
-                cache.class_hierarchy.insert(sub_class.iri().clone(), parents);
+                cache
+                    .class_hierarchy
+                    .insert(sub_class.iri().clone(), parents);
             }
         }
 
@@ -2659,14 +2793,15 @@ mod tests {
     #[test]
     fn test_simple_satisfiability() {
         let mut ontology = Ontology::new();
-        let class_iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI");
+        let class_iri = IRI::new("http://example.org/Person").expect("Failed to create Person IRI");
         let person_class = Class::new(class_iri.clone());
-        ontology.add_class(person_class)
+        ontology
+            .add_class(person_class)
             .expect("Failed to add Person class");
 
         let mut reasoner = TableauxReasoner::new(ontology);
-        let result = reasoner.is_class_satisfiable(&class_iri)
+        let result = reasoner
+            .is_class_satisfiable(&class_iri)
             .expect("Failed to check satisfiability");
 
         assert!(result);
@@ -2688,8 +2823,7 @@ mod tests {
         let ontology = Ontology::new();
         let reasoner = TableauxReasoner::new(ontology);
 
-        let class_iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI");
+        let class_iri = IRI::new("http://example.org/Person").expect("Failed to create Person IRI");
         let person_class = Class::new(class_iri.clone());
         let concept = ClassExpression::Class(person_class.clone());
         let complement = ClassExpression::ObjectComplementOf(Box::new(concept.clone()));
@@ -2709,14 +2843,14 @@ mod tests {
         let prop_iri = IRI::new("http://example.org/hasFriend")
             .expect("Failed to create hasFriend property IRI");
         let prop = ObjectProperty::new(prop_iri.clone());
-        let filler_class = Class::new(IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI"));
+        let filler_class =
+            Class::new(IRI::new("http://example.org/Person").expect("Failed to create Person IRI"));
         let filler = ClassExpression::Class(filler_class);
 
         let new_node = reasoner
             .create_successor_node(
                 root,
-                &ObjectPropertyExpression::ObjectProperty(prop),
+                &ObjectPropertyExpression::ObjectProperty(Box::new(prop)),
                 &filler,
                 &mut graph,
             )
@@ -2748,8 +2882,8 @@ mod tests {
         let prop_iri = IRI::new("http://example.org/hasFriend")
             .expect("Failed to create hasFriend property IRI");
         let prop = ObjectProperty::new(prop_iri.clone());
-        let filler_class = Class::new(IRI::new("http://example.org/Person")
-            .expect("Failed to create Person IRI"));
+        let filler_class =
+            Class::new(IRI::new("http://example.org/Person").expect("Failed to create Person IRI"));
         let filler = ClassExpression::Class(filler_class);
 
         // Use inverse property expression
@@ -2757,7 +2891,7 @@ mod tests {
             .create_successor_node(
                 root,
                 &ObjectPropertyExpression::ObjectInverseOf(Box::new(
-                    ObjectPropertyExpression::ObjectProperty(prop),
+                    ObjectPropertyExpression::ObjectProperty(Box::new(prop)),
                 )),
                 &filler,
                 &mut graph,
@@ -2787,19 +2921,19 @@ mod tests {
         let root = graph.root;
 
         // Build root --p--> succ
-        let prop_iri = IRI::new("http://example.org/p")
-            .expect("Failed to create property IRI");
+        let prop_iri = IRI::new("http://example.org/p").expect("Failed to create property IRI");
         let prop = ObjectProperty::new(prop_iri.clone());
         let succ = graph.add_node();
         graph.add_edge(root, prop_iri.clone(), succ);
 
-        let filler = ClassExpression::Class(Class::new(IRI::new("http://example.org/C")
-            .expect("Failed to create class C IRI")));
+        let filler = ClassExpression::Class(Class::new(
+            IRI::new("http://example.org/C").expect("Failed to create class C IRI"),
+        ));
 
         // Apply ∀p.C at root
         reasoner
             .apply_all_values_from_rule(
-                &ObjectPropertyExpression::ObjectProperty(prop),
+                &ObjectPropertyExpression::ObjectProperty(Box::new(prop)),
                 &filler,
                 root,
                 &mut graph,
@@ -2807,8 +2941,7 @@ mod tests {
             .expect("Failed to apply all values from rule");
 
         // Successor must contain filler
-        let succ_node = graph.nodes.get(&succ)
-            .expect("Successor node not found");
+        let succ_node = graph.nodes.get(&succ).expect("Successor node not found");
         assert!(succ_node.concepts.contains(&filler));
     }
 
@@ -2820,20 +2953,20 @@ mod tests {
         let root = graph.root;
 
         // Build pred --p--> root
-        let prop_iri = IRI::new("http://example.org/p")
-            .expect("Failed to create property IRI");
+        let prop_iri = IRI::new("http://example.org/p").expect("Failed to create property IRI");
         let prop = ObjectProperty::new(prop_iri.clone());
         let pred = graph.add_node();
         graph.add_edge(pred, prop_iri.clone(), root);
 
-        let filler = ClassExpression::Class(Class::new(IRI::new("http://example.org/C")
-            .expect("Failed to create class C IRI")));
+        let filler = ClassExpression::Class(Class::new(
+            IRI::new("http://example.org/C").expect("Failed to create class C IRI"),
+        ));
 
         // Apply ∀p^-.C at root
         reasoner
             .apply_all_values_from_rule(
                 &ObjectPropertyExpression::ObjectInverseOf(Box::new(
-                    ObjectPropertyExpression::ObjectProperty(prop),
+                    ObjectPropertyExpression::ObjectProperty(Box::new(prop)),
                 )),
                 &filler,
                 root,
@@ -2842,8 +2975,7 @@ mod tests {
             .expect("Failed to apply all values from rule");
 
         // Predecessor must contain filler
-        let pred_node = graph.nodes.get(&pred)
-            .expect("Predecessor node not found");
+        let pred_node = graph.nodes.get(&pred).expect("Predecessor node not found");
         assert!(pred_node.concepts.contains(&filler));
     }
 }
