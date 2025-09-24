@@ -116,6 +116,12 @@ impl RdfXmlStreamingParser {
         let predicate_iri = IRI::new(triple.predicate.iri)?;
         let object = self.process_object(&triple.object)?;
 
+        // Ensure subject individual exists (create if not already present)
+        let subject_individual = NamedIndividual::new(subject_iri.clone());
+        if !ontology.named_individuals().iter().any(|ni| ni.iri() == &subject_iri) {
+            ontology.add_named_individual(subject_individual)?;
+        }
+
         // Handle different types of triples
         match predicate_iri.as_str() {
             // Type assertions
@@ -269,9 +275,43 @@ impl RdfXmlStreamingParser {
 
     /// Handle generic property assertions
     #[cfg(feature = "rio-xml")]
-    fn handle_property_assertion(&mut self, _ontology: &mut Ontology, _subject: &IRI, _predicate: &IRI, _object: &ProcessedObject) -> OwlResult<()> {
-        // Handle generic property assertions
-        // This is a simplified implementation
+    fn handle_property_assertion(&mut self, ontology: &mut Ontology, subject: &IRI, predicate: &IRI, object: &ProcessedObject) -> OwlResult<()> {
+        match object {
+            ProcessedObject::Iri(object_iri) => {
+                // Object property with named individual
+                let object_individual = NamedIndividual::new(object_iri.clone());
+                ontology.add_named_individual(object_individual.clone())?;
+
+                let assertion = PropertyAssertionAxiom::new(
+                    subject.clone(),
+                    predicate.clone(),
+                    object_individual.iri().clone(),
+                );
+                ontology.add_property_assertion(assertion)?;
+            }
+            ProcessedObject::BlankNode(node_id) => {
+                // Object property with anonymous individual
+                let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+                ontology.add_anonymous_individual(anon_individual.clone())?;
+
+                let assertion = PropertyAssertionAxiom::new_with_anonymous(
+                    subject.clone(),
+                    predicate.clone(),
+                    anon_individual,
+                );
+                ontology.add_property_assertion(assertion)?;
+            }
+            ProcessedObject::Literal(literal) => {
+                // Data property with literal value
+                let assertion = DataPropertyAssertionAxiom::new(
+                    subject.clone(),
+                    predicate.clone(),
+                    literal.clone(),
+                );
+                ontology.add_data_property_assertion(assertion)?;
+            }
+        }
+
         Ok(())
     }
 }

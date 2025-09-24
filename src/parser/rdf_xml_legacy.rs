@@ -315,6 +315,7 @@ impl RdfXmlLegacyParser {
     fn process_description_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
         // Handle generic RDF descriptions
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
+            // Named individual
             let iri = IRI::new(about)?;
             let individual = NamedIndividual::new(iri);
             ontology.add_named_individual(individual.clone())?;
@@ -322,6 +323,15 @@ impl RdfXmlLegacyParser {
             // Process property assertions
             for child in &element.children {
                 self.process_property_assertion(ontology, &individual, child)?;
+            }
+        } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
+            // Anonymous individual (blank node)
+            let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+            ontology.add_anonymous_individual(anon_individual.clone())?;
+
+            // Process property assertions
+            for child in &element.children {
+                self.process_property_assertion_anon(ontology, &anon_individual, child)?;
             }
         }
 
@@ -336,9 +346,42 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process property assertion
-    fn process_property_assertion(&mut self, _ontology: &mut Ontology, _individual: &NamedIndividual, _element: &XmlElement) -> OwlResult<()> {
+    fn process_property_assertion(&mut self, ontology: &mut Ontology, individual: &NamedIndividual, element: &XmlElement) -> OwlResult<()> {
+        // Handle nested anonymous individuals (like <ex:knows><rdf:Description rdf:nodeID="blank1">...</rdf:Description></ex:knows>)
+        if !element.children.is_empty() {
+            for child in &element.children {
+                if child.name == "rdf:Description" {
+                    if let Some(node_id) = child.attributes.get("rdf:nodeID") {
+                        // Create anonymous individual from nested description
+                        let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+                        ontology.add_anonymous_individual(anon_individual.clone())?;
+
+                        // Create property assertion with anonymous individual
+                        if let Some(property_name) = element.name.split_once(':').map(|(_, name)| name).or(Some(&element.name)) {
+                            let property_iri = if let Some(expanded) = crate::parser::rdf_xml_common::expand_qname(&element.name, &self.namespaces) {
+                                IRI::new(&expanded)?
+                            } else {
+                                IRI::new(property_name)?
+                            };
+
+                            let assertion = PropertyAssertionAxiom::new_with_anonymous(
+                                individual.iri().clone(),
+                                property_iri,
+                                anon_individual,
+                            );
+                            ontology.add_property_assertion(assertion)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Process property assertion for anonymous individuals
+    fn process_property_assertion_anon(&mut self, _ontology: &mut Ontology, _individual: &AnonymousIndividual, _element: &XmlElement) -> OwlResult<()> {
         // This is a simplified implementation
-        // In practice, you'd handle object and data property assertions
+        // In practice, you'd handle object and data property assertions for anonymous individuals
         Ok(())
     }
 

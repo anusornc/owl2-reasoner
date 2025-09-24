@@ -132,16 +132,20 @@ impl EPCISDocumentParser {
                 let epc_list_content = &content[epc_list_start + 9..epc_list_start + epc_list_end];
 
                 // Extract individual EPCs
-                for epc_match in epc_list_content.matches("<epc>") {
-                    if let (Some(epc_start), Some(epc_end_offset)) = (
-                        epc_list_content.find(epc_match),
-                        epc_list_content.find("</epc>")
-                    ) {
-                        let epc_end = epc_end_offset + epc_start;
-                        let epc_value = &epc_list_content[epc_start + 5..epc_end];
+                let mut search_pos = 0;
+                while let Some(epc_start) = epc_list_content[search_pos..].find("<epc>") {
+                    let epc_start_abs = epc_start + search_pos;
+                    let epc_content_start = epc_start_abs + 5;
+
+                    if let Some(epc_end) = epc_list_content[epc_content_start..].find("</epc>") {
+                        let epc_end_abs = epc_end + epc_content_start;
+                        let epc_value = &epc_list_content[epc_content_start..epc_end_abs];
                         if !epc_value.trim().is_empty() {
                             epcs.push(epc_value.trim().to_string());
                         }
+                        search_pos = epc_end_abs + 6; // Move past </epc>
+                    } else {
+                        break;
                     }
                 }
             }
