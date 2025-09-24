@@ -74,9 +74,10 @@ impl EPCISDocumentParser {
 
         // Extract ObjectEvent data using basic string parsing
         for event_match in content.matches("<ObjectEvent>") {
-            let event_start = content.find(event_match).unwrap();
-            let event_end =
-                content[event_start..].find("</ObjectEvent>").unwrap() + event_start + 14;
+            let event_start = content.find(event_match)
+                .ok_or_else(|| OwlError::ParseError("Could not find event start".to_string()))?;
+            let event_end = content[event_start..].find("</ObjectEvent>")
+                .ok_or_else(|| OwlError::ParseError("Could not find event end".to_string()))? + event_start + 14;
             let event_content = &content[event_start..event_end];
 
             if let Some(event) = self.parse_object_event(event_content) {
@@ -132,11 +133,15 @@ impl EPCISDocumentParser {
 
                 // Extract individual EPCs
                 for epc_match in epc_list_content.matches("<epc>") {
-                    let epc_start = epc_list_content.find(epc_match).unwrap();
-                    let epc_end = epc_list_content[epc_start..].find("</epc>").unwrap() + epc_start;
-                    let epc_value = &epc_list_content[epc_start + 5..epc_end];
-                    if !epc_value.trim().is_empty() {
-                        epcs.push(epc_value.trim().to_string());
+                    if let (Some(epc_start), Some(epc_end_offset)) = (
+                        epc_list_content.find(epc_match),
+                        epc_list_content.find("</epc>")
+                    ) {
+                        let epc_end = epc_end_offset + epc_start;
+                        let epc_value = &epc_list_content[epc_start + 5..epc_end];
+                        if !epc_value.trim().is_empty() {
+                            epcs.push(epc_value.trim().to_string());
+                        }
                     }
                 }
             }

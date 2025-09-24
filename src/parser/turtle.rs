@@ -334,7 +334,7 @@ impl TurtleParser {
     fn parse_subject(&self, token: &str) -> Option<IRI> {
         if let Some(stripped) = token.strip_prefix("_:") {
             // Blank node - generate temporary IRI for processing
-            Some(IRI::new(format!("http://blank.node/{}", stripped)).unwrap())
+            IRI::new(format!("http://blank.node/{}", stripped)).ok()
         } else {
             self.parse_curie_or_iri(token).ok()
         }
@@ -343,7 +343,7 @@ impl TurtleParser {
     /// Parse a predicate (handle "a" keyword)
     fn parse_predicate(&self, token: &str) -> Option<IRI> {
         if token == "a" {
-            Some(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap())
+            IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").ok()
         } else {
             self.parse_curie_or_iri(token).ok()
         }
@@ -597,7 +597,7 @@ impl TurtleParser {
                                 ObjectProperty::new(subject),
                             ))),
                             Box::new(ClassExpression::Class(Class::new(
-                                IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
+                                IRI::new("http://www.w3.org/2002/07/owl#Thing")?,
                             ))),
                         ),
                         restriction,
@@ -620,7 +620,7 @@ impl TurtleParser {
                             Box::new(range_class),
                         ),
                         ClassExpression::Class(Class::new(
-                            IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap(),
+                            IRI::new("http://www.w3.org/2002/07/owl#Thing")?,
                         )),
                     );
                     ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom)))?;
@@ -740,9 +740,14 @@ impl TurtleParser {
                 );
                 ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
             }
-            ObjectValue::Literal(_literal) => {
-                // Data property assertion - skip for now as PropertyAssertionAxiom expects IRIs
-                // TODO: Implement proper data property assertion with literal values
+            ObjectValue::Literal(literal) => {
+                // Data property assertion with literal values
+                let data_property_assertion = DataPropertyAssertionAxiom::new(
+                    subject_individual.iri().clone(),
+                    predicate.clone(),
+                    literal.clone(),
+                );
+                ontology.add_data_property_assertion(data_property_assertion)?;
             }
             ObjectValue::BlankNode(node_id) => {
                 // Create anonymous individual for blank node

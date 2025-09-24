@@ -11,6 +11,10 @@ use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+/// Well-known IRI constants
+pub static XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
+pub static RDF_LANG_STRING: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString";
+
 /// Get a shared Arc<IRI> from the global cache manager
 fn get_shared_iri<S: Into<String>>(iri: S) -> OwlResult<Arc<IRI>> {
     cache_manager::get_or_create_iri(iri.into())
@@ -606,7 +610,7 @@ impl Literal {
     pub fn simple<S: Into<String>>(value: S) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new("http://www.w3.org/2001/XMLSchema#string").unwrap(),
+            datatype: IRI::new(XSD_STRING).expect("XSD string IRI should always be valid"),
             language_tag: None,
         }
     }
@@ -624,7 +628,7 @@ impl Literal {
     pub fn lang_tagged<S: Into<String>, L: Into<String>>(value: S, language: L) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#langString").unwrap(),
+            datatype: IRI::new(RDF_LANG_STRING).expect("RDF langString IRI should always be valid"),
             language_tag: Some(language.into()),
         }
     }

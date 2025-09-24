@@ -8,6 +8,7 @@ use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::parser::{OntologyParser, ParserConfig};
+use crate::axioms::class_expressions::ClassExpression;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -418,24 +419,271 @@ impl OwlXmlParser {
         Ok(())
     }
 
-    /// Process equivalent classes (placeholder)
+    /// Process equivalent classes
     fn process_equivalent_classes(
         &self,
-        _ontology: &mut Ontology,
-        _element: &XmlElement,
+        ontology: &mut Ontology,
+        element: &XmlElement,
     ) -> OwlResult<()> {
-        // TODO: Implement equivalent classes processing
+        use crate::axioms::EquivalentClassesAxiom;
+        use crate::axioms::class_expressions::ClassExpression;
+
+        let mut class_descriptions = Vec::new();
+
+        // Process child elements to find class descriptions
+        for child in &element.children {
+            match child.name.as_str() {
+                "Class" | "owl:Class" => {
+                    if let Some(iri) = child.attributes.get("IRI") {
+                        let iri_obj = IRI::new(iri)?;
+                        let class = Class::new(iri_obj);
+                        class_descriptions.push(ClassExpression::Class(class));
+                    } else if let Some(abbreviated_iri) = child.attributes.get("abbreviatedIRI") {
+                        // Handle abbreviated IRI like "owl:Thing"
+                        if let Some(colon_pos) = abbreviated_iri.find(':') {
+                            let prefix = &abbreviated_iri[..colon_pos];
+                            let local = &abbreviated_iri[colon_pos + 1..];
+
+                            if let Some(namespace) = self.namespaces.get(prefix) {
+                                let full_iri = format!("{}{}", namespace, local);
+                                let iri_obj = IRI::new(&full_iri)?;
+                                let class = Class::new(iri_obj);
+                                class_descriptions.push(ClassExpression::Class(class));
+                            }
+                        }
+                    }
+                }
+                "ObjectIntersectionOf" | "owl:ObjectIntersectionOf" => {
+                    // Handle intersection of classes
+                    if let Some(class_expr) = self.parse_object_intersection_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                "ObjectUnionOf" | "owl:ObjectUnionOf" => {
+                    // Handle union of classes
+                    if let Some(class_expr) = self.parse_object_union_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                "ObjectComplementOf" | "owl:ObjectComplementOf" => {
+                    // Handle complement of classes
+                    if let Some(class_expr) = self.parse_object_complement_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                _ => {
+                    // Skip unknown elements
+                    if self.config.strict_validation {
+                        return Err(crate::error::OwlError::ParseError(
+                            format!("Unknown class description: {}", child.name)
+                        ));
+                    }
+                }
+            }
+        }
+
+        if class_descriptions.len() >= 2 {
+            // Extract IRIs from ClassExpressions
+            let class_iris: Vec<IRI> = class_descriptions.into_iter()
+                .filter_map(|ce| match ce {
+                    ClassExpression::Class(cls) => Some(cls.iri().clone()),
+                    _ => None,
+                })
+                .collect();
+
+            if class_iris.len() >= 2 {
+                let axiom = EquivalentClassesAxiom::new(class_iris);
+                ontology.add_equivalent_classes_axiom(axiom)?;
+            } else if self.config.strict_validation {
+                return Err(crate::error::OwlError::ParseError(
+                    "EquivalentClasses requires at least 2 named classes".to_string()
+                ));
+            }
+        } else if self.config.strict_validation {
+            return Err(crate::error::OwlError::ParseError(
+                "EquivalentClasses requires at least 2 class descriptions".to_string()
+            ));
+        }
+
         Ok(())
     }
 
-    /// Process disjoint classes (placeholder)
+    /// Process disjoint classes
     fn process_disjoint_classes(
         &self,
-        _ontology: &mut Ontology,
-        _element: &XmlElement,
+        ontology: &mut Ontology,
+        element: &XmlElement,
     ) -> OwlResult<()> {
-        // TODO: Implement disjoint classes processing
+        use crate::axioms::DisjointClassesAxiom;
+        use crate::axioms::class_expressions::ClassExpression;
+
+        let mut class_descriptions = Vec::new();
+
+        // Process child elements to find class descriptions
+        for child in &element.children {
+            match child.name.as_str() {
+                "Class" | "owl:Class" => {
+                    if let Some(iri) = child.attributes.get("IRI") {
+                        let iri_obj = IRI::new(iri)?;
+                        let class = Class::new(iri_obj);
+                        class_descriptions.push(ClassExpression::Class(class));
+                    } else if let Some(abbreviated_iri) = child.attributes.get("abbreviatedIRI") {
+                        // Handle abbreviated IRI like "owl:Thing"
+                        if let Some(colon_pos) = abbreviated_iri.find(':') {
+                            let prefix = &abbreviated_iri[..colon_pos];
+                            let local = &abbreviated_iri[colon_pos + 1..];
+
+                            if let Some(namespace) = self.namespaces.get(prefix) {
+                                let full_iri = format!("{}{}", namespace, local);
+                                let iri_obj = IRI::new(&full_iri)?;
+                                let class = Class::new(iri_obj);
+                                class_descriptions.push(ClassExpression::Class(class));
+                            }
+                        }
+                    }
+                }
+                "ObjectIntersectionOf" | "owl:ObjectIntersectionOf" => {
+                    // Handle intersection of classes
+                    if let Some(class_expr) = self.parse_object_intersection_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                "ObjectUnionOf" | "owl:ObjectUnionOf" => {
+                    // Handle union of classes
+                    if let Some(class_expr) = self.parse_object_union_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                "ObjectComplementOf" | "owl:ObjectComplementOf" => {
+                    // Handle complement of classes
+                    if let Some(class_expr) = self.parse_object_complement_of(child)? {
+                        class_descriptions.push(class_expr);
+                    }
+                }
+                _ => {
+                    // Skip unknown elements
+                    if self.config.strict_validation {
+                        return Err(crate::error::OwlError::ParseError(
+                            format!("Unknown class description: {}", child.name)
+                        ));
+                    }
+                }
+            }
+        }
+
+        if class_descriptions.len() >= 2 {
+            // Extract IRIs from ClassExpressions
+            let class_iris: Vec<IRI> = class_descriptions.into_iter()
+                .filter_map(|ce| match ce {
+                    ClassExpression::Class(cls) => Some(cls.iri().clone()),
+                    _ => None,
+                })
+                .collect();
+
+            if class_iris.len() >= 2 {
+                let axiom = DisjointClassesAxiom::new(class_iris);
+                ontology.add_disjoint_classes_axiom(axiom)?;
+            } else if self.config.strict_validation {
+                return Err(crate::error::OwlError::ParseError(
+                    "DisjointClasses requires at least 2 named classes".to_string()
+                ));
+            }
+        } else if self.config.strict_validation {
+            return Err(crate::error::OwlError::ParseError(
+                "DisjointClasses requires at least 2 class descriptions".to_string()
+            ));
+        }
+
         Ok(())
+    }
+
+    /// Parse ObjectIntersectionOf class expression
+    fn parse_object_intersection_of(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+        use crate::axioms::class_expressions::ClassExpression;
+        use smallvec::SmallVec;
+
+        let mut operands = Vec::new();
+
+        for child in &element.children {
+            if let Some(class_expr) = self.parse_class_expression(child)? {
+                operands.push(Box::new(class_expr));
+            }
+        }
+
+        if operands.len() >= 2 {
+            let smallvec: SmallVec<[Box<ClassExpression>; 4]> = operands.into();
+            Ok(Some(ClassExpression::ObjectIntersectionOf(smallvec)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Parse ObjectUnionOf class expression
+    fn parse_object_union_of(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+        use crate::axioms::class_expressions::ClassExpression;
+        use smallvec::SmallVec;
+
+        let mut operands = Vec::new();
+
+        for child in &element.children {
+            if let Some(class_expr) = self.parse_class_expression(child)? {
+                operands.push(Box::new(class_expr));
+            }
+        }
+
+        if operands.len() >= 2 {
+            let smallvec: SmallVec<[Box<ClassExpression>; 4]> = operands.into();
+            Ok(Some(ClassExpression::ObjectUnionOf(smallvec)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Parse ObjectComplementOf class expression
+    fn parse_object_complement_of(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+        use crate::axioms::class_expressions::ClassExpression;
+
+        if let Some(child) = element.children.first() {
+            if let Some(class_expr) = self.parse_class_expression(child)? {
+                return Ok(Some(ClassExpression::ObjectComplementOf(Box::new(class_expr))));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Parse class expression (helper for complex class descriptions)
+    fn parse_class_expression(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+        use crate::axioms::class_expressions::ClassExpression;
+
+        match element.name.as_str() {
+            "Class" | "owl:Class" => {
+                if let Some(iri) = element.attributes.get("IRI") {
+                    let iri_obj = IRI::new(iri)?;
+                    let class = Class::new(iri_obj);
+                    Ok(Some(ClassExpression::Class(class)))
+                } else if let Some(abbreviated_iri) = element.attributes.get("abbreviatedIRI") {
+                    if let Some(colon_pos) = abbreviated_iri.find(':') {
+                        let prefix = &abbreviated_iri[..colon_pos];
+                        let local = &abbreviated_iri[colon_pos + 1..];
+
+                        if let Some(namespace) = self.namespaces.get(prefix) {
+                            let full_iri = format!("{}{}", namespace, local);
+                            let iri_obj = IRI::new(&full_iri)?;
+                            let class = Class::new(iri_obj);
+                            Ok(Some(ClassExpression::Class(class)))
+                        } else {
+                            Ok(None)
+                        }
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None)
+        }
     }
 
     /// Validate the parsed ontology

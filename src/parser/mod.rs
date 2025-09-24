@@ -11,6 +11,9 @@ pub mod common;
 pub mod owl_functional;
 pub mod owl_xml;
 pub mod rdf_xml;
+pub mod rdf_xml_common;
+pub mod rdf_xml_streaming;
+pub mod rdf_xml_legacy;
 pub mod turtle;
 
 pub use arena::*;

@@ -102,7 +102,108 @@ pub fn validate_iri(iri: &str) -> OwlResult<()> {
         )));
     }
 
-    // TODO: Add more thorough IRI validation according to RFC 3987
+    // Enhanced IRI validation according to RFC 3987
+    validate_iri_scheme(iri)?;
+    validate_iri_path(iri)?;
+    validate_ri_components(iri)?;
+
+    Ok(())
+}
+
+/// Validate IRI scheme according to RFC 3987
+fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
+    let scheme_end = iri.find(':').ok_or_else(|| {
+        OwlError::InvalidIRI("Missing scheme in IRI".to_string())
+    })?;
+
+    let scheme = &iri[..scheme_end];
+
+    if scheme.is_empty() {
+        return Err(OwlError::InvalidIRI("Empty scheme in IRI".to_string()));
+    }
+
+    // Scheme must start with a letter
+    if let Some(first_char) = scheme.chars().next() {
+        if !first_char.is_ascii_alphabetic() {
+            return Err(OwlError::InvalidIRI(
+                "Scheme must start with a letter".to_string()
+            ));
+        }
+    } else {
+        return Err(OwlError::InvalidIRI("Empty scheme".to_string()));
+    }
+
+    // Scheme can contain letters, digits, '+', '-', '.'
+    for c in scheme.chars() {
+        if !c.is_ascii_alphanumeric() && c != '+' && c != '-' && c != '.' {
+            return Err(OwlError::InvalidIRI(
+                format!("Invalid character '{}' in scheme", c)
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate IRI path according to RFC 3987
+fn validate_iri_path(iri: &str) -> OwlResult<()> {
+    let scheme_end = iri.find(':').ok_or_else(|| {
+        OwlError::InvalidIRI("Missing scheme in IRI".to_string())
+    })?;
+
+    let after_scheme = &iri[scheme_end + 1..];
+
+    if after_scheme.is_empty() {
+        return Err(OwlError::InvalidIRI(
+            "IRI must have content after scheme".to_string()
+        ));
+    }
+
+    // Check for invalid characters in path
+    let invalid_chars = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
+    for c in invalid_chars {
+        if after_scheme.contains(c) {
+            return Err(OwlError::InvalidIRI(
+                format!("Invalid character '{}' in IRI path", c)
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate IRI components according to RFC 3987 (Internationalized Resource Identifiers)
+fn validate_ri_components(iri: &str) -> OwlResult<()> {
+    // Check for valid UTF-8 encoding (Rust strings are always valid UTF-8)
+
+    // Check for fragment identifier
+    if let Some(fragment_start) = iri.find('#') {
+        let fragment = &iri[fragment_start + 1..];
+        if fragment.is_empty() {
+            return Err(OwlError::InvalidIRI(
+                "Empty fragment identifier".to_string()
+            ));
+        }
+    }
+
+    // Check for query string
+    if let Some(query_start) = iri.find('?') {
+        let query = &iri[query_start + 1..];
+        if query.is_empty() {
+            return Err(OwlError::InvalidIRI(
+                "Empty query string".to_string()
+            ));
+        }
+    }
+
+    // Basic check for IP literal format (simplified)
+    if let (Some(ip_start), Some(ip_end)) = (iri.find('['), iri.find(']')) {
+        if ip_start >= ip_end {
+            return Err(OwlError::InvalidIRI(
+                "Invalid IP literal format".to_string()
+            ));
+        }
+    }
 
     Ok(())
 }
