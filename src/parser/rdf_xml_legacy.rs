@@ -6,11 +6,11 @@ use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use crate::parser::rdf_xml_common::{
-    initialize_namespaces, XmlDocument, XmlElement, ResourceInfo,
-    RDF_ABOUT, RDF_RESOURCE, ERR_EMPTY_ONTOLOGY
+    initialize_namespaces, ResourceInfo, XmlDocument, XmlElement, ERR_EMPTY_ONTOLOGY, RDF_ABOUT,
+    RDF_RESOURCE,
 };
+use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -73,8 +73,7 @@ impl RdfXmlLegacyParser {
     pub fn parse_file(&mut self, path: &Path) -> OwlResult<Ontology> {
         use std::fs;
 
-        let content = fs::read_to_string(path)
-            .map_err(crate::error::OwlError::IoError)?;
+        let content = fs::read_to_string(path).map_err(crate::error::OwlError::IoError)?;
 
         // Check file size
         if content.len() > self.config.max_file_size {
@@ -123,14 +122,21 @@ impl RdfXmlLegacyParser {
     }
 
     /// Parse XML element
-    fn parse_element(&self, _chars: &mut std::str::CharIndices<'_>) -> OwlResult<Option<XmlElement>> {
+    fn parse_element(
+        &self,
+        _chars: &mut std::str::CharIndices<'_>,
+    ) -> OwlResult<Option<XmlElement>> {
         // Simplified element parsing
         // In practice, this would be much more comprehensive
         Ok(None)
     }
 
     /// Process RDF document and build ontology
-    fn process_rdf_document(&mut self, ontology: &mut Ontology, document: &XmlDocument) -> OwlResult<()> {
+    fn process_rdf_document(
+        &mut self,
+        ontology: &mut Ontology,
+        document: &XmlDocument,
+    ) -> OwlResult<()> {
         if let Some(root) = &document.root {
             if root.name == "RDF" || root.name.ends_with(":RDF") {
                 for child in &root.children {
@@ -145,7 +151,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process individual RDF element
-    fn process_rdf_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_rdf_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         match element.name.as_str() {
             "Ontology" | "owl:Ontology" => {
                 self.process_ontology_element(ontology, element)?;
@@ -168,9 +178,10 @@ impl RdfXmlLegacyParser {
             _ => {
                 // Handle unknown elements
                 if self.config.strict_validation {
-                    return Err(crate::error::OwlError::ParseError(
-                        format!("Unknown element: {}", element.name),
-                    ));
+                    return Err(crate::error::OwlError::ParseError(format!(
+                        "Unknown element: {}",
+                        element.name
+                    )));
                 }
             }
         }
@@ -178,7 +189,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process ontology element
-    fn process_ontology_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_ontology_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         // Extract ontology IRI
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
@@ -199,7 +214,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process class element
-    fn process_class_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_class_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
             let class = Class::new(iri.clone());
@@ -251,7 +270,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process object property element
-    fn process_object_property_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_object_property_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
             let property = ObjectProperty::new(iri);
@@ -267,7 +290,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process datatype property element
-    fn process_datatype_property_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_datatype_property_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
             let property = DataProperty::new(iri);
@@ -283,7 +310,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process named individual element
-    fn process_named_individual_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_named_individual_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
             let individual = NamedIndividual::new(iri.clone());
@@ -312,7 +343,11 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process description element
-    fn process_description_element(&mut self, ontology: &mut Ontology, element: &XmlElement) -> OwlResult<()> {
+    fn process_description_element(
+        &mut self,
+        ontology: &mut Ontology,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         // Handle generic RDF descriptions
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             // Named individual
@@ -326,7 +361,7 @@ impl RdfXmlLegacyParser {
             }
         } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
             // Anonymous individual (blank node)
-            let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+            let anon_individual = AnonymousIndividual::new(format!("_:{}", node_id));
             ontology.add_anonymous_individual(anon_individual.clone())?;
 
             // Process property assertions
@@ -339,26 +374,44 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process property characteristic (functional, symmetric, etc.)
-    fn process_property_characteristic(&mut self, _ontology: &mut Ontology, _element: &XmlElement) -> OwlResult<()> {
+    fn process_property_characteristic(
+        &mut self,
+        _ontology: &mut Ontology,
+        _element: &XmlElement,
+    ) -> OwlResult<()> {
         // This is a simplified implementation
         // In practice, you'd handle all OWL property characteristics
         Ok(())
     }
 
     /// Process property assertion
-    fn process_property_assertion(&mut self, ontology: &mut Ontology, individual: &NamedIndividual, element: &XmlElement) -> OwlResult<()> {
+    fn process_property_assertion(
+        &mut self,
+        ontology: &mut Ontology,
+        individual: &NamedIndividual,
+        element: &XmlElement,
+    ) -> OwlResult<()> {
         // Handle nested anonymous individuals (like <ex:knows><rdf:Description rdf:nodeID="blank1">...</rdf:Description></ex:knows>)
         if !element.children.is_empty() {
             for child in &element.children {
                 if child.name == "rdf:Description" {
                     if let Some(node_id) = child.attributes.get("rdf:nodeID") {
                         // Create anonymous individual from nested description
-                        let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+                        let anon_individual = AnonymousIndividual::new(format!("_:{}", node_id));
                         ontology.add_anonymous_individual(anon_individual.clone())?;
 
                         // Create property assertion with anonymous individual
-                        if let Some(property_name) = element.name.split_once(':').map(|(_, name)| name).or(Some(&element.name)) {
-                            let property_iri = if let Some(expanded) = crate::parser::rdf_xml_common::expand_qname(&element.name, &self.namespaces) {
+                        if let Some(property_name) = element
+                            .name
+                            .split_once(':')
+                            .map(|(_, name)| name)
+                            .or(Some(&element.name))
+                        {
+                            let property_iri = if let Some(expanded) =
+                                crate::parser::rdf_xml_common::expand_qname(
+                                    &element.name,
+                                    &self.namespaces,
+                                ) {
                                 IRI::new(&expanded)?
                             } else {
                                 IRI::new(property_name)?
@@ -379,7 +432,12 @@ impl RdfXmlLegacyParser {
     }
 
     /// Process property assertion for anonymous individuals
-    fn process_property_assertion_anon(&mut self, _ontology: &mut Ontology, _individual: &AnonymousIndividual, _element: &XmlElement) -> OwlResult<()> {
+    fn process_property_assertion_anon(
+        &mut self,
+        _ontology: &mut Ontology,
+        _individual: &AnonymousIndividual,
+        _element: &XmlElement,
+    ) -> OwlResult<()> {
         // This is a simplified implementation
         // In practice, you'd handle object and data property assertions for anonymous individuals
         Ok(())

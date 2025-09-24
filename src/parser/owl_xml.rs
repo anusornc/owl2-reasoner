@@ -2,13 +2,13 @@
 //!
 //! Implements parsing of the OWL/XML serialization format using simple XML parsing.
 
+use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::SubClassOfAxiom;
 use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::parser::{OntologyParser, ParserConfig};
-use crate::axioms::class_expressions::ClassExpression;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -425,8 +425,8 @@ impl OwlXmlParser {
         ontology: &mut Ontology,
         element: &XmlElement,
     ) -> OwlResult<()> {
-        use crate::axioms::EquivalentClassesAxiom;
         use crate::axioms::class_expressions::ClassExpression;
+        use crate::axioms::EquivalentClassesAxiom;
 
         let mut class_descriptions = Vec::new();
 
@@ -474,9 +474,10 @@ impl OwlXmlParser {
                 _ => {
                     // Skip unknown elements
                     if self.config.strict_validation {
-                        return Err(crate::error::OwlError::ParseError(
-                            format!("Unknown class description: {}", child.name)
-                        ));
+                        return Err(crate::error::OwlError::ParseError(format!(
+                            "Unknown class description: {}",
+                            child.name
+                        )));
                     }
                 }
             }
@@ -484,7 +485,8 @@ impl OwlXmlParser {
 
         if class_descriptions.len() >= 2 {
             // Extract IRIs from ClassExpressions
-            let class_iris: Vec<IRI> = class_descriptions.into_iter()
+            let class_iris: Vec<IRI> = class_descriptions
+                .into_iter()
                 .filter_map(|ce| match ce {
                     ClassExpression::Class(cls) => Some(cls.iri().clone()),
                     _ => None,
@@ -496,12 +498,12 @@ impl OwlXmlParser {
                 ontology.add_equivalent_classes_axiom(axiom)?;
             } else if self.config.strict_validation {
                 return Err(crate::error::OwlError::ParseError(
-                    "EquivalentClasses requires at least 2 named classes".to_string()
+                    "EquivalentClasses requires at least 2 named classes".to_string(),
                 ));
             }
         } else if self.config.strict_validation {
             return Err(crate::error::OwlError::ParseError(
-                "EquivalentClasses requires at least 2 class descriptions".to_string()
+                "EquivalentClasses requires at least 2 class descriptions".to_string(),
             ));
         }
 
@@ -514,8 +516,8 @@ impl OwlXmlParser {
         ontology: &mut Ontology,
         element: &XmlElement,
     ) -> OwlResult<()> {
-        use crate::axioms::DisjointClassesAxiom;
         use crate::axioms::class_expressions::ClassExpression;
+        use crate::axioms::DisjointClassesAxiom;
 
         let mut class_descriptions = Vec::new();
 
@@ -563,9 +565,10 @@ impl OwlXmlParser {
                 _ => {
                     // Skip unknown elements
                     if self.config.strict_validation {
-                        return Err(crate::error::OwlError::ParseError(
-                            format!("Unknown class description: {}", child.name)
-                        ));
+                        return Err(crate::error::OwlError::ParseError(format!(
+                            "Unknown class description: {}",
+                            child.name
+                        )));
                     }
                 }
             }
@@ -573,7 +576,8 @@ impl OwlXmlParser {
 
         if class_descriptions.len() >= 2 {
             // Extract IRIs from ClassExpressions
-            let class_iris: Vec<IRI> = class_descriptions.into_iter()
+            let class_iris: Vec<IRI> = class_descriptions
+                .into_iter()
                 .filter_map(|ce| match ce {
                     ClassExpression::Class(cls) => Some(cls.iri().clone()),
                     _ => None,
@@ -585,12 +589,12 @@ impl OwlXmlParser {
                 ontology.add_disjoint_classes_axiom(axiom)?;
             } else if self.config.strict_validation {
                 return Err(crate::error::OwlError::ParseError(
-                    "DisjointClasses requires at least 2 named classes".to_string()
+                    "DisjointClasses requires at least 2 named classes".to_string(),
                 ));
             }
         } else if self.config.strict_validation {
             return Err(crate::error::OwlError::ParseError(
-                "DisjointClasses requires at least 2 class descriptions".to_string()
+                "DisjointClasses requires at least 2 class descriptions".to_string(),
             ));
         }
 
@@ -598,7 +602,10 @@ impl OwlXmlParser {
     }
 
     /// Parse ObjectIntersectionOf class expression
-    fn parse_object_intersection_of(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+    fn parse_object_intersection_of(
+        &self,
+        element: &XmlElement,
+    ) -> OwlResult<Option<ClassExpression>> {
         use crate::axioms::class_expressions::ClassExpression;
         use smallvec::SmallVec;
 
@@ -640,12 +647,17 @@ impl OwlXmlParser {
     }
 
     /// Parse ObjectComplementOf class expression
-    fn parse_object_complement_of(&self, element: &XmlElement) -> OwlResult<Option<ClassExpression>> {
+    fn parse_object_complement_of(
+        &self,
+        element: &XmlElement,
+    ) -> OwlResult<Option<ClassExpression>> {
         use crate::axioms::class_expressions::ClassExpression;
 
         if let Some(child) = element.children.first() {
             if let Some(class_expr) = self.parse_class_expression(child)? {
-                return Ok(Some(ClassExpression::ObjectComplementOf(Box::new(class_expr))));
+                return Ok(Some(ClassExpression::ObjectComplementOf(Box::new(
+                    class_expr,
+                ))));
             }
         }
 
@@ -682,7 +694,7 @@ impl OwlXmlParser {
                     Ok(None)
                 }
             }
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
 

@@ -112,9 +112,9 @@ pub fn validate_iri(iri: &str) -> OwlResult<()> {
 
 /// Validate IRI scheme according to RFC 3987
 fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
-    let scheme_end = iri.find(':').ok_or_else(|| {
-        OwlError::InvalidIRI("Missing scheme in IRI".to_string())
-    })?;
+    let scheme_end = iri
+        .find(':')
+        .ok_or_else(|| OwlError::InvalidIRI("Missing scheme in IRI".to_string()))?;
 
     let scheme = &iri[..scheme_end];
 
@@ -126,7 +126,7 @@ fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
     if let Some(first_char) = scheme.chars().next() {
         if !first_char.is_ascii_alphabetic() {
             return Err(OwlError::InvalidIRI(
-                "Scheme must start with a letter".to_string()
+                "Scheme must start with a letter".to_string(),
             ));
         }
     } else {
@@ -136,9 +136,10 @@ fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
     // Scheme can contain letters, digits, '+', '-', '.'
     for c in scheme.chars() {
         if !c.is_ascii_alphanumeric() && c != '+' && c != '-' && c != '.' {
-            return Err(OwlError::InvalidIRI(
-                format!("Invalid character '{}' in scheme", c)
-            ));
+            return Err(OwlError::InvalidIRI(format!(
+                "Invalid character '{}' in scheme",
+                c
+            )));
         }
     }
 
@@ -147,15 +148,15 @@ fn validate_iri_scheme(iri: &str) -> OwlResult<()> {
 
 /// Validate IRI path according to RFC 3987
 fn validate_iri_path(iri: &str) -> OwlResult<()> {
-    let scheme_end = iri.find(':').ok_or_else(|| {
-        OwlError::InvalidIRI("Missing scheme in IRI".to_string())
-    })?;
+    let scheme_end = iri
+        .find(':')
+        .ok_or_else(|| OwlError::InvalidIRI("Missing scheme in IRI".to_string()))?;
 
     let after_scheme = &iri[scheme_end + 1..];
 
     if after_scheme.is_empty() {
         return Err(OwlError::InvalidIRI(
-            "IRI must have content after scheme".to_string()
+            "IRI must have content after scheme".to_string(),
         ));
     }
 
@@ -163,9 +164,10 @@ fn validate_iri_path(iri: &str) -> OwlResult<()> {
     let invalid_chars = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
     for c in invalid_chars {
         if after_scheme.contains(c) {
-            return Err(OwlError::InvalidIRI(
-                format!("Invalid character '{}' in IRI path", c)
-            ));
+            return Err(OwlError::InvalidIRI(format!(
+                "Invalid character '{}' in IRI path",
+                c
+            )));
         }
     }
 
@@ -181,7 +183,7 @@ fn validate_ri_components(iri: &str) -> OwlResult<()> {
         let fragment = &iri[fragment_start + 1..];
         if fragment.is_empty() {
             return Err(OwlError::InvalidIRI(
-                "Empty fragment identifier".to_string()
+                "Empty fragment identifier".to_string(),
             ));
         }
     }
@@ -190,9 +192,7 @@ fn validate_ri_components(iri: &str) -> OwlResult<()> {
     if let Some(query_start) = iri.find('?') {
         let query = &iri[query_start + 1..];
         if query.is_empty() {
-            return Err(OwlError::InvalidIRI(
-                "Empty query string".to_string()
-            ));
+            return Err(OwlError::InvalidIRI("Empty query string".to_string()));
         }
     }
 
@@ -200,7 +200,7 @@ fn validate_ri_components(iri: &str) -> OwlResult<()> {
     if let (Some(ip_start), Some(ip_end)) = (iri.find('['), iri.find(']')) {
         if ip_start >= ip_end {
             return Err(OwlError::InvalidIRI(
-                "Invalid IP literal format".to_string()
+                "Invalid IP literal format".to_string(),
             ));
         }
     }

@@ -58,6 +58,7 @@ pub static ERR_UNKNOWN_PROPERTY_CHAR: &str = "Unknown property characteristic";
 
 /// Resource information for RDF/XML parsing
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ResourceInfo {
     pub iri: Option<IRI>,
     pub node_id: Option<String>,
@@ -65,16 +66,6 @@ pub struct ResourceInfo {
     pub properties: Vec<(String, String)>,
 }
 
-impl Default for ResourceInfo {
-    fn default() -> Self {
-        Self {
-            iri: None,
-            node_id: None,
-            resource_type: None,
-            properties: Vec::new(),
-        }
-    }
-}
 
 /// XML document representation
 #[derive(Debug, Default)]
@@ -143,7 +134,9 @@ pub fn validate_iri(iri_str: &str) -> Result<(), String> {
 
 /// Parse XML qualified name into prefix and local name
 pub fn parse_qname(qname: &str) -> Option<(String, String)> {
-    qname.split_once(':').map(|(prefix, local)| (prefix.to_string(), local.to_string()))
+    qname
+        .split_once(':')
+        .map(|(prefix, local)| (prefix.to_string(), local.to_string()))
 }
 
 /// Expand XML qualified name using namespace map

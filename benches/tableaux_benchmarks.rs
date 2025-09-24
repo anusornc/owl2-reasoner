@@ -4,7 +4,7 @@
 //! This benchmarks individual components and their integration to ensure
 //! optimal performance across all tableaux modules.
 
-use criterion::{black_box, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use owl2_reasoner::axioms::*;
 use owl2_reasoner::entities::*;
 use owl2_reasoner::iri::IRI;

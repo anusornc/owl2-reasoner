@@ -6,8 +6,8 @@ use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use crate::parser::rdf_xml_common::{ERR_RIO_XML_PARSE, NS_OWL, NS_RDF, NS_RDFS};
+use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::Path;
@@ -64,11 +64,12 @@ impl RdfXmlStreamingParser {
 
         let mut handler = |triple: Triple| -> Result<(), std::io::Error> {
             self.process_triple(&mut ontology, triple)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                .map_err(std::io::Error::other)
         };
 
-        parser.parse_all(&mut handler)
-            .map_err(|e| crate::error::OwlError::ParseError(format!("{}: {}", ERR_RIO_XML_PARSE, e)))?;
+        parser.parse_all(&mut handler).map_err(|e| {
+            crate::error::OwlError::ParseError(format!("{}: {}", ERR_RIO_XML_PARSE, e))
+        })?;
 
         Ok(ontology)
     }
@@ -79,8 +80,7 @@ impl RdfXmlStreamingParser {
         use std::fs::File;
         use std::io::BufReader;
 
-        let file = File::open(path)
-            .map_err(crate::error::OwlError::IoError)?;
+        let file = File::open(path).map_err(crate::error::OwlError::IoError)?;
 
         let reader = BufReader::new(file);
         self.parse_stream(reader)
@@ -100,11 +100,12 @@ impl RdfXmlStreamingParser {
 
         let mut handler = |triple: Triple| -> Result<(), std::io::Error> {
             self.process_triple(&mut ontology, triple)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                .map_err(std::io::Error::other)
         };
 
-        parser.parse_all(&mut handler)
-            .map_err(|e| crate::error::OwlError::ParseError(format!("{}: {}", ERR_RIO_XML_PARSE, e)))?;
+        parser.parse_all(&mut handler).map_err(|e| {
+            crate::error::OwlError::ParseError(format!("{}: {}", ERR_RIO_XML_PARSE, e))
+        })?;
 
         Ok(ontology)
     }
@@ -118,7 +119,11 @@ impl RdfXmlStreamingParser {
 
         // Ensure subject individual exists (create if not already present)
         let subject_individual = NamedIndividual::new(subject_iri.clone());
-        if !ontology.named_individuals().iter().any(|ni| ni.iri() == &subject_iri) {
+        if !ontology
+            .named_individuals()
+            .iter()
+            .any(|ni| ni.iri() == &subject_iri)
+        {
             ontology.add_named_individual(subject_individual)?;
         }
 
@@ -170,12 +175,11 @@ impl RdfXmlStreamingParser {
     fn subject_to_iri(&self, subject: &Subject) -> OwlResult<IRI> {
         match subject {
             Subject::NamedNode(node) => IRI::new(node.iri),
-            Subject::BlankNode(node) => IRI::new(&format!("_:{}", node.id)),
+            Subject::BlankNode(node) => IRI::new(format!("_:{}", node.id)),
             Subject::Triple(_) => todo!("Handle triple subjects"),
         }
     }
 
-    
     /// Process object term
     #[cfg(feature = "rio-xml")]
     fn process_object(&self, term: &Term) -> OwlResult<ProcessedObject> {
@@ -187,14 +191,19 @@ impl RdfXmlStreamingParser {
                 // In a real implementation, this would extract the actual literal value
                 let literal = Literal::simple("placeholder");
                 Ok(ProcessedObject::Literal(literal))
-            },
+            }
             Term::Triple(_) => todo!("Handle triple terms"),
         }
     }
 
     /// Handle type assertions (rdf:type)
     #[cfg(feature = "rio-xml")]
-    fn handle_type_assertion(&mut self, ontology: &mut Ontology, subject: &IRI, object_iri: &IRI) -> OwlResult<()> {
+    fn handle_type_assertion(
+        &mut self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        object_iri: &IRI,
+    ) -> OwlResult<()> {
         match object_iri.as_str() {
             ty if ty == format!("{}Class", NS_OWL) => {
                 let class = Class::new(subject.clone());
@@ -215,10 +224,8 @@ impl RdfXmlStreamingParser {
             _ => {
                 // Generic type assertion
                 let class = Class::new(object_iri.clone());
-                let assertion = ClassAssertionAxiom::new(
-                    subject.clone(),
-                    ClassExpression::Class(class),
-                );
+                let assertion =
+                    ClassAssertionAxiom::new(subject.clone(), ClassExpression::Class(class));
                 ontology.add_class_assertion(assertion)?;
             }
         }
@@ -227,7 +234,12 @@ impl RdfXmlStreamingParser {
 
     /// Handle subclass relationships
     #[cfg(feature = "rio-xml")]
-    fn handle_subclass_of(&mut self, ontology: &mut Ontology, subject: &IRI, object_iri: &IRI) -> OwlResult<()> {
+    fn handle_subclass_of(
+        &mut self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        object_iri: &IRI,
+    ) -> OwlResult<()> {
         let subclass = Class::new(subject.clone());
         let superclass = Class::new(object_iri.clone());
         let axiom = SubClassOfAxiom::new(
@@ -240,7 +252,12 @@ impl RdfXmlStreamingParser {
 
     /// Handle domain declarations
     #[cfg(feature = "rio-xml")]
-    fn handle_domain(&mut self, ontology: &mut Ontology, subject: &IRI, object_iri: &IRI) -> OwlResult<()> {
+    fn handle_domain(
+        &mut self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        object_iri: &IRI,
+    ) -> OwlResult<()> {
         // Implementation depends on whether subject is object or data property
         let class = Class::new(object_iri.clone());
 
@@ -253,13 +270,15 @@ impl RdfXmlStreamingParser {
 
     /// Handle range declarations
     #[cfg(feature = "rio-xml")]
-    fn handle_range(&mut self, ontology: &mut Ontology, subject: &IRI, object_iri: &IRI) -> OwlResult<()> {
+    fn handle_range(
+        &mut self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        object_iri: &IRI,
+    ) -> OwlResult<()> {
         // For object property range
         let class = Class::new(object_iri.clone());
-        let axiom = ObjectPropertyRangeAxiom::new(
-            subject.clone(),
-            ClassExpression::Class(class),
-        );
+        let axiom = ObjectPropertyRangeAxiom::new(subject.clone(), ClassExpression::Class(class));
         // Add as generic axiom for now
         ontology.add_axiom(crate::axioms::Axiom::ObjectPropertyRange(Box::new(axiom)))?;
         Ok(())
@@ -267,7 +286,13 @@ impl RdfXmlStreamingParser {
 
     /// Handle OWL-specific properties
     #[cfg(feature = "rio-xml")]
-    fn handle_owl_property(&mut self, _ontology: &mut Ontology, _subject: &IRI, _predicate: &IRI, _object: &ProcessedObject) -> OwlResult<()> {
+    fn handle_owl_property(
+        &mut self,
+        _ontology: &mut Ontology,
+        _subject: &IRI,
+        _predicate: &IRI,
+        _object: &ProcessedObject,
+    ) -> OwlResult<()> {
         // Handle various OWL properties like equivalentClass, disjointWith, etc.
         // This is a simplified implementation
         Ok(())
@@ -275,7 +300,13 @@ impl RdfXmlStreamingParser {
 
     /// Handle generic property assertions
     #[cfg(feature = "rio-xml")]
-    fn handle_property_assertion(&mut self, ontology: &mut Ontology, subject: &IRI, predicate: &IRI, object: &ProcessedObject) -> OwlResult<()> {
+    fn handle_property_assertion(
+        &mut self,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        predicate: &IRI,
+        object: &ProcessedObject,
+    ) -> OwlResult<()> {
         match object {
             ProcessedObject::Iri(object_iri) => {
                 // Object property with named individual
@@ -291,7 +322,7 @@ impl RdfXmlStreamingParser {
             }
             ProcessedObject::BlankNode(node_id) => {
                 // Object property with anonymous individual
-                let anon_individual = AnonymousIndividual::new(&format!("_:{}", node_id));
+                let anon_individual = AnonymousIndividual::new(format!("_:{}", node_id));
                 ontology.add_anonymous_individual(anon_individual.clone())?;
 
                 let assertion = PropertyAssertionAxiom::new_with_anonymous(
@@ -338,19 +369,19 @@ impl ProcessedObject {
 impl RdfXmlStreamingParser {
     pub fn parse_content(&mut self, _content: &str) -> OwlResult<Ontology> {
         Err(crate::error::OwlError::ParseError(
-            "Streaming parsing requires 'rio-xml' feature".to_string()
+            "Streaming parsing requires 'rio-xml' feature".to_string(),
         ))
     }
 
     pub fn parse_file(&self, _path: &Path) -> OwlResult<Ontology> {
         Err(crate::error::OwlError::ParseError(
-            "Streaming parsing requires 'rio-xml' feature".to_string()
+            "Streaming parsing requires 'rio-xml' feature".to_string(),
         ))
     }
 
     pub fn parse_stream(&mut self, _reader: impl std::io::BufRead) -> OwlResult<Ontology> {
         Err(crate::error::OwlError::ParseError(
-            "Streaming parsing requires 'rio-xml' feature".to_string()
+            "Streaming parsing requires 'rio-xml' feature".to_string(),
         ))
     }
 }

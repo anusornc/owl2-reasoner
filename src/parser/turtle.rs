@@ -596,9 +596,9 @@ impl TurtleParser {
                             Box::new(ObjectPropertyExpression::ObjectProperty(Box::new(
                                 ObjectProperty::new(subject),
                             ))),
-                            Box::new(ClassExpression::Class(Class::new(
-                                IRI::new("http://www.w3.org/2002/07/owl#Thing")?,
-                            ))),
+                            Box::new(ClassExpression::Class(Class::new(IRI::new(
+                                "http://www.w3.org/2002/07/owl#Thing",
+                            )?))),
                         ),
                         restriction,
                     );
@@ -619,9 +619,9 @@ impl TurtleParser {
                             Box::new(property_expr),
                             Box::new(range_class),
                         ),
-                        ClassExpression::Class(Class::new(
-                            IRI::new("http://www.w3.org/2002/07/owl#Thing")?,
-                        )),
+                        ClassExpression::Class(Class::new(IRI::new(
+                            "http://www.w3.org/2002/07/owl#Thing",
+                        )?)),
                     );
                     ontology.add_axiom(Axiom::SubClassOf(Box::new(subclass_axiom)))?;
                 }

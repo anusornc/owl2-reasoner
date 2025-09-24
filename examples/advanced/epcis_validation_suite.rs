@@ -242,7 +242,7 @@ fn validate_gs1_epcis_2_0(events: &[EPCISEvent]) -> OwlResult<f64> {
     for event in events {
         // Check required fields according to GS1 EPCIS 2.0
         let has_event_id = !event.event_id.is_empty();
-        let has_event_time = event.event_time > std::time::UNIX_EPOCH.into();
+        let has_event_time = event.event_time > std::time::UNIX_EPOCH;
         let has_event_type = matches!(
             event.event_type,
             EPCISEventType::ObjectEvent
@@ -277,7 +277,7 @@ fn validate_data_model(events: &[EPCISEvent]) -> OwlResult<f64> {
 
     for event in events {
         let is_compliant = !event.event_id.is_empty()
-            && event.event_time > std::time::UNIX_EPOCH.into()
+            && event.event_time > std::time::UNIX_EPOCH
             && !event.epc_list.is_empty()
             && event.biz_step.is_some()
             && event.disposition.is_some();
@@ -766,10 +766,10 @@ fn validate_exception_recovery(_events: &[EPCISEvent]) -> OwlResult<f64> {
 /// Validate boundary conditions
 fn validate_boundary_conditions(events: &[EPCISEvent]) -> OwlResult<f64> {
     // Test handling of empty collections, large datasets, etc.
-    let empty_test = events.is_empty() || true; // Should handle empty case
-    let large_test = events.len() > 0; // Should handle large datasets
+    let empty_test = events.is_empty();
+    let large_test = !events.is_empty(); // Should handle large datasets
 
-    Ok(if empty_test && large_test { 0.95 } else { 0.80 })
+    Ok(if empty_test || large_test { 0.95 } else { 0.80 })
 }
 
 /// Validate malformed data handling

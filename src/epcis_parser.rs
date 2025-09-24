@@ -74,10 +74,14 @@ impl EPCISDocumentParser {
 
         // Extract ObjectEvent data using basic string parsing
         for event_match in content.matches("<ObjectEvent>") {
-            let event_start = content.find(event_match)
+            let event_start = content
+                .find(event_match)
                 .ok_or_else(|| OwlError::ParseError("Could not find event start".to_string()))?;
-            let event_end = content[event_start..].find("</ObjectEvent>")
-                .ok_or_else(|| OwlError::ParseError("Could not find event end".to_string()))? + event_start + 14;
+            let event_end = content[event_start..]
+                .find("</ObjectEvent>")
+                .ok_or_else(|| OwlError::ParseError("Could not find event end".to_string()))?
+                + event_start
+                + 14;
             let event_content = &content[event_start..event_end];
 
             if let Some(event) = self.parse_object_event(event_content) {

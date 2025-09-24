@@ -3,17 +3,22 @@
 //! Implements parsing of the RDF/XML serialization format with full specification compliance.
 //! This module combines streaming and legacy parsing approaches for maximum compatibility.
 
-
 use crate::error::OwlResult;
 use crate::ontology::Ontology;
-use crate::parser::{OntologyParser, ParserConfig};
-use crate::parser::rdf_xml_streaming::RdfXmlStreamingParser;
 use crate::parser::rdf_xml_legacy::RdfXmlLegacyParser;
+use crate::parser::rdf_xml_streaming::RdfXmlStreamingParser;
+use crate::parser::{OntologyParser, ParserConfig};
 use std::path::Path;
 
 /// RDF/XML format parser with dual-mode operation
 pub struct RdfXmlParser {
     pub config: ParserConfig,
+}
+
+impl Default for RdfXmlParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RdfXmlParser {
@@ -24,9 +29,7 @@ impl RdfXmlParser {
 
     /// Create a new RDF/XML parser with custom configuration
     pub fn with_config(config: ParserConfig) -> Self {
-        Self {
-            config,
-        }
+        Self { config }
     }
 }
 
@@ -58,8 +61,7 @@ impl OntologyParser for RdfXmlParser {
     fn parse_file(&self, path: &Path) -> OwlResult<Ontology> {
         use std::fs;
 
-        let content = fs::read_to_string(path)
-            .map_err(crate::error::OwlError::IoError)?;
+        let content = fs::read_to_string(path).map_err(crate::error::OwlError::IoError)?;
 
         // Check file size
         if content.len() > self.config.max_file_size {
@@ -99,7 +101,6 @@ mod tests {
         assert!(parser.config.strict_validation);
     }
 
-    
     #[test]
     fn test_empty_content_validation() {
         let parser = RdfXmlParser::with_config(ParserConfig {
