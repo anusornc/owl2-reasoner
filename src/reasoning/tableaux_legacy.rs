@@ -1173,7 +1173,7 @@ impl TableauxReasoner {
         let individuals: Vec<_> = self.ontology.named_individuals().iter().cloned().collect();
         for individual in individuals {
             if self.is_instance_of(&individual.iri(), class)? {
-                instances.insert(individual.iri().clone());
+                instances.insert(individual(*(*iri())).clone());
             }
         }
 
@@ -1526,11 +1526,11 @@ impl TableauxReasoner {
                 if let (ClassExpression::Class(class1), ClassExpression::Class(class2)) =
                     (comp.as_ref(), other)
                 {
-                    class1.iri() == class2.iri()
+                    class1(*iri()).as_ref() == (*class2.iri()).as_ref()
                 } else if let (ClassExpression::Class(class1), ClassExpression::Class(class2)) =
                     (other, comp.as_ref())
                 {
-                    class1.iri() == class2.iri()
+                    class1(*iri()).as_ref() == (*class2.iri()).as_ref()
                 } else {
                     false
                 }
@@ -2733,10 +2733,10 @@ impl ReasoningCache {
                         parents.push(iri.clone());
                     }
                 }
-                parents.push(sup_class.iri().clone());
+                parents.push(sup_class(*(*iri())).clone());
                 cache
                     .class_hierarchy
-                    .insert(sub_class.iri().clone(), parents);
+                    .insert(sub_class(*(*iri())).clone(), parents);
             }
         }
 

@@ -10,6 +10,7 @@ use crate::reasoning::tableaux::TableauxReasoner;
 use crate::Axiom;
 
 use smallvec::SmallVec;
+use std::sync::Arc;
 
 /// Consistency checker for OWL2 ontologies
 pub struct ConsistencyChecker {
@@ -214,7 +215,7 @@ impl ConsistencyChecker {
                             ]
                             .into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
-                                vec![class1.clone(), class2.clone()],
+                                vec![(**class1).clone(), (**class2).clone()],
                             ),
                         });
                     }
@@ -253,7 +254,7 @@ impl ConsistencyChecker {
                             ]
                             .into(),
                             contradiction_type: ContradictionType::DisjointClassesContradiction(
-                                vec![class1.clone(), class2.clone()],
+                                vec![(**class1).clone(), (**class2).clone()],
                             ),
                         });
                     }
@@ -345,7 +346,7 @@ impl ConsistencyChecker {
                 unsatisfiable.push(InconsistencyExplanation {
                     description: format!("Class {} is unsatisfiable", class_iri),
                     involved_axioms: self.find_axioms_involving_class(class_iri)?.into(),
-                    contradiction_type: ContradictionType::UnsatisfiableClass(class_iri.clone()),
+                    contradiction_type: ContradictionType::UnsatisfiableClass((**class_iri).clone()),
                 });
             }
         }
@@ -366,14 +367,14 @@ impl ConsistencyChecker {
 
         // Check equivalent classes axioms
         for axiom in self.tableaux_reasoner.ontology.equivalent_classes_axioms() {
-            if axiom.classes().contains(class_iri) {
+            if axiom.classes().contains(&Arc::new((*class_iri).clone())) {
                 axioms.push(Axiom::EquivalentClasses(Box::new(axiom.clone())));
             }
         }
 
         // Check disjoint classes axioms
         for axiom in self.tableaux_reasoner.ontology.disjoint_classes_axioms() {
-            if axiom.classes().contains(class_iri) {
+            if axiom.classes().contains(&Arc::new((*class_iri).clone())) {
                 axioms.push(Axiom::DisjointClasses(Box::new(axiom.clone())));
             }
         }

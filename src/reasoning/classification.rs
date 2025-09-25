@@ -176,9 +176,9 @@ impl ClassificationEngine {
                 (axiom.sub_class(), axiom.super_class())
             {
                 self.hierarchy
-                    .add_parent(sub_class.iri().clone(), super_class.iri().clone());
+                    .add_parent((**sub_class.iri()).clone(), (**super_class.iri()).clone());
                 self.hierarchy
-                    .add_child(super_class.iri().clone(), sub_class.iri().clone());
+                    .add_child((**super_class.iri()).clone(), (**sub_class.iri()).clone());
             }
         }
 
@@ -187,18 +187,18 @@ impl ClassificationEngine {
             let class_iri = class.iri();
 
             // Add to hierarchy if not present
-            self.hierarchy.parents.entry(class_iri.clone()).or_default();
+            self.hierarchy.parents.entry((**class_iri).clone()).or_default();
             self.hierarchy
                 .children
-                .entry(class_iri.clone())
+                .entry((**class_iri).clone())
                 .or_default();
 
             // If no parents specified, add owl:Thing as parent
-            if self.hierarchy.parents[class_iri].is_empty() && class_iri != &thing_iri {
+            if self.hierarchy.parents[&(**class_iri).clone()].is_empty() && **class_iri != thing_iri {
                 self.hierarchy
-                    .add_parent(class_iri.clone(), thing_iri.clone());
+                    .add_parent((**class_iri).clone(), thing_iri.clone());
                 self.hierarchy
-                    .add_child(thing_iri.clone(), class_iri.clone());
+                    .add_child(thing_iri.clone(), (**class_iri).clone());
             }
         }
 
@@ -208,12 +208,12 @@ impl ClassificationEngine {
     /// Compute transitive closure of subclass relationships using evolved BFS algorithm
     /// This replaces the O(n³) iterative approach with an efficient O(N+E) BFS algorithm
     fn compute_transitive_closure(&mut self) -> OwlResult<()> {
-        // Get all classes without cloning IRIs
-        let classes: Vec<&IRI> = self
+        // Get all classes - need to clone Arc<IRI> to IRI
+        let classes: Vec<IRI> = self
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri()) // Use references instead of cloning
+            .map(|c| (**c.iri()).clone()) // Convert Arc<IRI> to IRI
             .collect();
 
         // For each class, compute all transitive superclasses using BFS
@@ -243,7 +243,7 @@ impl ClassificationEngine {
 
             // Add all discovered transitive parents to the hierarchy
             for transitive_parent in transitive_parents {
-                if !self.hierarchy.parents[class_iri].contains(&transitive_parent) {
+                if !self.hierarchy.parents[&class_iri].contains(&transitive_parent) {
                     self.hierarchy
                         .add_parent(class_iri.clone(), transitive_parent.clone());
                     self.hierarchy
@@ -273,9 +273,9 @@ impl ClassificationEngine {
                     let class2 = &classes[j];
 
                     self.hierarchy
-                        .add_equivalence(class1.clone(), class2.clone());
+                        .add_equivalence((**class1).clone(), (**class2).clone());
                     self.hierarchy
-                        .add_equivalence(class2.clone(), class1.clone());
+                        .add_equivalence((**class2).clone(), (**class1).clone());
                 }
             }
         }
@@ -293,7 +293,7 @@ impl ClassificationEngine {
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri()) // Use references instead of cloning
+            .map(|c| &**c.iri()) // Dereference Arc to get &IRI
             .collect();
 
         for i in 0..classes.len() {
@@ -312,9 +312,9 @@ impl ClassificationEngine {
 
                 if is_sub1 && is_sub2 {
                     self.hierarchy
-                        .add_equivalence(class1.clone(), class2.clone());
+                        .add_equivalence((*class1).clone(), (*class2).clone());
                     self.hierarchy
-                        .add_equivalence(class2.clone(), class1.clone());
+                        .add_equivalence((*class2).clone(), (*class1).clone());
                 }
             }
         }
@@ -334,8 +334,8 @@ impl ClassificationEngine {
                     let class1 = &classes[i];
                     let class2 = &classes[j];
 
-                    self.hierarchy.add_disjoint(class1.clone(), class2.clone());
-                    self.hierarchy.add_disjoint(class2.clone(), class1.clone());
+                    self.hierarchy.add_disjoint((**class1).clone(), (**class2).clone());
+                    self.hierarchy.add_disjoint((**class2).clone(), (**class1).clone());
                 }
             }
         }
@@ -353,7 +353,7 @@ impl ClassificationEngine {
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri()) // Use references instead of cloning
+            .map(|c| &**c.iri()) // Dereference Arc to get &IRI
             .collect();
 
         for i in 0..classes.len() {
@@ -372,8 +372,8 @@ impl ClassificationEngine {
                     .are_disjoint_classes(class1, class2)?;
 
                 if are_disjoint {
-                    self.hierarchy.add_disjoint(class1.clone(), class2.clone());
-                    self.hierarchy.add_disjoint(class2.clone(), class1.clone());
+                    self.hierarchy.add_disjoint((*class1).clone(), (*class2).clone());
+                    self.hierarchy.add_disjoint((*class2).clone(), (*class1).clone());
                 }
             }
         }
@@ -402,7 +402,7 @@ impl ClassificationEngine {
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri()) // Use references instead of cloning
+            .map(|c| &**c.iri()) // Dereference Arc to get &IRI
             .collect();
 
         for class_iri in classes {
@@ -463,7 +463,7 @@ impl ClassificationEngine {
             .ontology
             .classes()
             .iter()
-            .map(|c| c.iri()) // Use references instead of cloning
+            .map(|c| &**c.iri()) // Dereference Arc to get &IRI
             .collect();
 
         for class_iri in classes {

@@ -514,8 +514,8 @@ impl SimpleReasoner {
                         // Check if they're actually equivalent
                         let mut are_equivalent = false;
                         for eq_axiom in self.ontology.equivalent_classes_axioms() {
-                            if eq_axiom.classes().contains(sub_iri)
-                                && eq_axiom.classes().contains(super_iri)
+                            if eq_axiom.classes().contains(&Arc::new((*sub_iri).clone()))
+                                && eq_axiom.classes().contains(&Arc::new((*super_iri).clone()))
                             {
                                 are_equivalent = true;
                                 break;
@@ -585,7 +585,7 @@ impl SimpleReasoner {
         // Check if class is explicitly disjoint with itself
         for axiom in self.ontology.disjoint_classes_axioms() {
             let classes = axiom.classes();
-            if classes.contains(class_iri) && classes.len() == 1 {
+            if classes.contains(&Arc::new((*class_iri).clone())) && classes.len() == 1 {
                 return Ok(false); // Class is disjoint with itself - unsatisfiable
             }
         }
@@ -597,7 +597,7 @@ impl SimpleReasoner {
                 crate::axioms::ClassExpression::Class(super_class),
             ) = (axiom.sub_class(), axiom.super_class())
             {
-                if sub_class.iri() == class_iri
+                if sub_class.iri().as_ref() == class_iri
                     && super_class.iri().as_str() == "http://www.w3.org/2002/07/owl#Nothing"
                 {
                     return Ok(false); // Subclass of Nothing - unsatisfiable
@@ -693,7 +693,7 @@ impl SimpleReasoner {
                 crate::axioms::ClassExpression::Class(sup_axiom),
             ) = (axiom.sub_class(), axiom.super_class())
             {
-                if sub_axiom.iri() == sub && sup_axiom.iri() == sup {
+                if sub_axiom.iri().as_ref() == sub && sup_axiom.iri().as_ref() == sup {
                     let result = true;
                     let mut cache = self.write_lock(&self.subclass_cache, "subclass_cache")?;
                     cache.insert(
@@ -739,7 +739,7 @@ impl SimpleReasoner {
         // Check equivalent classes axioms
         for axiom in self.ontology.equivalent_classes_axioms() {
             let classes = axiom.classes();
-            if classes.contains(class1) && classes.contains(class2) {
+            if classes.contains(&Arc::new((*class1).clone())) && classes.contains(&Arc::new((*class2).clone())) {
                 return true;
             }
         }
@@ -754,12 +754,12 @@ impl SimpleReasoner {
     fn bfs_subclass_check_optimized(&self, start_class: &IRI, target_class: &IRI) -> bool {
         use std::collections::VecDeque;
 
-        let mut visited = std::collections::HashSet::new();
-        let mut queue = VecDeque::new();
+        let mut visited: std::collections::HashSet<Arc<IRI>> = std::collections::HashSet::new();
+        let mut queue: VecDeque<Arc<IRI>> = VecDeque::new();
 
         // Initialize BFS
-        queue.push_back(start_class.clone());
-        visited.insert(start_class.clone());
+        queue.push_back(Arc::new(start_class.clone()));
+        visited.insert(Arc::new(start_class.clone()));
 
         while let Some(current_class) = queue.pop_front() {
             // Find direct superclasses using optimized iteration
@@ -769,9 +769,9 @@ impl SimpleReasoner {
                     crate::axioms::ClassExpression::Class(sup_axiom),
                 ) = (axiom.sub_class(), axiom.super_class())
                 {
-                    if sub_axiom.iri() == &current_class {
+                    if sub_axiom.iri().as_ref() == current_class {
                         // Found target - return immediately
-                        if sup_axiom.iri() == target_class {
+                        if sup_axiom.iri().as_ref() == target_class {
                             return true;
                         }
 
@@ -789,25 +789,26 @@ impl SimpleReasoner {
     }
 
     /// Get all instances of a class (cached)
-    pub fn get_instances(&self, class_iri: &IRI) -> OwlResult<Vec<IRI>> {
+    pub fn get_instances(&self, class_iri: &IRI) -> OwlResult<Vec<Arc<IRI>>> {
         // Check cache first
         {
             let cache = self.read_lock(&self.instances_cache, "instances_cache")?;
             if let Some(entry) = cache.get(class_iri) {
                 if let Some(result) = entry.get() {
-                    return Ok(result.clone());
+                    return Ok(result.clone().into_iter().map(|iri| Arc::new(iri)).collect());
                 }
             }
         }
 
         // Compute result
-        let result = self.compute_instances(class_iri)?;
+        let instances = self.compute_instances(class_iri)?;
+        let result: Vec<Arc<IRI>> = instances.into_iter().map(|iri| Arc::new(iri)).collect();
 
         // Cache result (30 second TTL for instances - they might change frequently)
         let mut cache = self.write_lock(&self.instances_cache, "instances_cache")?;
         cache.insert(
             class_iri.clone(),
-            CacheEntry::new(result.clone(), Duration::from_secs(30)),
+            CacheEntry::new(instances, Duration::from_secs(30)),
         );
 
         Ok(result)
@@ -820,20 +821,20 @@ impl SimpleReasoner {
         // Get direct class assertions
         for axiom in self.ontology.class_assertions() {
             if axiom.class_expr().contains_class(class_iri) {
-                instances.push(axiom.individual().clone());
+                instances.push(Arc::new((*axiom.individual()).clone()));
             }
         }
 
         // Get instances of equivalent classes
         for axiom in self.ontology.equivalent_classes_axioms() {
             let classes = axiom.classes();
-            if classes.contains(class_iri) {
+            if classes.contains(&Arc::new((*class_iri).clone())) {
                 for equiv_class in classes {
-                    if equiv_class != class_iri {
+                    if **equiv_class != *class_iri {
                         // Get instances of the equivalent class
                         for assertion in self.ontology.class_assertions() {
                             if assertion.class_expr().contains_class(equiv_class) {
-                                instances.push(assertion.individual().clone());
+                                instances.push(Arc::new((*assertion.individual()).clone()));
                             }
                         }
                     }
@@ -845,7 +846,7 @@ impl SimpleReasoner {
         instances.sort();
         instances.dedup();
 
-        Ok(instances)
+        Ok(instances.into_iter().map(|iri| Arc::new(iri)).collect())
     }
 }
 

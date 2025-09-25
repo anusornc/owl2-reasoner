@@ -6,6 +6,7 @@ use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
+use std::sync::Arc;
 use crate::parser::rdf_xml_common::{
     initialize_namespaces, ResourceInfo, XmlDocument, XmlElement, ERR_EMPTY_ONTOLOGY, RDF_ABOUT,
     RDF_RESOURCE,
@@ -242,10 +243,10 @@ impl RdfXmlLegacyParser {
                 if child.name == "equivalentClass" || child.name == "owl:equivalentClass" {
                     if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
                         let equivalent_class_iri = IRI::new(resource)?;
-                        let equivalent_class = Class::new(equivalent_class_iri);
+                        let equivalent_class = Class::new(equivalent_class_iri.clone());
                         let axiom = EquivalentClassesAxiom::new(vec![
-                            class.iri().clone(),
-                            equivalent_class.iri().clone(),
+                            Arc::new(iri.clone()),
+                            Arc::new(equivalent_class_iri.clone()),
                         ]);
                         ontology.add_equivalent_classes_axiom(axiom)?;
                     }
@@ -255,10 +256,10 @@ impl RdfXmlLegacyParser {
                 if child.name == "disjointWith" || child.name == "owl:disjointWith" {
                     if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
                         let disjoint_class_iri = IRI::new(resource)?;
-                        let disjoint_class = Class::new(disjoint_class_iri);
+                        let disjoint_class = Class::new(disjoint_class_iri.clone());
                         let axiom = DisjointClassesAxiom::new(vec![
-                            class.iri().clone(),
-                            disjoint_class.iri().clone(),
+                            Arc::new(iri.clone()),
+                            Arc::new(disjoint_class_iri.clone()),
                         ]);
                         ontology.add_disjoint_classes_axiom(axiom)?;
                     }
@@ -327,7 +328,7 @@ impl RdfXmlLegacyParser {
                         let class_iri = IRI::new(resource)?;
                         let class = Class::new(class_iri);
                         let assertion = ClassAssertionAxiom::new(
-                            individual.iri().clone(),
+                            Arc::new(iri.clone()),
                             ClassExpression::Class(class),
                         );
                         ontology.add_class_assertion(assertion)?;
@@ -419,7 +420,7 @@ impl RdfXmlLegacyParser {
 
                             let assertion = PropertyAssertionAxiom::new_with_anonymous(
                                 individual.iri().clone(),
-                                property_iri,
+                                Arc::new(property_iri),
                                 anon_individual,
                             );
                             ontology.add_property_assertion(assertion)?;

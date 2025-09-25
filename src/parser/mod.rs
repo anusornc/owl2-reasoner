@@ -8,6 +8,8 @@
 
 pub mod arena;
 pub mod common;
+pub mod import_resolver;
+pub mod manchester;
 pub mod owl_functional;
 pub mod owl_xml;
 pub mod rdf_xml;
@@ -18,6 +20,8 @@ pub mod turtle;
 
 pub use arena::*;
 pub use common::*;
+pub use import_resolver::*;
+pub use manchester::{ManchesterAST, ManchesterParser};
 pub use owl_functional::*;
 pub use owl_xml::*;
 pub use rdf_xml::*;
@@ -27,6 +31,7 @@ use crate::entities::Class;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
+use std::sync::Arc;
 
 /// Parser trait for different serialization formats
 pub trait OntologyParser {
@@ -52,6 +57,7 @@ impl ParserFactory {
             "owl" | "ofn" => Some(Box::new(OwlFunctionalSyntaxParser::new())), // OWL Functional Syntax files
             "owx" | "xml" => Some(Box::new(OwlXmlParser::new())),
             "nt" => Some(Box::new(NtriplesParser::new())),
+            "man" | "mn" | "manchester" => Some(Box::new(ManchesterParser::new())),
             _ => None,
         }
     }
@@ -63,6 +69,7 @@ impl ParserFactory {
             "application/rdf+xml" => Some(Box::new(RdfXmlParser::new())),
             "application/owl+xml" => Some(Box::new(OwlXmlParser::new())),
             "application/n-triples" | "text/plain" => Some(Box::new(NtriplesParser::new())),
+            "text/manchester" | "application/manchester" => Some(Box::new(ManchesterParser::new())),
             _ => None,
         }
     }
@@ -71,8 +78,16 @@ impl ParserFactory {
     pub fn auto_detect(content: &str) -> Option<Box<dyn OntologyParser>> {
         let content_trimmed = content.trim();
 
-        // Check for OWL Functional Syntax (highest priority for .owl files)
-        if content_trimmed.starts_with("Prefix(")
+        // Check for Manchester Syntax (highest priority for readability)
+        if content_trimmed.starts_with("Prefix:")
+            || content_trimmed.contains("Class:")
+            || content_trimmed.contains("ObjectProperty:")
+            || content_trimmed.contains("Individual:")
+        {
+            Some(Box::new(ManchesterParser::new()))
+        }
+        // Check for OWL Functional Syntax (priority for .owl files)
+        else if content_trimmed.starts_with("Prefix(")
             || content_trimmed.contains("Ontology(")
             || (content_trimmed.starts_with("Document(") && content_trimmed.contains("Prefix("))
         {
@@ -423,7 +438,7 @@ impl NtriplesParser {
                     ontology.add_class(object_class.clone())?;
 
                     let class_assertion = crate::axioms::ClassAssertionAxiom::new(
-                        subject_iri.clone(),
+                        Arc::new(subject_iri.clone()),
                         crate::axioms::ClassExpression::Class(subject_class),
                     );
                     ontology.add_class_assertion(class_assertion)?;
@@ -529,6 +544,10 @@ pub struct ParserConfig {
     pub arena_capacity: usize,
     /// Maximum arena size in bytes (if arena allocation is enabled)
     pub max_arena_size: usize,
+    /// Whether to automatically resolve imports during parsing
+    pub resolve_imports: bool,
+    /// Whether to follow import resolution errors or continue without imports
+    pub ignore_import_errors: bool,
 }
 
 impl Default for ParserConfig {
@@ -545,6 +564,10 @@ impl Default for ParserConfig {
             arena_capacity: 1024 * 1024,
             // Maximum arena size of 10MB
             max_arena_size: 10 * 1024 * 1024,
+            // Default to not resolving imports automatically during parsing
+            resolve_imports: false,
+            // Default to ignoring import errors to allow parsing to continue
+            ignore_import_errors: true,
         }
     }
 }

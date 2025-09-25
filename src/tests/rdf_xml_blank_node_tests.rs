@@ -41,7 +41,7 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
     assert!(ontology
         .named_individuals()
         .iter()
-        .any(|ni| ni.iri() == &john_iri));
+        .any(|ni| ni(*iri()).as_ref() == &john_iri));
 
     // Check that we have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();

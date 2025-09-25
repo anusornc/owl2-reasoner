@@ -9,6 +9,7 @@ use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::parser::{OntologyParser, ParserConfig};
+use std::sync::Arc;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -50,6 +51,17 @@ impl OwlXmlParser {
 
             if self.config.strict_validation {
                 self.validate_ontology(&ontology)?;
+            }
+        }
+
+        // Resolve imports if configured to do so
+        if self.config.resolve_imports {
+            if let Err(e) = ontology.resolve_imports() {
+                if self.config.ignore_import_errors {
+                    log::warn!("Import resolution failed: {}", e);
+                } else {
+                    return Err(e);
+                }
             }
         }
 
@@ -488,13 +500,14 @@ impl OwlXmlParser {
             let class_iris: Vec<IRI> = class_descriptions
                 .into_iter()
                 .filter_map(|ce| match ce {
-                    ClassExpression::Class(cls) => Some(cls.iri().clone()),
+                    ClassExpression::Class(cls) => Some((**cls.iri()).clone()),
                     _ => None,
                 })
                 .collect();
 
             if class_iris.len() >= 2 {
-                let axiom = EquivalentClassesAxiom::new(class_iris);
+                let class_arc_iris: Vec<Arc<IRI>> = class_iris.into_iter().map(Arc::new).collect();
+                let axiom = EquivalentClassesAxiom::new(class_arc_iris);
                 ontology.add_equivalent_classes_axiom(axiom)?;
             } else if self.config.strict_validation {
                 return Err(crate::error::OwlError::ParseError(
@@ -579,13 +592,14 @@ impl OwlXmlParser {
             let class_iris: Vec<IRI> = class_descriptions
                 .into_iter()
                 .filter_map(|ce| match ce {
-                    ClassExpression::Class(cls) => Some(cls.iri().clone()),
+                    ClassExpression::Class(cls) => Some((**cls.iri()).clone()),
                     _ => None,
                 })
                 .collect();
 
             if class_iris.len() >= 2 {
-                let axiom = DisjointClassesAxiom::new(class_iris);
+                let class_arc_iris: Vec<Arc<IRI>> = class_iris.into_iter().map(Arc::new).collect();
+                let axiom = DisjointClassesAxiom::new(class_arc_iris);
                 ontology.add_disjoint_classes_axiom(axiom)?;
             } else if self.config.strict_validation {
                 return Err(crate::error::OwlError::ParseError(

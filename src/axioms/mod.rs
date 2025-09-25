@@ -12,24 +12,28 @@ pub use property_expressions::*;
 
 use crate::iri::IRI;
 use crate::{constants::*, OwlError, OwlResult};
+use std::sync::Arc;
 
 /// Helper function to create IRIs safely with proper error handling
-fn create_iri_safe(iri_str: &str) -> OwlResult<IRI> {
-    IRI::new(iri_str).map_err(|_| OwlError::IriCreationError {
+fn create_iri_safe(iri_str: &str) -> OwlResult<Arc<IRI>> {
+    IRI::new_optimized(iri_str).map_err(|_| OwlError::IriCreationError {
         iri_str: iri_str.to_string(),
     })
 }
 
 /// Helper function to create blank node IRIs safely
-fn create_blank_node_iri(node_id: &str) -> OwlResult<IRI> {
-    create_iri_safe(&format!("{}{}", BLANK_NODE_PREFIX, node_id))
+fn create_blank_node_iri(node_id: &str) -> OwlResult<Arc<IRI>> {
+    IRI::new_optimized(&format!("{}{}", BLANK_NODE_PREFIX, node_id))
+        .map_err(|_| OwlError::IriCreationError {
+            iri_str: format!("{}{}", BLANK_NODE_PREFIX, node_id),
+        })
 }
 
 /// Object value for property assertions
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PropertyAssertionObject {
     /// Named individual (IRI)
-    Named(IRI),
+    Named(Arc<IRI>),
     /// Anonymous individual (blank node)
     Anonymous(Box<AnonymousIndividual>),
 }
@@ -256,7 +260,7 @@ impl Axiom {
     }
 
     /// Get the signature IRIs of this axiom (main entities involved)
-    pub fn signature(&self) -> Vec<IRI> {
+    pub fn signature(&self) -> Vec<Arc<IRI>> {
         // Simplified signature extraction - will be enhanced with proper axiom methods
         Vec::new() // Placeholder implementation
     }
@@ -300,17 +304,17 @@ impl SubClassOfAxiom {
 /// Equivalent classes axiom: C ≡ D
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EquivalentClassesAxiom {
-    classes: Vec<IRI>,
+    classes: Vec<Arc<IRI>>,
 }
 
 impl EquivalentClassesAxiom {
     /// Create a new equivalent classes axiom
-    pub fn new(classes: Vec<IRI>) -> Self {
+    pub fn new(classes: Vec<Arc<IRI>>) -> Self {
         EquivalentClassesAxiom { classes }
     }
 
     /// Get the equivalent classes
-    pub fn classes(&self) -> &Vec<IRI> {
+    pub fn classes(&self) -> &Vec<Arc<IRI>> {
         &self.classes
     }
 }
@@ -318,17 +322,17 @@ impl EquivalentClassesAxiom {
 /// Disjoint classes axiom: C ⊓ D ⊑ ⊥
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisjointClassesAxiom {
-    classes: Vec<IRI>,
+    classes: Vec<Arc<IRI>>,
 }
 
 impl DisjointClassesAxiom {
     /// Create a new disjoint classes axiom
-    pub fn new(classes: Vec<IRI>) -> Self {
+    pub fn new(classes: Vec<Arc<IRI>>) -> Self {
         DisjointClassesAxiom { classes }
     }
 
     /// Get the disjoint classes
-    pub fn classes(&self) -> &Vec<IRI> {
+    pub fn classes(&self) -> &Vec<Arc<IRI>> {
         &self.classes
     }
 }
@@ -336,13 +340,13 @@ impl DisjointClassesAxiom {
 /// Class assertion axiom: a ∈ C
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassAssertionAxiom {
-    individual: IRI,
+    individual: Arc<IRI>,
     class_expr: class_expressions::ClassExpression,
 }
 
 impl ClassAssertionAxiom {
     /// Create a new class assertion axiom
-    pub fn new(individual: IRI, class_expr: class_expressions::ClassExpression) -> Self {
+    pub fn new(individual: Arc<IRI>, class_expr: class_expressions::ClassExpression) -> Self {
         ClassAssertionAxiom {
             individual,
             class_expr,
@@ -350,7 +354,7 @@ impl ClassAssertionAxiom {
     }
 
     /// Get the individual
-    pub fn individual(&self) -> &IRI {
+    pub fn individual(&self) -> &Arc<IRI> {
         &self.individual
     }
 
@@ -363,22 +367,22 @@ impl ClassAssertionAxiom {
 /// Property assertion axiom: (a, b) ∈ P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyAssertionAxiom {
-    subject: IRI,
-    property: IRI,
+    subject: Arc<IRI>,
+    property: Arc<IRI>,
     object: PropertyAssertionObject,
 }
 
 /// Data property assertion axiom: (a, v) ∈ P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataPropertyAssertionAxiom {
-    subject: IRI,
-    property: IRI,
+    subject: Arc<IRI>,
+    property: Arc<IRI>,
     value: crate::entities::Literal,
 }
 
 impl DataPropertyAssertionAxiom {
     /// Create a new data property assertion axiom
-    pub fn new(subject: IRI, property: IRI, value: crate::entities::Literal) -> Self {
+    pub fn new(subject: Arc<IRI>, property: Arc<IRI>, value: crate::entities::Literal) -> Self {
         DataPropertyAssertionAxiom {
             subject,
             property,
@@ -387,12 +391,12 @@ impl DataPropertyAssertionAxiom {
     }
 
     /// Get the subject
-    pub fn subject(&self) -> &IRI {
+    pub fn subject(&self) -> &Arc<IRI> {
         &self.subject
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
@@ -404,7 +408,7 @@ impl DataPropertyAssertionAxiom {
 
 impl PropertyAssertionAxiom {
     /// Create a new property assertion axiom with named individual (backward compatibility)
-    pub fn new(subject: IRI, property: IRI, object: IRI) -> Self {
+    pub fn new(subject: Arc<IRI>, property: Arc<IRI>, object: Arc<IRI>) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -413,7 +417,7 @@ impl PropertyAssertionAxiom {
     }
 
     /// Create a new property assertion axiom with anonymous individual (blank node)
-    pub fn new_with_anonymous(subject: IRI, property: IRI, object: AnonymousIndividual) -> Self {
+    pub fn new_with_anonymous(subject: Arc<IRI>, property: Arc<IRI>, object: AnonymousIndividual) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -422,7 +426,7 @@ impl PropertyAssertionAxiom {
     }
 
     /// Create a new property assertion axiom with property assertion object
-    pub fn new_with_object(subject: IRI, property: IRI, object: PropertyAssertionObject) -> Self {
+    pub fn new_with_object(subject: Arc<IRI>, property: Arc<IRI>, object: PropertyAssertionObject) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -431,12 +435,12 @@ impl PropertyAssertionAxiom {
     }
 
     /// Get the subject
-    pub fn subject(&self) -> &IRI {
+    pub fn subject(&self) -> &Arc<IRI> {
         &self.subject
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
@@ -446,7 +450,7 @@ impl PropertyAssertionAxiom {
     }
 
     /// Get the object as IRI if it's a named individual, returns None for anonymous
-    pub fn object_iri(&self) -> Option<&IRI> {
+    pub fn object_iri(&self) -> Option<&Arc<IRI>> {
         match &self.object {
             PropertyAssertionObject::Named(iri) => Some(iri),
             PropertyAssertionObject::Anonymous(_) => None,
@@ -465,13 +469,13 @@ impl PropertyAssertionAxiom {
 /// Subobject property axiom: P ⊑ Q
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubObjectPropertyAxiom {
-    sub_property: IRI,
-    super_property: IRI,
+    sub_property: Arc<IRI>,
+    super_property: Arc<IRI>,
 }
 
 impl SubObjectPropertyAxiom {
     /// Create a new subobject property axiom
-    pub fn new(sub_property: IRI, super_property: IRI) -> Self {
+    pub fn new(sub_property: Arc<IRI>, super_property: Arc<IRI>) -> Self {
         SubObjectPropertyAxiom {
             sub_property,
             super_property,
@@ -479,12 +483,12 @@ impl SubObjectPropertyAxiom {
     }
 
     /// Get the subproperty
-    pub fn sub_property(&self) -> &IRI {
+    pub fn sub_property(&self) -> &Arc<IRI> {
         &self.sub_property
     }
 
     /// Get the superproperty
-    pub fn super_property(&self) -> &IRI {
+    pub fn super_property(&self) -> &Arc<IRI> {
         &self.super_property
     }
 }
@@ -492,17 +496,17 @@ impl SubObjectPropertyAxiom {
 /// Equivalent object properties axiom: P ≡ Q
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EquivalentObjectPropertiesAxiom {
-    properties: Vec<IRI>,
+    properties: Vec<Arc<IRI>>,
 }
 
 impl EquivalentObjectPropertiesAxiom {
     /// Create a new equivalent object properties axiom
-    pub fn new(properties: Vec<IRI>) -> Self {
+    pub fn new(properties: Vec<Arc<IRI>>) -> Self {
         EquivalentObjectPropertiesAxiom { properties }
     }
 
     /// Get the equivalent properties
-    pub fn properties(&self) -> &Vec<IRI> {
+    pub fn properties(&self) -> &Vec<Arc<IRI>> {
         &self.properties
     }
 }
@@ -510,17 +514,17 @@ impl EquivalentObjectPropertiesAxiom {
 /// Disjoint object properties axiom: P ⊓ Q ⊑ ⊥
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisjointObjectPropertiesAxiom {
-    properties: Vec<IRI>,
+    properties: Vec<Arc<IRI>>,
 }
 
 impl DisjointObjectPropertiesAxiom {
     /// Create a new disjoint object properties axiom
-    pub fn new(properties: Vec<IRI>) -> Self {
+    pub fn new(properties: Vec<Arc<IRI>>) -> Self {
         DisjointObjectPropertiesAxiom { properties }
     }
 
     /// Get the disjoint properties
-    pub fn properties(&self) -> &Vec<IRI> {
+    pub fn properties(&self) -> &Vec<Arc<IRI>> {
         &self.properties
     }
 }
@@ -528,17 +532,17 @@ impl DisjointObjectPropertiesAxiom {
 /// Functional property axiom: ⊤ ⊑ ≤1P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionalPropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl FunctionalPropertyAxiom {
     /// Create a new functional property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         FunctionalPropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -546,17 +550,17 @@ impl FunctionalPropertyAxiom {
 /// Inverse functional property axiom: ⊤ ⊑ ≤1P⁻
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InverseFunctionalPropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl InverseFunctionalPropertyAxiom {
     /// Create a new inverse functional property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         InverseFunctionalPropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -564,17 +568,17 @@ impl InverseFunctionalPropertyAxiom {
 /// Reflexive property axiom: ⊤ ⊑ ∃P.Self
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReflexivePropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl ReflexivePropertyAxiom {
     /// Create a new reflexive property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         ReflexivePropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -582,17 +586,17 @@ impl ReflexivePropertyAxiom {
 /// Irreflexive property axiom: ⊥ ⊑ ∃P.Self
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IrreflexivePropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl IrreflexivePropertyAxiom {
     /// Create a new irreflexive property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         IrreflexivePropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -600,17 +604,17 @@ impl IrreflexivePropertyAxiom {
 /// Symmetric property axiom: P ≡ P⁻
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymmetricPropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl SymmetricPropertyAxiom {
     /// Create a new symmetric property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         SymmetricPropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -618,17 +622,17 @@ impl SymmetricPropertyAxiom {
 /// Asymmetric property axiom: P ⊓ P⁻ ⊑ ⊥
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AsymmetricPropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl AsymmetricPropertyAxiom {
     /// Create a new asymmetric property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         AsymmetricPropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -636,17 +640,17 @@ impl AsymmetricPropertyAxiom {
 /// Transitive property axiom: P⁺ ⊑ P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransitivePropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl TransitivePropertyAxiom {
     /// Create a new transitive property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         TransitivePropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -711,13 +715,13 @@ impl InverseObjectPropertiesAxiom {
 /// Subdata property axiom: Q ⊑ P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubDataPropertyAxiom {
-    sub_property: IRI,
-    super_property: IRI,
+    sub_property: Arc<IRI>,
+    super_property: Arc<IRI>,
 }
 
 impl SubDataPropertyAxiom {
     /// Create a new subdata property axiom
-    pub fn new(sub_property: IRI, super_property: IRI) -> Self {
+    pub fn new(sub_property: Arc<IRI>, super_property: Arc<IRI>) -> Self {
         SubDataPropertyAxiom {
             sub_property,
             super_property,
@@ -725,12 +729,12 @@ impl SubDataPropertyAxiom {
     }
 
     /// Get the subproperty
-    pub fn sub_property(&self) -> &IRI {
+    pub fn sub_property(&self) -> &Arc<IRI> {
         &self.sub_property
     }
 
     /// Get the superproperty
-    pub fn super_property(&self) -> &IRI {
+    pub fn super_property(&self) -> &Arc<IRI> {
         &self.super_property
     }
 }
@@ -738,17 +742,17 @@ impl SubDataPropertyAxiom {
 /// Equivalent data properties axiom: P ≡ Q
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EquivalentDataPropertiesAxiom {
-    properties: Vec<IRI>,
+    properties: Vec<Arc<IRI>>,
 }
 
 impl EquivalentDataPropertiesAxiom {
     /// Create a new equivalent data properties axiom
-    pub fn new(properties: Vec<IRI>) -> Self {
+    pub fn new(properties: Vec<Arc<IRI>>) -> Self {
         EquivalentDataPropertiesAxiom { properties }
     }
 
     /// Get the equivalent properties
-    pub fn properties(&self) -> &Vec<IRI> {
+    pub fn properties(&self) -> &Vec<Arc<IRI>> {
         &self.properties
     }
 }
@@ -756,17 +760,17 @@ impl EquivalentDataPropertiesAxiom {
 /// Disjoint data properties axiom: P ⊓ Q ⊑ ⊥
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisjointDataPropertiesAxiom {
-    properties: Vec<IRI>,
+    properties: Vec<Arc<IRI>>,
 }
 
 impl DisjointDataPropertiesAxiom {
     /// Create a new disjoint data properties axiom
-    pub fn new(properties: Vec<IRI>) -> Self {
+    pub fn new(properties: Vec<Arc<IRI>>) -> Self {
         DisjointDataPropertiesAxiom { properties }
     }
 
     /// Get the disjoint properties
-    pub fn properties(&self) -> &Vec<IRI> {
+    pub fn properties(&self) -> &Vec<Arc<IRI>> {
         &self.properties
     }
 }
@@ -774,17 +778,17 @@ impl DisjointDataPropertiesAxiom {
 /// Functional data property axiom: ⊤ ⊑ ≤1P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionalDataPropertyAxiom {
-    property: IRI,
+    property: Arc<IRI>,
 }
 
 impl FunctionalDataPropertyAxiom {
     /// Create a new functional data property axiom
-    pub fn new(property: IRI) -> Self {
+    pub fn new(property: Arc<IRI>) -> Self {
         FunctionalDataPropertyAxiom { property }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 }
@@ -792,17 +796,17 @@ impl FunctionalDataPropertyAxiom {
 /// Same individual axiom: a = b
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SameIndividualAxiom {
-    individuals: Vec<IRI>,
+    individuals: Vec<Arc<IRI>>,
 }
 
 impl SameIndividualAxiom {
     /// Create a new same individual axiom
-    pub fn new(individuals: Vec<IRI>) -> Self {
+    pub fn new(individuals: Vec<Arc<IRI>>) -> Self {
         SameIndividualAxiom { individuals }
     }
 
     /// Get the individuals
-    pub fn individuals(&self) -> &[IRI] {
+    pub fn individuals(&self) -> &[Arc<IRI>] {
         &self.individuals
     }
 }
@@ -810,17 +814,17 @@ impl SameIndividualAxiom {
 /// Different individuals axiom: a ≠ b
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DifferentIndividualsAxiom {
-    individuals: Vec<IRI>,
+    individuals: Vec<Arc<IRI>>,
 }
 
 impl DifferentIndividualsAxiom {
     /// Create a new different individuals axiom
-    pub fn new(individuals: Vec<IRI>) -> Self {
+    pub fn new(individuals: Vec<Arc<IRI>>) -> Self {
         DifferentIndividualsAxiom { individuals }
     }
 
     /// Get the individuals
-    pub fn individuals(&self) -> &[IRI] {
+    pub fn individuals(&self) -> &[Arc<IRI>] {
         &self.individuals
     }
 }
@@ -829,12 +833,12 @@ impl DifferentIndividualsAxiom {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HasKeyAxiom {
     class_expression: class_expressions::ClassExpression,
-    properties: Vec<IRI>,
+    properties: Vec<Arc<IRI>>,
 }
 
 impl HasKeyAxiom {
     /// Create a new has key axiom
-    pub fn new(class_expression: class_expressions::ClassExpression, properties: Vec<IRI>) -> Self {
+    pub fn new(class_expression: class_expressions::ClassExpression, properties: Vec<Arc<IRI>>) -> Self {
         HasKeyAxiom {
             class_expression,
             properties,
@@ -847,7 +851,7 @@ impl HasKeyAxiom {
     }
 
     /// Get the properties
-    pub fn properties(&self) -> &[IRI] {
+    pub fn properties(&self) -> &[Arc<IRI>] {
         &self.properties
     }
 }
@@ -855,16 +859,16 @@ impl HasKeyAxiom {
 /// Annotation assertion axiom: ⊤ ⊑ ∃r.{@a}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnnotationAssertionAxiom {
-    annotation_property: IRI,
-    subject: IRI,
+    annotation_property: Arc<IRI>,
+    subject: Arc<IRI>,
     value: crate::entities::AnnotationValue,
 }
 
 impl AnnotationAssertionAxiom {
     /// Create a new annotation assertion axiom
     pub fn new(
-        annotation_property: IRI,
-        subject: IRI,
+        annotation_property: Arc<IRI>,
+        subject: Arc<IRI>,
         value: crate::entities::AnnotationValue,
     ) -> Self {
         AnnotationAssertionAxiom {
@@ -875,12 +879,12 @@ impl AnnotationAssertionAxiom {
     }
 
     /// Get the annotation property
-    pub fn annotation_property(&self) -> &IRI {
+    pub fn annotation_property(&self) -> &Arc<IRI> {
         &self.annotation_property
     }
 
     /// Get the subject
-    pub fn subject(&self) -> &IRI {
+    pub fn subject(&self) -> &Arc<IRI> {
         &self.subject
     }
 
@@ -893,13 +897,13 @@ impl AnnotationAssertionAxiom {
 /// Sub-annotation property axiom: P ⊑ Q
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubAnnotationPropertyOfAxiom {
-    sub_property: IRI,
-    super_property: IRI,
+    sub_property: Arc<IRI>,
+    super_property: Arc<IRI>,
 }
 
 impl SubAnnotationPropertyOfAxiom {
     /// Create a new sub-annotation property axiom
-    pub fn new(sub_property: IRI, super_property: IRI) -> Self {
+    pub fn new(sub_property: Arc<IRI>, super_property: Arc<IRI>) -> Self {
         SubAnnotationPropertyOfAxiom {
             sub_property,
             super_property,
@@ -907,12 +911,12 @@ impl SubAnnotationPropertyOfAxiom {
     }
 
     /// Get the sub-property
-    pub fn sub_property(&self) -> &IRI {
+    pub fn sub_property(&self) -> &Arc<IRI> {
         &self.sub_property
     }
 
     /// Get the super-property
-    pub fn super_property(&self) -> &IRI {
+    pub fn super_property(&self) -> &Arc<IRI> {
         &self.super_property
     }
 }
@@ -920,23 +924,23 @@ impl SubAnnotationPropertyOfAxiom {
 /// Annotation property domain axiom: ∀P.C ⊑ D
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnnotationPropertyDomainAxiom {
-    property: IRI,
-    domain: IRI,
+    property: Arc<IRI>,
+    domain: Arc<IRI>,
 }
 
 impl AnnotationPropertyDomainAxiom {
     /// Create a new annotation property domain axiom
-    pub fn new(property: IRI, domain: IRI) -> Self {
+    pub fn new(property: Arc<IRI>, domain: Arc<IRI>) -> Self {
         AnnotationPropertyDomainAxiom { property, domain }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
     /// Get the domain
-    pub fn domain(&self) -> &IRI {
+    pub fn domain(&self) -> &Arc<IRI> {
         &self.domain
     }
 }
@@ -944,23 +948,23 @@ impl AnnotationPropertyDomainAxiom {
 /// Annotation property range axiom: ∀P.C ⊑ D
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnnotationPropertyRangeAxiom {
-    property: IRI,
-    range: IRI,
+    property: Arc<IRI>,
+    range: Arc<IRI>,
 }
 
 impl AnnotationPropertyRangeAxiom {
     /// Create a new annotation property range axiom
-    pub fn new(property: IRI, range: IRI) -> Self {
+    pub fn new(property: Arc<IRI>, range: Arc<IRI>) -> Self {
         AnnotationPropertyRangeAxiom { property, range }
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
     /// Get the range
-    pub fn range(&self) -> &IRI {
+    pub fn range(&self) -> &Arc<IRI> {
         &self.range
     }
 }
@@ -1084,12 +1088,12 @@ impl ObjectExactQualifiedCardinalityAxiom {
 pub struct DataMinQualifiedCardinalityAxiom {
     cardinality: u32,
     property: ObjectPropertyExpression,
-    filler: IRI,
+    filler: Arc<IRI>,
 }
 
 impl DataMinQualifiedCardinalityAxiom {
     /// Create a new data minimum qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: IRI) -> Self {
+    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: Arc<IRI>) -> Self {
         Self {
             cardinality,
             property,
@@ -1108,7 +1112,7 @@ impl DataMinQualifiedCardinalityAxiom {
     }
 
     /// Get the filler datatype IRI
-    pub fn filler(&self) -> &IRI {
+    pub fn filler(&self) -> &Arc<IRI> {
         &self.filler
     }
 }
@@ -1118,12 +1122,12 @@ impl DataMinQualifiedCardinalityAxiom {
 pub struct DataMaxQualifiedCardinalityAxiom {
     cardinality: u32,
     property: ObjectPropertyExpression,
-    filler: IRI,
+    filler: Arc<IRI>,
 }
 
 impl DataMaxQualifiedCardinalityAxiom {
     /// Create a new data maximum qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: IRI) -> Self {
+    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: Arc<IRI>) -> Self {
         Self {
             cardinality,
             property,
@@ -1142,7 +1146,7 @@ impl DataMaxQualifiedCardinalityAxiom {
     }
 
     /// Get the filler datatype IRI
-    pub fn filler(&self) -> &IRI {
+    pub fn filler(&self) -> &Arc<IRI> {
         &self.filler
     }
 }
@@ -1152,12 +1156,12 @@ impl DataMaxQualifiedCardinalityAxiom {
 pub struct DataExactQualifiedCardinalityAxiom {
     cardinality: u32,
     property: ObjectPropertyExpression,
-    filler: IRI,
+    filler: Arc<IRI>,
 }
 
 impl DataExactQualifiedCardinalityAxiom {
     /// Create a new data exact qualified cardinality axiom
-    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: IRI) -> Self {
+    pub fn new(cardinality: u32, property: ObjectPropertyExpression, filler: Arc<IRI>) -> Self {
         Self {
             cardinality,
             property,
@@ -1176,7 +1180,7 @@ impl DataExactQualifiedCardinalityAxiom {
     }
 
     /// Get the filler datatype IRI
-    pub fn filler(&self) -> &IRI {
+    pub fn filler(&self) -> &Arc<IRI> {
         &self.filler
     }
 }
@@ -1184,13 +1188,13 @@ impl DataExactQualifiedCardinalityAxiom {
 /// Object property domain axiom: ∀P.C ⊑ D
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObjectPropertyDomainAxiom {
-    property: IRI,
+    property: Arc<IRI>,
     domain: class_expressions::ClassExpression,
 }
 
 impl ObjectPropertyDomainAxiom {
     /// Create a new object property domain axiom
-    pub fn new(property: IRI, domain: class_expressions::ClassExpression) -> Self {
+    pub fn new(property: Arc<IRI>, domain: class_expressions::ClassExpression) -> Self {
         ObjectPropertyDomainAxiom { property, domain }
     }
 
@@ -1348,17 +1352,17 @@ impl NegativeDataPropertyAssertionAxiom {
 /// Import axiom: imports ontology with given IRI
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportAxiom {
-    imported_ontology: IRI,
+    imported_ontology: Arc<IRI>,
 }
 
 impl ImportAxiom {
     /// Create a new import axiom
-    pub fn new(imported_ontology: IRI) -> Self {
+    pub fn new(imported_ontology: Arc<IRI>) -> Self {
         ImportAxiom { imported_ontology }
     }
 
     /// Get the imported ontology IRI
-    pub fn imported_ontology(&self) -> &IRI {
+    pub fn imported_ontology(&self) -> &Arc<IRI> {
         &self.imported_ontology
     }
 }
@@ -1367,9 +1371,9 @@ impl ImportAxiom {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionAxiom {
     /// The subject that has the collection
-    subject: IRI,
+    subject: Arc<IRI>,
     /// The property that relates the subject to the collection
-    property: IRI,
+    property: Arc<IRI>,
     /// The list of items in the collection
     items: Vec<CollectionItem>,
 }
@@ -1377,14 +1381,14 @@ pub struct CollectionAxiom {
 /// Individual item in a collection
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CollectionItem {
-    Named(IRI),
+    Named(Arc<IRI>),
     Anonymous(Box<AnonymousIndividual>),
     Literal(Literal),
 }
 
 impl CollectionAxiom {
     /// Create a new collection axiom
-    pub fn new(subject: IRI, property: IRI, items: Vec<CollectionItem>) -> Self {
+    pub fn new(subject: Arc<IRI>, property: Arc<IRI>, items: Vec<CollectionItem>) -> Self {
         CollectionAxiom {
             subject,
             property,
@@ -1393,12 +1397,12 @@ impl CollectionAxiom {
     }
 
     /// Get the subject
-    pub fn subject(&self) -> &IRI {
+    pub fn subject(&self) -> &Arc<IRI> {
         &self.subject
     }
 
     /// Get the property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
@@ -1440,12 +1444,12 @@ impl CollectionAxiom {
             let first_assertion = match item {
                 CollectionItem::Named(iri) => PropertyAssertionAxiom::new(
                     create_blank_node_iri(&node_id)?,
-                    rdf::first(),
-                    iri.clone(),
+                    IRI::new_optimized(rdf::first().as_str())?,
+                    IRI::new_optimized(iri.as_str())?,
                 ),
                 CollectionItem::Anonymous(anon) => PropertyAssertionAxiom::new_with_anonymous(
                     create_blank_node_iri(&node_id)?,
-                    rdf::first(),
+                    IRI::new_optimized(rdf::first().as_str())?,
                     *(*anon).clone(),
                 ),
                 CollectionItem::Literal(_lit) => {
@@ -1453,8 +1457,8 @@ impl CollectionAxiom {
                     // This is a simplified version
                     PropertyAssertionAxiom::new(
                         create_blank_node_iri(&node_id)?,
-                        rdf::first(),
-                        test::property("literal"), // placeholder
+                        IRI::new_optimized(rdf::first().as_str())?,
+                        IRI::new_optimized("http://test.org/literal")?, // placeholder
                     )
                 }
             };
@@ -1464,8 +1468,8 @@ impl CollectionAxiom {
                 // Last item points to rdf:nil
                 PropertyAssertionAxiom::new(
                     create_blank_node_iri(&node_id)?,
-                    rdf::rest(),
-                    rdf::nil(),
+                    IRI::new_optimized(rdf::rest().as_str())?,
+                    IRI::new_optimized(rdf::nil().as_str())?,
                 )
             } else {
                 // Points to next node
@@ -1479,7 +1483,7 @@ impl CollectionAxiom {
                 );
                 PropertyAssertionAxiom::new(
                     create_blank_node_iri(&node_id)?,
-                    rdf::rest(),
+                    IRI::new_optimized(rdf::rest().as_str())?,
                     create_blank_node_iri(&next_node_id)?,
                 )
             };
@@ -1599,8 +1603,8 @@ impl ContainerAxiom {
 
         // Connect subject to container
         let subject_to_container = PropertyAssertionAxiom::new(
-            self.subject.clone(),
-            self.property.clone(),
+            IRI::new_optimized(self.subject.as_str())?,
+            IRI::new_optimized(self.property.as_str())?,
             container_iri.clone(),
         );
         assertions.push(subject_to_container);
@@ -1615,7 +1619,7 @@ impl ContainerAxiom {
         };
 
         let type_assertion =
-            PropertyAssertionAxiom::new(container_iri.clone(), type_property, type_value);
+            PropertyAssertionAxiom::new(container_iri.clone(), IRI::new_optimized(type_property.as_str())?, IRI::new_optimized(type_value.as_str())?);
         assertions.push(type_assertion);
 
         // Add numbered elements (rdf:_1, rdf:_2, etc.)
@@ -1627,7 +1631,7 @@ impl ContainerAxiom {
                 ContainerItem::Named(iri) => PropertyAssertionAxiom::new(
                     container_iri.clone(),
                     element_property,
-                    iri.clone(),
+                    IRI::new_optimized(iri.as_str())?,
                 ),
                 ContainerItem::Anonymous(anon) => PropertyAssertionAxiom::new(
                     container_iri.clone(),
@@ -1655,11 +1659,11 @@ impl ContainerAxiom {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReificationAxiom {
     /// The reified statement resource (blank node or named resource)
-    reification_resource: IRI,
+    reification_resource: Arc<IRI>,
     /// The subject of the original statement
-    subject: IRI,
+    subject: Arc<IRI>,
     /// The predicate of the original statement
-    predicate: IRI,
+    predicate: Arc<IRI>,
     /// The object of the original statement
     object: ReificationObject,
     /// Additional properties about the reified statement
@@ -1669,7 +1673,7 @@ pub struct ReificationAxiom {
 /// Object in a reified statement
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReificationObject {
-    Named(IRI),
+    Named(Arc<IRI>),
     Anonymous(Box<AnonymousIndividual>),
     Literal(Literal),
 }
@@ -1677,9 +1681,9 @@ pub enum ReificationObject {
 impl ReificationAxiom {
     /// Create a new reification axiom
     pub fn new(
-        reification_resource: IRI,
-        subject: IRI,
-        predicate: IRI,
+        reification_resource: Arc<IRI>,
+        subject: Arc<IRI>,
+        predicate: Arc<IRI>,
         object: ReificationObject,
     ) -> Self {
         ReificationAxiom {
@@ -1693,9 +1697,9 @@ impl ReificationAxiom {
 
     /// Create a new reification axiom with additional properties
     pub fn with_properties(
-        reification_resource: IRI,
-        subject: IRI,
-        predicate: IRI,
+        reification_resource: Arc<IRI>,
+        subject: Arc<IRI>,
+        predicate: Arc<IRI>,
         object: ReificationObject,
         properties: Vec<PropertyAssertionAxiom>,
     ) -> Self {
@@ -1709,17 +1713,17 @@ impl ReificationAxiom {
     }
 
     /// Get the reification resource
-    pub fn reification_resource(&self) -> &IRI {
+    pub fn reification_resource(&self) -> &Arc<IRI> {
         &self.reification_resource
     }
 
     /// Get the subject of the original statement
-    pub fn subject(&self) -> &IRI {
+    pub fn subject(&self) -> &Arc<IRI> {
         &self.subject
     }
 
     /// Get the predicate of the original statement
-    pub fn predicate(&self) -> &IRI {
+    pub fn predicate(&self) -> &Arc<IRI> {
         &self.predicate
     }
 
@@ -1745,7 +1749,7 @@ impl ReificationAxiom {
         // Add rdf:subject assertion
         let subject_assertion = PropertyAssertionAxiom::new(
             self.reification_resource.clone(),
-            rdf::subject(),
+            IRI::new_optimized(rdf::subject().as_str())?,
             self.subject.clone(),
         );
         assertions.push(subject_assertion);
@@ -1753,14 +1757,14 @@ impl ReificationAxiom {
         // Add rdf:predicate assertion
         let predicate_assertion = PropertyAssertionAxiom::new(
             self.reification_resource.clone(),
-            rdf::predicate(),
+            IRI::new_optimized(rdf::predicate().as_str())?,
             self.predicate.clone(),
         );
         assertions.push(predicate_assertion);
 
         // Add rdf:object assertion
         let object_iri = match &self.object {
-            ReificationObject::Named(iri) => iri.clone(),
+            ReificationObject::Named(iri) => IRI::new_optimized(iri.as_str())?,
             ReificationObject::Anonymous(anon) => create_blank_node_iri(anon.node_id())?,
             ReificationObject::Literal(lit) => {
                 // For literals, create a temporary IRI (simplification)
@@ -1770,7 +1774,7 @@ impl ReificationAxiom {
 
         let object_assertion = PropertyAssertionAxiom::new(
             self.reification_resource.clone(),
-            rdf::object(),
+            IRI::new_optimized(rdf::object().as_str())?,
             object_iri,
         );
         assertions.push(object_assertion);
@@ -1781,8 +1785,8 @@ impl ReificationAxiom {
         // Add rdf:type assertion to identify as rdf:Statement
         let type_assertion = PropertyAssertionAxiom::new(
             self.reification_resource.clone(),
-            rdf::type_property(),
-            rdf::statement(),
+            IRI::new_optimized(rdf::type_property().as_str())?,
+            IRI::new_optimized(rdf::statement().as_str())?,
         );
         assertions.push(type_assertion);
 
@@ -1790,7 +1794,7 @@ impl ReificationAxiom {
     }
 
     /// Get the original statement as a triple (subject, predicate, object)
-    pub fn original_statement(&self) -> (&IRI, &IRI, &ReificationObject) {
+    pub fn original_statement(&self) -> (&Arc<IRI>, &Arc<IRI>, &ReificationObject) {
         (&self.subject, &self.predicate, &self.object)
     }
 }

@@ -41,7 +41,7 @@ pub trait Entity {
         Self: Sized;
 
     /// Get the IRI of this entity
-    fn iri(&self) -> &IRI;
+    fn iri(&self) -> &Arc<IRI>;
 
     /// Get the annotations associated with this entity
     fn annotations(&self) -> &[Annotation];
@@ -99,7 +99,7 @@ impl Entity for Class {
         create_entity_shared(iri)
     }
 
-    fn iri(&self) -> &IRI {
+    fn iri(&self) -> &Arc<IRI> {
         &self.iri
     }
 
@@ -131,7 +131,7 @@ impl Class {
     }
 
     /// Get the IRI of this class (backward compatibility)
-    pub fn iri(&self) -> &IRI {
+    pub fn iri(&self) -> &Arc<IRI> {
         <Self as Entity>::iri(self)
     }
 
@@ -181,7 +181,7 @@ impl Entity for ObjectProperty {
         create_entity_shared(iri)
     }
 
-    fn iri(&self) -> &IRI {
+    fn iri(&self) -> &Arc<IRI> {
         &self.iri
     }
 
@@ -214,7 +214,7 @@ impl ObjectProperty {
     }
 
     /// Get the IRI of this property (backward compatibility)
-    pub fn iri(&self) -> &IRI {
+    pub fn iri(&self) -> &Arc<IRI> {
         <Self as Entity>::iri(self)
     }
 
@@ -332,7 +332,7 @@ impl Entity for DataProperty {
         create_entity_shared(iri)
     }
 
-    fn iri(&self) -> &IRI {
+    fn iri(&self) -> &Arc<IRI> {
         &self.iri
     }
 
@@ -365,7 +365,7 @@ impl DataProperty {
     }
 
     /// Get the IRI of this property (backward compatibility)
-    pub fn iri(&self) -> &IRI {
+    pub fn iri(&self) -> &Arc<IRI> {
         <Self as Entity>::iri(self)
     }
 
@@ -432,7 +432,7 @@ impl Entity for AnnotationProperty {
         create_entity_shared(iri)
     }
 
-    fn iri(&self) -> &IRI {
+    fn iri(&self) -> &Arc<IRI> {
         &self.iri
     }
 
@@ -483,7 +483,7 @@ impl Entity for NamedIndividual {
         create_entity_shared(iri)
     }
 
-    fn iri(&self) -> &IRI {
+    fn iri(&self) -> &Arc<IRI> {
         &self.iri
     }
 
@@ -515,7 +515,7 @@ impl NamedIndividual {
     }
 
     /// Get the IRI of this individual (backward compatibility)
-    pub fn iri(&self) -> &IRI {
+    pub fn iri(&self) -> &Arc<IRI> {
         <Self as Entity>::iri(self)
     }
 
@@ -543,13 +543,13 @@ impl Annotation {
     /// Create a new annotation
     pub fn new<P: Into<IRI>, V: Into<AnnotationValue>>(property: P, value: V) -> Self {
         Annotation {
-            property: Arc::new(property.into()),
+            property: IRI::new_optimized(property.into().as_str()).expect("Failed to create annotation property IRI"),
             value: value.into(),
         }
     }
 
     /// Get the annotation property
-    pub fn property(&self) -> &IRI {
+    pub fn property(&self) -> &Arc<IRI> {
         &self.property
     }
 
@@ -563,7 +563,7 @@ impl Annotation {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AnnotationValue {
     /// IRI reference
-    IRI(IRI),
+    IRI(Arc<IRI>),
     /// Literal value
     Literal(Literal),
     /// Anonymous individual
@@ -572,6 +572,12 @@ pub enum AnnotationValue {
 
 impl From<IRI> for AnnotationValue {
     fn from(iri: IRI) -> Self {
+        AnnotationValue::IRI(iri.into())
+    }
+}
+
+impl From<Arc<IRI>> for AnnotationValue {
+    fn from(iri: Arc<IRI>) -> Self {
         AnnotationValue::IRI(iri)
     }
 }
@@ -600,7 +606,7 @@ pub struct Literal {
     /// The lexical value
     lexical_form: String,
     /// The datatype IRI
-    datatype: IRI,
+    datatype: Arc<IRI>,
     /// Optional language tag
     language_tag: Option<String>,
 }
@@ -610,7 +616,7 @@ impl Literal {
     pub fn simple<S: Into<String>>(value: S) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new(XSD_STRING).expect("XSD string IRI should always be valid"),
+            datatype: IRI::new_optimized(XSD_STRING).expect("XSD string IRI should always be valid"),
             language_tag: None,
         }
     }
@@ -619,7 +625,7 @@ impl Literal {
     pub fn typed<S: Into<String>, D: Into<IRI>>(value: S, datatype: D) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: datatype.into(),
+            datatype: IRI::new_optimized(datatype.into().as_str()).expect("Failed to create datatype IRI"),
             language_tag: None,
         }
     }
@@ -628,7 +634,7 @@ impl Literal {
     pub fn lang_tagged<S: Into<String>, L: Into<String>>(value: S, language: L) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new(RDF_LANG_STRING).expect("RDF langString IRI should always be valid"),
+            datatype: IRI::new_optimized(RDF_LANG_STRING).expect("RDF langString IRI should always be valid"),
             language_tag: Some(language.into()),
         }
     }
@@ -639,7 +645,7 @@ impl Literal {
     }
 
     /// Get the datatype of the literal
-    pub fn datatype(&self) -> &IRI {
+    pub fn datatype(&self) -> &Arc<IRI> {
         &self.datatype
     }
 
@@ -722,7 +728,7 @@ impl From<AnonymousIndividual> for Individual {
 
 impl Individual {
     /// Get the IRI of this individual if it's named
-    pub fn iri(&self) -> Option<&IRI> {
+    pub fn iri(&self) -> Option<&Arc<IRI>> {
         match self {
             Individual::Named(named) => Some(named.iri()),
             Individual::Anonymous(_) => None,

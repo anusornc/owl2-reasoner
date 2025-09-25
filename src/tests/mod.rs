@@ -2,10 +2,13 @@
 
 pub mod blank_node_tests;
 pub mod collection_tests;
+pub mod comma_test;
 pub mod comprehensive;
 pub mod comprehensive_axiom_coverage_test;
 pub mod concurrency;
 pub mod container_tests;
+pub mod cross_format_parser_tests;
+pub mod debug_tokenizer_test;
 pub mod error_handling;
 pub mod integration_tests;
 pub mod negative_tests;

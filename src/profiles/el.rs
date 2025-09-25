@@ -81,7 +81,7 @@ impl ElProfileValidator {
         if !self.ontology.disjoint_classes_axioms().is_empty() {
             let mut affected_entities = Vec::new();
             for axiom in self.ontology.disjoint_classes_axioms() {
-                affected_entities.extend(axiom.classes().to_vec());
+                affected_entities.extend(axiom.classes().iter().map(|iri| (**iri).clone()).collect::<Vec<IRI>>());
             }
 
             violations.push(ProfileViolation {
@@ -105,7 +105,7 @@ impl ElProfileValidator {
                     violation_type: ProfileViolationType::EquivalentClassesAxiom,
                     message: "Only pairwise equivalent classes are allowed in EL profile"
                         .to_string(),
-                    affected_entities: axiom.classes().to_vec(),
+                    affected_entities: axiom.classes().iter().map(|iri| (**iri).clone()).collect(),
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -119,7 +119,7 @@ impl ElProfileValidator {
                     violations.push(ProfileViolation {
                         violation_type: ProfileViolationType::EquivalentClassesAxiom,
                         message: "Complex class expressions in equivalent classes are not allowed in EL profile".to_string(),
-                        affected_entities: vec![class_iri.clone()],
+                        affected_entities: vec![(*(*class_iri)).clone()],
                         severity: ViolationSeverity::Error,
                     });
                 }
@@ -202,12 +202,12 @@ impl ElProfileValidator {
 
         // Extract entities from subclass expression
         if let crate::axioms::ClassExpression::Class(class) = axiom.sub_class() {
-            entities.push(class.iri().clone());
+            entities.push((**class.iri()).clone());
         }
 
         // Extract entities from superclass expression
         if let crate::axioms::ClassExpression::Class(class) = axiom.super_class() {
-            entities.push(class.iri().clone());
+            entities.push((**class.iri()).clone());
         }
 
         entities
@@ -251,7 +251,7 @@ impl ElProfileValidator {
                     violations.push(ProfileViolation {
                         violation_type: ProfileViolationType::EquivalentClassesAxiom,
                         message: "Complex class expression in equivalent classes not allowed in EL profile".to_string(),
-                        affected_entities: vec![class_iri.clone()],
+                        affected_entities: vec![(*(*class_iri)).clone()],
                         severity: ViolationSeverity::Error,
                     });
                 }

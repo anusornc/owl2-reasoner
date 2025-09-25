@@ -167,7 +167,7 @@ impl ProfileOptimizedReasoner {
         // Check for contradictory subclass relationships
         for subclass_axiom in ontology.subclass_axioms() {
             if let ClassExpression::Class(sub_class) = subclass_axiom.sub_class() {
-                if sub_class.iri() == class_iri {
+                if sub_class.iri().as_ref() == class_iri {
                     if let ClassExpression::Class(super_class) = subclass_axiom.super_class() {
                         if super_class.iri().as_str() == "http://www.w3.org/2002/07/owl#Nothing" {
                             return false; // Class is subclass of Nothing
@@ -188,7 +188,7 @@ impl ProfileOptimizedReasoner {
         // Check if class has any existential restrictions
         let has_existential = ontology.subclass_axioms().iter().any(|axiom| {
             if let ClassExpression::Class(sub_class) = axiom.sub_class() {
-                if sub_class.iri() == class_iri {
+                if sub_class.iri().as_ref() == class_iri {
                     matches!(
                         axiom.super_class(),
                         ClassExpression::ObjectSomeValuesFrom(_, _)
@@ -250,7 +250,7 @@ impl ProfileOptimizedReasoner {
         // Check subclass relationships with existential restrictions
         for subclass_axiom in ontology.subclass_axioms() {
             if let ClassExpression::Class(sub_class) = subclass_axiom.sub_class() {
-                if sub_class.iri() == class_iri {
+                if sub_class.iri().as_ref() == class_iri {
                     if let ClassExpression::ObjectSomeValuesFrom(_, _) =
                         subclass_axiom.super_class()
                     {
@@ -346,7 +346,7 @@ impl ProfileOptimizedReasoner {
         // Check if class is involved in property hierarchies
         for subclass_axiom in ontology.subclass_axioms() {
             if let ClassExpression::Class(sub_class) = subclass_axiom.sub_class() {
-                if sub_class.iri() == class_iri {
+                if sub_class.iri().as_ref() == class_iri {
                     // Check for existential restrictions with properties
                     if let ClassExpression::ObjectSomeValuesFrom(property, _) =
                         subclass_axiom.super_class()

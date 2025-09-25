@@ -449,9 +449,9 @@ impl Ontology {
                 let assertion_arc = Arc::new((**axiom).clone());
                 self.class_assertions.push(assertion_arc);
                 // Update class instances index
-                if let Some(class_iri) = axiom.class_expr().as_named().map(|c| c.iri().clone()) {
+                if let Some(class_iri) = axiom.class_expr().as_named().map(|c| (**c.iri()).clone()) {
                     self.class_instances
-                        .entry(axiom.individual().clone())
+                        .entry((**axiom.individual()).clone())
                         .or_default()
                         .push(class_iri);
                 }
@@ -461,15 +461,15 @@ impl Ontology {
                 self.property_assertions.push(assertion_arc);
                 // Update property domains and ranges indexes
                 self.property_domains
-                    .entry(axiom.property().clone())
+                    .entry((**axiom.property()).clone())
                     .or_default()
-                    .push(axiom.subject().clone());
+                    .push((**axiom.subject()).clone());
                 // Only index named objects (IRIs) into property_ranges
                 if let crate::axioms::PropertyAssertionObject::Named(object_iri) = axiom.object() {
                     self.property_ranges
-                        .entry(axiom.property().clone())
+                        .entry((**axiom.property()).clone())
                         .or_default()
-                        .push(object_iri.clone());
+                    .push((**object_iri).clone());
                 }
             }
             axioms::Axiom::DataPropertyAssertion(axiom) => {
@@ -477,9 +477,9 @@ impl Ontology {
                 self.data_property_assertions.push(assertion_arc);
                 // We don't index literals into property_ranges (IRI-only index)
                 self.property_domains
-                    .entry(axiom.property().clone())
+                    .entry((**axiom.property()).clone())
                     .or_default()
-                    .push(axiom.subject().clone());
+                    .push((**axiom.subject()).clone());
             }
             axioms::Axiom::SubObjectProperty(axiom) => {
                 let subprop_arc = Arc::new((**axiom).clone());
@@ -644,7 +644,7 @@ impl Ontology {
             axioms::Axiom::Import(axiom) => {
                 // Add import to the ontology's import set
                 self.imports
-                    .insert(Arc::new(axiom.imported_ontology().clone()));
+                    .insert(axiom.imported_ontology().clone());
             }
             axioms::Axiom::Collection(_axiom) => {
                 // Collection axioms are stored in the general axioms list
@@ -1383,7 +1383,7 @@ impl Ontology {
         // Find all superclasses
         for axiom in self.subclass_axioms() {
             if let ClassExpression::Class(sub_class) = axiom.sub_class() {
-                if sub_class.iri() == class_iri {
+                if sub_class.iri().as_ref() == class_iri {
                     if let ClassExpression::Class(super_class) = axiom.super_class() {
                         if self.has_subclass_cycle(super_class.iri(), visited) {
                             return true;
@@ -1427,6 +1427,17 @@ impl Ontology {
         }
 
         Ok(errors)
+    }
+
+    /// Resolve imports for this ontology
+    ///
+    /// This is a placeholder implementation that currently does nothing.
+    /// In a full implementation, this would use an ImportResolver to process
+    /// ontology imports and merge the imported ontologies.
+    pub fn resolve_imports(&mut self) -> OwlResult<()> {
+        // TODO: Implement proper import resolution using ImportResolver
+        // For now, just return Ok to allow compilation
+        Ok(())
     }
 }
 

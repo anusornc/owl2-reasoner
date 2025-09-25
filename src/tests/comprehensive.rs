@@ -113,7 +113,7 @@ pub mod family {
         // Add equivalent classes (Mother = Female Parent)
         ontology
             .add_equivalent_classes_axiom(EquivalentClassesAxiom::new(vec![
-                mother.iri().clone(),
+                mother(*(*iri())).clone(),
                 IRI::new("http://example.org/family/FemaleParent").unwrap(),
             ]))
             .unwrap();
@@ -121,7 +121,7 @@ pub mod family {
         // Add property hierarchy
         ontology
             .add_axiom(Axiom::SubObjectProperty(Box::new(
-                SubObjectPropertyAxiom::new(has_child.iri().clone(), has_parent.iri().clone()),
+                SubObjectPropertyAxiom::new(has_child(*(*iri())).clone(), has_parent(*(*iri())).clone()),
             )))
             .unwrap();
 
@@ -143,28 +143,28 @@ pub mod family {
         // Add class assertions
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                john.iri().clone(),
+                john(*(*iri())).clone(),
                 ClassExpression::Class(male.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                mary.iri().clone(),
+                mary(*(*iri())).clone(),
                 ClassExpression::Class(female.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                alice.iri().clone(),
+                alice(*(*iri())).clone(),
                 ClassExpression::Class(female.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                bob.iri().clone(),
+                bob(*(*iri())).clone(),
                 ClassExpression::Class(male.clone()),
             ))
             .unwrap();
@@ -172,41 +172,41 @@ pub mod family {
         // Add property assertions
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                john.iri().clone(),
-                has_spouse.iri().clone(),
-                mary.iri().clone(),
+                john(*(*iri())).clone(),
+                has_spouse(*(*iri())).clone(),
+                mary(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                john.iri().clone(),
-                has_child.iri().clone(),
-                alice.iri().clone(),
+                john(*(*iri())).clone(),
+                has_child(*(*iri())).clone(),
+                alice(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                john.iri().clone(),
-                has_child.iri().clone(),
-                bob.iri().clone(),
+                john(*(*iri())).clone(),
+                has_child(*(*iri())).clone(),
+                bob(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                mary.iri().clone(),
-                has_child.iri().clone(),
-                alice.iri().clone(),
+                mary(*(*iri())).clone(),
+                has_child(*(*iri())).clone(),
+                alice(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                mary.iri().clone(),
-                has_child.iri().clone(),
-                bob.iri().clone(),
+                mary(*(*iri())).clone(),
+                has_child(*(*iri())).clone(),
+                bob(*(*iri())).clone(),
             ))
             .unwrap();
 
@@ -342,28 +342,28 @@ pub mod biomedical {
         // Add class assertions
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                cystic_fibrosis.iri().clone(),
+                cystic_fibrosis(*(*iri())).clone(),
                 ClassExpression::Class(genetic_disorder.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                cftr_gene.iri().clone(),
+                cftr_gene(*(*iri())).clone(),
                 ClassExpression::Class(gene.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                cftr_protein.iri().clone(),
+                cftr_protein(*(*iri())).clone(),
                 ClassExpression::Class(protein.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                insulin.iri().clone(),
+                insulin(*(*iri())).clone(),
                 ClassExpression::Class(drug.clone()),
             ))
             .unwrap();
@@ -371,17 +371,17 @@ pub mod biomedical {
         // Add property assertions
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                cystic_fibrosis.iri().clone(),
-                associated_with.iri().clone(),
-                cftr_gene.iri().clone(),
+                cystic_fibrosis(*(*iri())).clone(),
+                associated_with(*(*iri())).clone(),
+                cftr_gene(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                cftr_protein.iri().clone(),
-                encoded_by.iri().clone(),
-                cftr_gene.iri().clone(),
+                cftr_protein(*(*iri())).clone(),
+                encoded_by(*(*iri())).clone(),
+                cftr_gene(*(*iri())).clone(),
             ))
             .unwrap();
 
@@ -465,35 +465,35 @@ pub mod property_characteristics {
         // Add class assertions
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                alice.iri().clone(),
+                alice(*(*iri())).clone(),
                 ClassExpression::Class(person.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                bob.iri().clone(),
+                bob(*(*iri())).clone(),
                 ClassExpression::Class(person.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                manhattan.iri().clone(),
+                manhattan(*(*iri())).clone(),
                 ClassExpression::Class(location.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                nyc.iri().clone(),
+                nyc(*(*iri())).clone(),
                 ClassExpression::Class(location.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                usa.iri().clone(),
+                usa(*(*iri())).clone(),
                 ClassExpression::Class(location.clone()),
             ))
             .unwrap();
@@ -501,25 +501,25 @@ pub mod property_characteristics {
         // Add property assertions
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                alice.iri().clone(),
-                has_friend.iri().clone(),
-                bob.iri().clone(),
+                alice(*(*iri())).clone(),
+                has_friend(*(*iri())).clone(),
+                bob(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                manhattan.iri().clone(),
-                part_of.iri().clone(),
-                nyc.iri().clone(),
+                manhattan(*(*iri())).clone(),
+                part_of(*(*iri())).clone(),
+                nyc(*(*iri())).clone(),
             ))
             .unwrap();
 
         ontology
             .add_property_assertion(PropertyAssertionAxiom::new(
-                nyc.iri().clone(),
-                part_of.iri().clone(),
-                usa.iri().clone(),
+                nyc(*(*iri())).clone(),
+                part_of(*(*iri())).clone(),
+                usa(*(*iri())).clone(),
             ))
             .unwrap();
 
@@ -561,8 +561,8 @@ pub mod consistency {
         // Make them disjoint
         ontology
             .add_disjoint_classes_axiom(DisjointClassesAxiom::new(vec![
-                male.iri().clone(),
-                female.iri().clone(),
+                male(*(*iri())).clone(),
+                female(*(*iri())).clone(),
             ]))
             .unwrap();
 
@@ -576,14 +576,14 @@ pub mod consistency {
         // Add contradictory class assertions
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                contradictory_person.iri().clone(),
+                contradictory_person(*(*iri())).clone(),
                 ClassExpression::Class(male.clone()),
             ))
             .unwrap();
 
         ontology
             .add_class_assertion(ClassAssertionAxiom::new(
-                contradictory_person.iri().clone(),
+                contradictory_person(*(*iri())).clone(),
                 ClassExpression::Class(female.clone()),
             ))
             .unwrap();
@@ -643,7 +643,7 @@ pub mod performance {
             ontology.add_named_individual(person_ind.clone()).unwrap();
             ontology
                 .add_class_assertion(ClassAssertionAxiom::new(
-                    person_ind.iri().clone(),
+                    person_ind(*(*iri())).clone(),
                     ClassExpression::Class(person.clone()),
                 ))
                 .unwrap();
@@ -656,7 +656,7 @@ pub mod performance {
             ontology.add_named_individual(org_ind.clone()).unwrap();
             ontology
                 .add_class_assertion(ClassAssertionAxiom::new(
-                    org_ind.iri().clone(),
+                    org_ind(*(*iri())).clone(),
                     ClassExpression::Class(organization.clone()),
                 ))
                 .unwrap();
@@ -669,7 +669,7 @@ pub mod performance {
             ontology.add_named_individual(project_ind.clone()).unwrap();
             ontology
                 .add_class_assertion(ClassAssertionAxiom::new(
-                    project_ind.iri().clone(),
+                    project_ind(*(*iri())).clone(),
                     ClassExpression::Class(project.clone()),
                 ))
                 .unwrap();

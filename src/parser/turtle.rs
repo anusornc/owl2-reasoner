@@ -12,6 +12,7 @@ use crate::parser::{OntologyParser, ParserArenaBuilder, ParserArenaTrait, Parser
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Static string constants to avoid allocations
 static PREFIX_OWL: &str = "owl";
@@ -98,13 +99,13 @@ impl TurtleParser {
         }
     }
 
-    /// Parse Turtle content and build an ontology
+    /// Parse Turtle content and build an ontology using arena allocation
     fn parse_content(&mut self, content: &str) -> OwlResult<Ontology> {
         // Comprehensive input validation
         self.validate_parser_input(content)?;
 
         if self.config.strict_validation && content.trim().is_empty() {
-            return Err(OwlError::ValidationError(ERR_EMPTY_ONTOLOGY.to_string()));
+            return Err(OwlError::ValidationError(self.alloc_string_clone(ERR_EMPTY_ONTOLOGY)));
         }
         let mut ontology = Ontology::new();
 
@@ -112,7 +113,7 @@ impl TurtleParser {
         let mut current_subject: Option<IRI> = None;
 
         for raw_line in content.lines() {
-            let line = raw_line.trim();
+            let line = self.alloc_string(raw_line.trim());
             if line.is_empty() || line.starts_with('#') {
                 continue; // Skip empty lines and comments
             }
@@ -124,7 +125,7 @@ impl TurtleParser {
                 continue;
             }
 
-            // Strip inline comments for validation
+            // Strip inline comments for validation - use arena allocation
             let stmt = line.split('#').next().unwrap_or("").trim_end();
             if stmt.is_empty() {
                 continue;
@@ -135,14 +136,14 @@ impl TurtleParser {
                 && !(stmt.ends_with('.') || stmt.ends_with(';') || stmt.ends_with(','))
             {
                 return Err(crate::error::OwlError::ParseError(
-                    ERR_EXPECTED_DOT.to_string(),
+                    self.alloc_string_clone(ERR_EXPECTED_DOT),
                 ));
             }
 
-            // Handle compound statements
+            // Handle compound statements - use arena allocation for clean statement
             let ends_with_dot = stmt.ends_with('.');
             let ends_with_semicolon = stmt.ends_with(';');
-            let clean_stmt = stmt.trim_end_matches(['.', ';', ',']);
+            let clean_stmt = self.alloc_string(stmt.trim_end_matches(['.', ';', ',']));
 
             // Handle compound statement predicate-object pairs
             if let Some(ref current_subj) = current_subject {
@@ -192,31 +193,43 @@ impl TurtleParser {
             self.validate_ontology(&ontology)?;
         }
 
+        // Resolve imports if configured to do so
+        if self.config.resolve_imports {
+            if let Err(e) = ontology.resolve_imports() {
+                if self.config.ignore_import_errors {
+                    log::warn!("Import resolution failed: {}", e);
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+
         Ok(ontology)
     }
 
-    /// Parse a prefix declaration
+    /// Parse a prefix declaration using arena allocation
     fn parse_prefix_declaration(&self, line: &str) -> OwlResult<(String, String)> {
-        let parts: Vec<&str> = line.split_whitespace().collect();
+        let arena_line = self.alloc_string(line);
+        let parts: Vec<&str> = arena_line.split_whitespace().collect();
         if parts.len() >= 3 && parts[0] == "@prefix" {
-            let prefix_token = parts[1];
-            let ns_token = parts[2];
+            let prefix_token = self.alloc_string(parts[1]);
+            let ns_token = self.alloc_string(parts[2]);
 
             // Validate prefix token ends with ':'
             if !prefix_token.ends_with(':') {
                 return Err(crate::error::OwlError::ParseError(
-                    ERR_MALFORMED_PREFIX.to_string(),
+                    self.alloc_string_clone(ERR_MALFORMED_PREFIX),
                 ));
             }
-            let prefix = prefix_token.trim_end_matches(':');
+            let prefix = self.alloc_string(prefix_token.trim_end_matches(':'));
 
             // Namespace must be enclosed in <>
             if !(ns_token.starts_with('<') && ns_token.ends_with('>')) {
                 return Err(crate::error::OwlError::ParseError(
-                    ERR_MALFORMED_PREFIX_NS.to_string(),
+                    self.alloc_string_clone(ERR_MALFORMED_PREFIX_NS),
                 ));
             }
-            let namespace = ns_token.trim_matches('<').trim_matches('>');
+            let namespace = self.alloc_string(ns_token.trim_matches('<').trim_matches('>'));
 
             // Use arena allocation for prefix and namespace strings
             let prefix_str = self.alloc_string_clone(prefix);
@@ -226,17 +239,18 @@ impl TurtleParser {
         }
         if self.config.strict_validation {
             return Err(crate::error::OwlError::ParseError(
-                ERR_MALFORMED_PREFIX_DECL.to_string(),
+                self.alloc_string_clone(ERR_MALFORMED_PREFIX_DECL),
             ));
         }
         Err(crate::error::OwlError::ParseError(
-            ERR_MALFORMED_PREFIX_DECL.to_string(),
+            self.alloc_string_clone(ERR_MALFORMED_PREFIX_DECL),
         ))
     }
 
-    /// Parse a predicate-object pair for compound statements
+    /// Parse a predicate-object pair for compound statements using arena allocation
     fn parse_predicate_object_pair(&self, line: &str) -> Option<(IRI, ObjectValue)> {
-        let tokens = self.tokenize_turtle_line(line);
+        let arena_line = self.alloc_string(line);
+        let tokens = self.tokenize_turtle_line(arena_line);
 
         if tokens.len() < 2 {
             return None;
@@ -248,10 +262,10 @@ impl TurtleParser {
         Some((predicate, object))
     }
 
-    /// Parse a Turtle triple with support for complex constructs
+    /// Parse a Turtle triple with support for complex constructs using arena allocation
     fn parse_triple(&self, line: &str) -> Option<(IRI, IRI, ObjectValue)> {
-        let line = line.trim_end_matches(['.', ';', ',']);
-        let tokens = self.tokenize_turtle_line(line);
+        let arena_line = self.alloc_string(line.trim_end_matches(['.', ';', ',']));
+        let tokens = self.tokenize_turtle_line(arena_line);
 
         if tokens.len() < 3 {
             return None;
@@ -264,7 +278,7 @@ impl TurtleParser {
         Some((subject, predicate, object))
     }
 
-    /// Tokenize a Turtle line handling quotes and nested structures
+    /// Tokenize a Turtle line handling quotes and nested structures with arena allocation
     fn tokenize_turtle_line(&self, line: &str) -> Vec<String> {
         let mut tokens = Vec::new();
         let mut current = String::new();
@@ -330,37 +344,43 @@ impl TurtleParser {
         tokens
     }
 
-    /// Parse a subject (IRI or blank node)
+    /// Parse a subject (IRI or blank node) using arena allocation
     fn parse_subject(&self, token: &str) -> Option<IRI> {
         if let Some(stripped) = token.strip_prefix("_:") {
-            // Blank node - generate temporary IRI for processing
-            IRI::new(format!("http://blank.node/{}", stripped)).ok()
+            // Blank node - generate temporary IRI for processing using arena allocation
+            let blank_iri = self.alloc_string(stripped);
+            IRI::new_optimized(format!("http://blank.node/{}", blank_iri)).map(|arc_iri| (*arc_iri).clone()).ok()
         } else {
-            self.parse_curie_or_iri(token).ok()
+            let arena_token = self.alloc_string(token);
+            self.parse_curie_or_iri(arena_token).ok()
         }
     }
 
-    /// Parse a predicate (handle "a" keyword)
+    /// Parse a predicate (handle "a" keyword) using arena allocation
     fn parse_predicate(&self, token: &str) -> Option<IRI> {
         if token == "a" {
-            IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").ok()
+            // Use arena allocation for the type IRI
+            let type_iri = self.alloc_string("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+            IRI::new_optimized(type_iri).map(|arc_iri| (*arc_iri).clone()).ok()
         } else {
-            self.parse_curie_or_iri(token).ok()
+            let arena_token = self.alloc_string(token);
+            self.parse_curie_or_iri(arena_token).ok()
         }
     }
 
-    /// Parse an object with support for complex structures
+    /// Parse an object with support for complex structures using arena allocation
     fn parse_object(&self, tokens: &[String]) -> Option<(ObjectValue, Vec<String>)> {
         if tokens.is_empty() {
             return None;
         }
 
-        let first_token = &tokens[0];
+        let first_token = self.alloc_string(&tokens[0]);
 
         if let Some(stripped) = first_token.strip_prefix("_:") {
-            // Blank node
+            // Blank node - use arena allocation for the blank node ID
+            let arena_stripped = self.alloc_string(stripped);
             Some((
-                ObjectValue::BlankNode(stripped.to_string()),
+                ObjectValue::BlankNode(arena_stripped.to_string()),
                 tokens[1..].to_vec(),
             ))
         } else if first_token.starts_with('"') {
@@ -378,7 +398,7 @@ impl TurtleParser {
             // Collection (list)
             let (list_items, consumed) = self.parse_collection(tokens)?;
             let nested_object = NestedObject {
-                object_type: "Collection".to_string(),
+                object_type: self.alloc_string_clone("Collection"),
                 properties: HashMap::new(),
                 list_items,
             };
@@ -393,18 +413,20 @@ impl TurtleParser {
         }
     }
 
-    /// Parse a literal value
+    /// Parse a literal value using arena allocation
     fn parse_literal(&self, token: &str) -> Option<Literal> {
         if !token.starts_with('"') || !token.ends_with('"') {
             return None;
         }
 
         let content = &token[1..token.len() - 1];
-        let literal = Literal::simple(content.to_string());
+        // Use arena allocation for literal content
+        let arena_content = self.alloc_string(content);
+        let literal = Literal::simple(arena_content.to_string());
         Some(literal)
     }
 
-    /// Parse blank node structure [ ... ]
+    /// Parse blank node structure [ ... ] using arena allocation
     fn parse_blank_node_structure(&self, content: &str) -> Option<(NestedObject, usize)> {
         // Generate a unique ID for this blank node based on content hash
         use std::collections::hash_map::DefaultHasher;
@@ -415,7 +437,7 @@ impl TurtleParser {
         let _unique_id = format!("nested_{}", hasher.finish());
 
         // Parse the content to extract properties
-        let clean_content = content.trim_start_matches('[').trim_end_matches(']').trim();
+        let clean_content = self.alloc_string(content.trim_start_matches('[').trim_end_matches(']').trim());
         let tokens = self.tokenize_turtle_line(clean_content);
 
         let mut properties = HashMap::new();
@@ -426,7 +448,7 @@ impl TurtleParser {
             if let Some(predicate) = self.parse_predicate(&tokens[i]) {
                 if i + 1 < tokens.len() {
                     if let Some((object, _remaining_tokens)) = self.parse_object(&tokens[i + 1..]) {
-                        // Store the property
+                        // Store the property using arena-allocated key
                         properties.insert(predicate.to_string(), object);
                         i += 1; // Move to next token after the object
                         continue;
@@ -437,7 +459,7 @@ impl TurtleParser {
         }
 
         let nested_object = NestedObject {
-            object_type: "BlankNode".to_string(),
+            object_type: self.alloc_string_clone("BlankNode"),
             properties,
             list_items: Vec::new(),
         };
@@ -445,7 +467,7 @@ impl TurtleParser {
         Some((nested_object, 1))
     }
 
-    /// Parse collection ( ... )
+    /// Parse collection ( ... ) using arena allocation
     fn parse_collection(&self, tokens: &[String]) -> Option<(Vec<ObjectValue>, usize)> {
         let mut items = Vec::new();
         let mut consumed = 0;
@@ -466,18 +488,22 @@ impl TurtleParser {
         Some((items, consumed))
     }
 
-    /// Parse a CURIE or IRI
+    /// Parse a CURIE or IRI using arena allocation
     fn parse_curie_or_iri(&self, s: &str) -> OwlResult<IRI> {
         if s.starts_with('<') && s.ends_with('>') {
-            // Full IRI
-            IRI::new(&s[1..s.len() - 1])
+            // Full IRI - use arena allocation for the content
+            let iri_content = self.alloc_string(&s[1..s.len() - 1]);
+            IRI::new_optimized(iri_content).map(|arc_iri| (*arc_iri).clone())
         } else if let Some(colon_pos) = s.find(':') {
             // CURIE
-            let prefix = &s[..colon_pos];
-            let local = &s[colon_pos + 1..];
+            let prefix = self.alloc_string(&s[..colon_pos]);
+            let local = self.alloc_string(&s[colon_pos + 1..]);
 
-            if let Some(namespace) = self.prefixes.get(prefix) {
-                IRI::new(format!("{namespace}{local}"))
+            if let Some(namespace) = self.prefixes.get(prefix.to_string().as_str()) {
+                // Use arena allocation for the constructed IRI string
+                let iri_string = format!("{}{}", namespace, local);
+                let arena_iri_string = self.alloc_string(&iri_string);
+                IRI::new_optimized(arena_iri_string).map(|arc_iri| (*arc_iri).clone())
             } else if self.config.strict_validation {
                 Err(crate::error::OwlError::ParseError(format!(
                     "Undefined prefix: {}",
@@ -485,11 +511,13 @@ impl TurtleParser {
                 )))
             } else {
                 // Treat as full IRI in non-strict mode
-                IRI::new(s)
+                let arena_s = self.alloc_string(s);
+                IRI::new_optimized(arena_s).map(|arc_iri| (*arc_iri).clone())
             }
         } else {
-            // Treat as full IRI
-            IRI::new(s)
+            // Treat as full IRI - use arena allocation
+            let arena_s = self.alloc_string(s);
+            IRI::new_optimized(arena_s).map(|arc_iri| (*arc_iri).clone())
         }
     }
 
@@ -522,7 +550,7 @@ impl TurtleParser {
             "http://www.w3.org/2002/07/owl#equivalentClass" => {
                 if let ObjectValue::IRI(equiv_class_iri) = object {
                     let equiv_axiom =
-                        EquivalentClassesAxiom::new(vec![subject.clone(), equiv_class_iri.clone()]);
+                        EquivalentClassesAxiom::new(vec![Arc::new(subject.clone()), Arc::new(equiv_class_iri.clone())]);
                     ontology.add_axiom(Axiom::EquivalentClasses(Box::new(equiv_axiom)))?;
                 } else if let ObjectValue::Nested(nested) = object {
                     // Handle complex equivalent class expressions (restrictions, intersections, etc.)
@@ -546,8 +574,8 @@ impl TurtleParser {
             "http://www.w3.org/2002/07/owl#disjointWith" => {
                 if let ObjectValue::IRI(disjoint_class_iri) = object {
                     let disjoint_axiom = DisjointClassesAxiom::new(vec![
-                        subject.clone(),
-                        disjoint_class_iri.clone(),
+                        Arc::new(subject.clone()),
+                        Arc::new(disjoint_class_iri.clone()),
                     ]);
                     ontology.add_axiom(Axiom::DisjointClasses(Box::new(disjoint_axiom)))?;
                 }
@@ -557,8 +585,8 @@ impl TurtleParser {
             "http://www.w3.org/2002/07/owl#equivalentProperty" => {
                 if let ObjectValue::IRI(equiv_prop_iri) = object {
                     let equiv_axiom = EquivalentObjectPropertiesAxiom::new(vec![
-                        subject.clone(),
-                        equiv_prop_iri.clone(),
+                        Arc::new(subject.clone()),
+                        Arc::new(equiv_prop_iri.clone()),
                     ]);
                     ontology.add_axiom(Axiom::EquivalentObjectProperties(Box::new(equiv_axiom)))?;
                 }
@@ -671,7 +699,7 @@ impl TurtleParser {
 
                     // Create class assertion
                     let class_assertion = ClassAssertionAxiom::new(
-                        subject.clone(),
+                        Arc::new(subject.clone()),
                         ClassExpression::Class(Class::new(type_iri.clone())),
                     );
                     ontology.add_axiom(Axiom::ClassAssertion(Box::new(class_assertion)))?;
@@ -704,7 +732,7 @@ impl TurtleParser {
                         ontology.add_named_individual(individual.clone())?;
 
                         let class_assertion = ClassAssertionAxiom::new(
-                            subject.clone(),
+                            Arc::new(subject.clone()),
                             ClassExpression::Class(Class::new(type_iri)),
                         );
                         ontology.add_axiom(Axiom::ClassAssertion(Box::new(class_assertion)))?;
@@ -735,7 +763,7 @@ impl TurtleParser {
 
                 let property_assertion = PropertyAssertionAxiom::new(
                     subject_individual.iri().clone(),
-                    predicate,
+                    Arc::new(predicate),
                     object_individual.iri().clone(),
                 );
                 ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
@@ -744,7 +772,7 @@ impl TurtleParser {
                 // Data property assertion with literal values
                 let data_property_assertion = DataPropertyAssertionAxiom::new(
                     subject_individual.iri().clone(),
-                    predicate.clone(),
+                    Arc::new(predicate.clone()),
                     literal.clone(),
                 );
                 ontology.add_data_property_assertion(data_property_assertion)?;
@@ -757,7 +785,7 @@ impl TurtleParser {
                 // Create property assertion with anonymous individual as object
                 let property_assertion = PropertyAssertionAxiom::new_with_anonymous(
                     subject_individual.iri().clone(),
-                    predicate,
+                    Arc::new(predicate),
                     anon_individual,
                 );
                 ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
@@ -785,7 +813,7 @@ impl TurtleParser {
                     // Create property assertion with anonymous individual
                     let property_assertion = PropertyAssertionAxiom::new_with_anonymous(
                         subject_individual.iri().clone(),
-                        predicate,
+                        Arc::new(predicate),
                         anon_individual,
                     );
                     ontology.add_axiom(Axiom::PropertyAssertion(Box::new(property_assertion)))?;
@@ -826,7 +854,7 @@ impl TurtleParser {
         for item in &nested.list_items {
             match item {
                 ObjectValue::IRI(iri) => {
-                    items.push(CollectionItem::Named(iri.clone()));
+                    items.push(CollectionItem::Named(Arc::new(iri.clone())));
                 }
                 ObjectValue::BlankNode(node_id) => {
                     let anon_individual = AnonymousIndividual::new(node_id);
@@ -845,7 +873,7 @@ impl TurtleParser {
 
         if !items.is_empty() {
             // Create collection axiom
-            let collection_axiom = CollectionAxiom::new(subject.clone(), predicate, items);
+            let collection_axiom = CollectionAxiom::new(Arc::new(subject.clone()), Arc::new(predicate), items);
 
             // Convert collection to property assertions and add them
             let assertions = collection_axiom.to_property_assertions()?;

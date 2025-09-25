@@ -41,7 +41,7 @@ fn test_el_profile_disjoint_classes_violation() {
 
     // Add disjoint classes axiom - should violate EL profile
     let disjoint_axiom =
-        DisjointClassesAxiom::new(vec![person.iri().clone(), animal.iri().clone()]);
+        DisjointClassesAxiom::new(vec![person(*(*iri())).clone(), animal(*(*iri())).clone()]);
     ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
 
     let mut reasoner = SimpleReasoner::new(ontology);
@@ -218,11 +218,11 @@ fn test_profile_validation_with_multiple_violations() {
 
     // Add disjoint classes (violates EL)
     let disjoint_axiom =
-        DisjointClassesAxiom::new(vec![person.iri().clone(), animal.iri().clone()]);
+        DisjointClassesAxiom::new(vec![person(*(*iri())).clone(), animal(*(*iri())).clone()]);
     ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
 
     // Add equivalent classes (complex case)
-    let equiv_axiom = EquivalentClassesAxiom::new(vec![animal.iri().clone(), plant.iri().clone()]);
+    let equiv_axiom = EquivalentClassesAxiom::new(vec![animal(*(*iri())).clone(), plant(*(*iri())).clone()]);
     ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
 
     let mut reasoner = SimpleReasoner::new(ontology);

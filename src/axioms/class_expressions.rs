@@ -165,7 +165,7 @@ impl ClassExpression {
     /// Check if this class expression contains a specific class
     pub fn contains_class(&self, class_iri: &IRI) -> bool {
         match self {
-            ClassExpression::Class(class) => class.iri() == class_iri,
+            ClassExpression::Class(class) => class.iri().as_ref() == class_iri,
             ClassExpression::ObjectIntersectionOf(operands) => {
                 operands.iter().any(|op| op.contains_class(class_iri))
             }

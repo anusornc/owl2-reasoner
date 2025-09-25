@@ -113,6 +113,13 @@ pub enum OwlError {
     #[error("Configuration error: {parameter}: {message}")]
     ConfigError { parameter: String, message: String },
 
+    /// Import resolution errors
+    #[error("Import resolution error for {iri}: {message}")]
+    ImportResolutionError {
+        iri: crate::iri::IRI,
+        message: String,
+    },
+
     /// I/O errors
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),

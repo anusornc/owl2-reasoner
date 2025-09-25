@@ -38,7 +38,7 @@ use crate::cache::BoundedCache;
 use crate::error::{OwlError, OwlResult};
 use once_cell::sync::Lazy;
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hash, Hasher, DefaultHasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -334,7 +334,7 @@ impl IRI {
         }
 
         let hash = {
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            let mut hasher = DefaultHasher::new();
             iri_str.hash(&mut hasher);
             hasher.finish()
         };
@@ -353,6 +353,54 @@ impl IRI {
         }
 
         Ok(iri)
+    }
+
+    /// Create a new optimized IRI with zero-copy operations and Arc<IRI> return
+    pub fn new_optimized<S: AsRef<str>>(iri_str: S) -> OwlResult<Arc<IRI>> {
+        let iri_str = iri_str.as_ref();
+
+        // Minimal validation: reject only truly empty strings.
+        if iri_str.is_empty() {
+            return Err(OwlError::InvalidIRI("IRI cannot be empty".to_string()));
+        }
+
+        // Single cache lookup with borrowed reference to avoid cloning
+        if let Ok(Some(cached_iri)) = GLOBAL_IRI_CACHE.get_by_ref(iri_str) {
+            return Ok(Arc::new(cached_iri));
+        }
+
+        // Pre-compute hash once using std::hash for better performance
+        let hash = {
+            let mut hasher = DefaultHasher::new();
+            iri_str.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        // Single allocation with Arc::from for zero-copy when possible
+        let iri = Arc::new(IRI {
+            iri: Arc::from(iri_str),  // Zero-copy when possible
+            prefix: None,
+            hash,
+        });
+
+        // Store without additional cloning
+        if let Err(e) = GLOBAL_IRI_CACHE.insert_ref(iri_str, (*iri).clone()) {
+            // Log warning but don't fail - IRI creation is critical
+            eprintln!("Warning: Failed to cache IRI: {}", e);
+        }
+
+        Ok(iri)
+    }
+
+    /// Create a new IRI with a namespace prefix using optimized operations
+    pub fn with_prefix_optimized<S: AsRef<str>, P: AsRef<str>>(
+        iri_str: S,
+        prefix: P
+    ) -> OwlResult<Arc<IRI>> {
+        let iri = Self::new_optimized(iri_str)?;
+        let mut iri_mut = Arc::try_unwrap(iri).unwrap_or_else(|iri| (*iri).clone());
+        iri_mut.prefix = Some(Arc::from(prefix.as_ref()));
+        Ok(Arc::new(iri_mut))
     }
 
     /// Create a new IRI with a namespace prefix

@@ -363,7 +363,7 @@ impl QueryEngine {
             .expect("Failed to create rdf:type IRI");
 
         let individual_iri = axiom.individual();
-        let individual_term = PatternTerm::IRI(individual_iri.clone());
+        let individual_term = PatternTerm::IRI((**individual_iri).clone());
 
         if self.is_class_assertion_match(triple, &individual_term, &type_iri, axiom.class_expr()) {
             Some(self.create_class_assertion_binding(triple, &individual_term, axiom.class_expr()))
@@ -414,8 +414,8 @@ impl QueryEngine {
         let subject_iri = axiom.subject();
         let property_iri = axiom.property();
 
-        let subject_term = PatternTerm::IRI(subject_iri.clone());
-        let property_term = PatternTerm::IRI(property_iri.clone());
+        let subject_term = PatternTerm::IRI((**subject_iri).clone());
+        let property_term = PatternTerm::IRI((**property_iri).clone());
 
         if self.is_property_assertion_match(triple, &subject_term, &property_term, axiom) {
             Some(self.create_property_assertion_binding(
@@ -451,7 +451,7 @@ impl QueryEngine {
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> bool {
         if let Some(object_iri) = axiom.object_iri() {
-            self.match_term(object_term, &PatternTerm::IRI(object_iri.clone()))
+            self.match_term(object_term, &PatternTerm::IRI((**object_iri).clone()))
         } else {
             // Skip anonymous individuals in query matching for now
             false
@@ -477,7 +477,7 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.object,
-                &PatternTerm::IRI(object_iri.clone()),
+                &PatternTerm::IRI((**object_iri).clone()),
             );
         }
 
@@ -569,7 +569,7 @@ impl QueryEngine {
 
         let subject_match = self.match_term(
             &triple.subject,
-            &PatternTerm::IRI(axiom.individual().clone()),
+            &PatternTerm::IRI((**axiom.individual()).clone()),
         );
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
         let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
@@ -582,7 +582,7 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.subject,
-                &PatternTerm::IRI(axiom.individual().clone()),
+                &PatternTerm::IRI((**axiom.individual()).clone()),
             );
             self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
 
@@ -600,13 +600,13 @@ impl QueryEngine {
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> Option<QueryBinding> {
         let subject_match =
-            self.match_term(&triple.subject, &PatternTerm::IRI(axiom.subject().clone()));
+            self.match_term(&triple.subject, &PatternTerm::IRI((**axiom.subject()).clone()));
         let predicate_match = self.match_term(
             &triple.predicate,
-            &PatternTerm::IRI(axiom.property().clone()),
+            &PatternTerm::IRI((**axiom.property()).clone()),
         );
         let object_match = if let Some(object_iri) = axiom.object_iri() {
-            self.match_term(&triple.object, &PatternTerm::IRI(object_iri.clone()))
+            self.match_term(&triple.object, &PatternTerm::IRI((**object_iri).clone()))
         } else {
             // Skip anonymous individuals in query matching for now
             false
@@ -620,18 +620,18 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.subject,
-                &PatternTerm::IRI(axiom.subject().clone()),
+                &PatternTerm::IRI((**axiom.subject()).clone()),
             );
             self.add_binding(
                 &mut binding,
                 &triple.predicate,
-                &PatternTerm::IRI(axiom.property().clone()),
+                &PatternTerm::IRI((**axiom.property()).clone()),
             );
             if let Some(object_iri) = axiom.object_iri() {
                 self.add_binding(
                     &mut binding,
                     &triple.object,
-                    &PatternTerm::IRI(object_iri.clone()),
+                    &PatternTerm::IRI((**object_iri).clone()),
                 );
             }
 
@@ -668,8 +668,8 @@ impl QueryEngine {
             .ok()?;
 
         // Clone once and reuse terms
-        let sub_term = PatternTerm::IRI(sub_iri.clone());
-        let super_term = PatternTerm::IRI(super_iri.clone());
+        let sub_term = PatternTerm::IRI((**sub_iri).clone());
+        let super_term = PatternTerm::IRI((**super_iri).clone());
         let subclass_term = PatternTerm::IRI(rdfs_subclassof.clone());
 
         let subject_match = self.match_term(&triple.subject, &sub_term);
@@ -738,7 +738,7 @@ impl QueryEngine {
             if let ClassExpression::Class(class) = class_expr {
                 binding
                     .variables
-                    .insert(var_name.clone(), QueryValue::IRI(class.iri().clone()));
+                    .insert(var_name.clone(), QueryValue::IRI((**class.iri()).clone()));
             }
         }
     }
@@ -929,7 +929,7 @@ impl QueryEngine {
         self.ontology
             .classes()
             .iter()
-            .map(|c| c.iri().clone())
+            .map(|c| (**c.iri()).clone())
             .collect()
     }
 
@@ -938,11 +938,11 @@ impl QueryEngine {
         let mut properties = Vec::new();
 
         for prop in self.ontology.object_properties() {
-            properties.push(prop.iri().clone());
+            properties.push((**prop.iri()).clone());
         }
 
         for prop in self.ontology.data_properties() {
-            properties.push(prop.iri().clone());
+            properties.push((**prop.iri()).clone());
         }
 
         properties
@@ -953,7 +953,7 @@ impl QueryEngine {
         self.ontology
             .named_individuals()
             .iter()
-            .map(|i| i.iri().clone())
+            .map(|i| (**i.iri()).clone())
             .collect()
     }
 }

@@ -62,6 +62,7 @@ pub mod dependency;
 pub mod expansion;
 pub mod graph;
 pub mod memory;
+pub mod parallel;
 
 // Reasoning result types
 #[derive(Debug, Clone)]
@@ -95,10 +96,11 @@ pub struct ReasoningStats {
     pub cache_misses: usize,
 }
 
-// Re-export the main TableauxReasoner and ReasoningConfig for backwards compatibility
+// Re-export the main reasoners and types for backwards compatibility
 pub use core::{
     MemoryStats, NodeId, ReasoningConfig, ReasoningRules, TableauxNode, TableauxReasoner,
 };
+pub use parallel::{ParallelTableauxReasoner, ParallelReasoningCache, WorkerConfig};
 
 // Re-export other essential types
 pub use blocking::{BlockingConstraint, BlockingManager, BlockingStrategy};

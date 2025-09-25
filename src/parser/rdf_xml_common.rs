@@ -57,15 +57,13 @@ pub static ERR_RIO_XML_PARSE: &str = "rio-xml parse error";
 pub static ERR_UNKNOWN_PROPERTY_CHAR: &str = "Unknown property characteristic";
 
 /// Resource information for RDF/XML parsing
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ResourceInfo {
     pub iri: Option<IRI>,
     pub node_id: Option<String>,
     pub resource_type: Option<String>,
     pub properties: Vec<(String, String)>,
 }
-
 
 /// XML document representation
 #[derive(Debug, Default)]

@@ -525,6 +525,44 @@ where
         }
     }
 
+    /// Get a value from the cache using a borrowed reference (zero-copy lookup)
+    pub fn get_by_ref<Q>(&self, key: &Q) -> OwlResult<Option<V>>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "get_by_ref".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
+        })?;
+
+        if let Some((value, metadata)) = entries.get_mut(key) {
+            metadata.record_access();
+            // For LRU update, we'll handle this more efficiently by checking if we need to update
+            // Since we already have access to the entry via get_mut, we'll use a simplified approach
+
+            if self.config.enable_stats {
+                self.stats.record_hit();
+            }
+            Ok(Some(value.clone()))
+        } else {
+            if self.config.enable_stats {
+                self.stats.record_miss();
+            }
+            Ok(None)
+        }
+    }
+
+    /// Insert a value into the cache using borrowed reference (zero-copy insertion)
+    pub fn insert_ref<Q>(&self, key: &Q, value: V) -> OwlResult<()>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ToOwned<Owned = K> + ?Sized,
+    {
+        let owned_key = key.to_owned();
+        self.insert(owned_key, value)
+    }
+
     /// Insert a value into the cache
     pub fn insert(&self, key: K, value: V) -> OwlResult<()> {
         let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {

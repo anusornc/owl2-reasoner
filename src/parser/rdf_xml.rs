@@ -54,7 +54,20 @@ impl OntologyParser for RdfXmlParser {
 
         // Use legacy parser for strict mode or when streaming is not available
         let mut legacy_parser = RdfXmlLegacyParser::new(self.config.clone());
-        legacy_parser.parse_content(content)
+        let mut ontology = legacy_parser.parse_content(content)?;
+
+        // Resolve imports if configured to do so
+        if self.config.resolve_imports {
+            if let Err(e) = ontology.resolve_imports() {
+                if self.config.ignore_import_errors {
+                    log::warn!("Import resolution failed: {}", e);
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(ontology)
     }
 
     /// Parse RDF/XML file and build an ontology

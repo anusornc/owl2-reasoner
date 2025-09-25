@@ -136,6 +136,12 @@ pub struct ReasoningConfig {
     pub incremental: bool,
     /// Timeout in milliseconds
     pub timeout: Option<u64>,
+    /// Enable parallel processing
+    pub enable_parallel: bool,
+    /// Number of parallel workers (None = use all available cores)
+    pub parallel_workers: Option<usize>,
+    /// Chunk size for parallel operations
+    pub parallel_chunk_size: usize,
 }
 
 impl Default for ReasoningConfig {
@@ -145,6 +151,9 @@ impl Default for ReasoningConfig {
             debug: false,
             incremental: true,
             timeout: Some(30000), // 30 seconds default
+            enable_parallel: false, // Disabled by default for compatibility
+            parallel_workers: None, // Use all available cores
+            parallel_chunk_size: 64,
         }
     }
 }

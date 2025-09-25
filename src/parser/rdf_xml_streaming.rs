@@ -11,6 +11,7 @@ use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::Path;
+use std::sync::Arc;
 
 #[cfg(feature = "rio-xml")]
 use rio_api::model::{Subject, Term, Triple};
@@ -122,7 +123,7 @@ impl RdfXmlStreamingParser {
         if !ontology
             .named_individuals()
             .iter()
-            .any(|ni| ni.iri() == &subject_iri)
+            .any(|ni| ni.iri().as_ref() == &subject_iri)
         {
             ontology.add_named_individual(subject_individual)?;
         }
@@ -225,7 +226,7 @@ impl RdfXmlStreamingParser {
                 // Generic type assertion
                 let class = Class::new(object_iri.clone());
                 let assertion =
-                    ClassAssertionAxiom::new(subject.clone(), ClassExpression::Class(class));
+                    ClassAssertionAxiom::new(Arc::new(subject.clone()), ClassExpression::Class(class));
                 ontology.add_class_assertion(assertion)?;
             }
         }
@@ -262,7 +263,7 @@ impl RdfXmlStreamingParser {
         let class = Class::new(object_iri.clone());
 
         // This is simplified - in practice, you'd need to determine the property type
-        let axiom = ObjectPropertyDomainAxiom::new(subject.clone(), ClassExpression::Class(class));
+        let axiom = ObjectPropertyDomainAxiom::new(Arc::new(subject.clone()), ClassExpression::Class(class));
         // Add as generic axiom for now
         ontology.add_axiom(crate::axioms::Axiom::ObjectPropertyDomain(Box::new(axiom)))?;
         Ok(())
@@ -314,8 +315,8 @@ impl RdfXmlStreamingParser {
                 ontology.add_named_individual(object_individual.clone())?;
 
                 let assertion = PropertyAssertionAxiom::new(
-                    subject.clone(),
-                    predicate.clone(),
+                    Arc::new(subject.clone()),
+                    Arc::new(predicate.clone()),
                     object_individual.iri().clone(),
                 );
                 ontology.add_property_assertion(assertion)?;
@@ -326,8 +327,8 @@ impl RdfXmlStreamingParser {
                 ontology.add_anonymous_individual(anon_individual.clone())?;
 
                 let assertion = PropertyAssertionAxiom::new_with_anonymous(
-                    subject.clone(),
-                    predicate.clone(),
+                    Arc::new(subject.clone()),
+                    Arc::new(predicate.clone()),
                     anon_individual,
                 );
                 ontology.add_property_assertion(assertion)?;
@@ -335,8 +336,8 @@ impl RdfXmlStreamingParser {
             ProcessedObject::Literal(literal) => {
                 // Data property with literal value
                 let assertion = DataPropertyAssertionAxiom::new(
-                    subject.clone(),
-                    predicate.clone(),
+                    Arc::new(subject.clone()),
+                    Arc::new(predicate.clone()),
                     literal.clone(),
                 );
                 ontology.add_data_property_assertion(assertion)?;

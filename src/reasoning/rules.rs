@@ -353,7 +353,7 @@ impl RuleEngine {
                         let mut binding = HashMap::new();
 
                         if let PatternVar::Variable(var_name) = individual {
-                            binding.insert(var_name.clone(), axiom.individual().clone());
+                            binding.insert(var_name.clone(), (**axiom.individual()).clone());
                         }
 
                         if let PatternVar::Variable(var_name) = class {
@@ -409,11 +409,11 @@ impl RuleEngine {
                             let mut binding = HashMap::new();
 
                             if let PatternVar::Variable(var_name) = sub_class {
-                                binding.insert(var_name.clone(), sub_axiom.iri().clone());
+                                binding.insert(var_name.clone(), (**sub_axiom.iri()).clone());
                             }
 
                             if let PatternVar::Variable(var_name) = super_class {
-                                binding.insert(var_name.clone(), super_axiom.iri().clone());
+                                binding.insert(var_name.clone(), (**super_axiom.iri()).clone());
                             }
 
                             matches.push(binding);
@@ -557,7 +557,7 @@ fn match_iri(pattern: &PatternVar, iri: &IRI) -> bool {
 
 fn extract_class_iri(class_expr: &ClassExpression) -> Option<IRI> {
     match class_expr {
-        ClassExpression::Class(class) => Some(class.iri().clone()),
+        ClassExpression::Class(class) => Some((**class.iri()).clone()),
         _ => None,
     }
 }

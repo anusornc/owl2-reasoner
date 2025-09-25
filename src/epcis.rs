@@ -371,7 +371,7 @@ impl EPCISEvent {
         ontology.add_named_individual(event_type_individual.clone())?;
 
         let type_assertion = PropertyAssertionAxiom::new(
-            IRI::new(event_iri)?,
+            IRI::new_optimized(event_iri)?,
             event_type_prop.iri().clone(),
             event_type_individual.iri().clone(),
         );
