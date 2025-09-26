@@ -6,7 +6,6 @@ use crate::entities::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
-use std::sync::Arc;
 use crate::parser::rdf_xml_common::{
     initialize_namespaces, ResourceInfo, XmlDocument, XmlElement, ERR_EMPTY_ONTOLOGY, RDF_ABOUT,
     RDF_RESOURCE,
@@ -14,6 +13,7 @@ use crate::parser::rdf_xml_common::{
 use crate::parser::{ParserArenaBuilder, ParserArenaTrait, ParserConfig};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Legacy RDF/XML parser for strict validation and compatibility
 pub struct RdfXmlLegacyParser {
@@ -243,7 +243,7 @@ impl RdfXmlLegacyParser {
                 if child.name == "equivalentClass" || child.name == "owl:equivalentClass" {
                     if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
                         let equivalent_class_iri = IRI::new(resource)?;
-                        let equivalent_class = Class::new(equivalent_class_iri.clone());
+                        let _equivalent_class = Class::new(equivalent_class_iri.clone());
                         let axiom = EquivalentClassesAxiom::new(vec![
                             Arc::new(iri.clone()),
                             Arc::new(equivalent_class_iri.clone()),
@@ -256,7 +256,7 @@ impl RdfXmlLegacyParser {
                 if child.name == "disjointWith" || child.name == "owl:disjointWith" {
                     if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
                         let disjoint_class_iri = IRI::new(resource)?;
-                        let disjoint_class = Class::new(disjoint_class_iri.clone());
+                        let _disjoint_class = Class::new(disjoint_class_iri.clone());
                         let axiom = DisjointClassesAxiom::new(vec![
                             Arc::new(iri.clone()),
                             Arc::new(disjoint_class_iri.clone()),

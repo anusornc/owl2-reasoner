@@ -105,7 +105,7 @@ fn main() -> OwlResult<()> {
     for i in 0..classes.len().min(5) {
         for j in 0..classes.len().min(5) {
             if i != j {
-                let _result = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                let _result = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
             }
         }
     }

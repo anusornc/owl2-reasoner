@@ -187,14 +187,18 @@ impl ClassificationEngine {
             let class_iri = class.iri();
 
             // Add to hierarchy if not present
-            self.hierarchy.parents.entry((**class_iri).clone()).or_default();
+            self.hierarchy
+                .parents
+                .entry((**class_iri).clone())
+                .or_default();
             self.hierarchy
                 .children
                 .entry((**class_iri).clone())
                 .or_default();
 
             // If no parents specified, add owl:Thing as parent
-            if self.hierarchy.parents[&(**class_iri).clone()].is_empty() && **class_iri != thing_iri {
+            if self.hierarchy.parents[&(**class_iri).clone()].is_empty() && **class_iri != thing_iri
+            {
                 self.hierarchy
                     .add_parent((**class_iri).clone(), thing_iri.clone());
                 self.hierarchy
@@ -334,8 +338,10 @@ impl ClassificationEngine {
                     let class1 = &classes[i];
                     let class2 = &classes[j];
 
-                    self.hierarchy.add_disjoint((**class1).clone(), (**class2).clone());
-                    self.hierarchy.add_disjoint((**class2).clone(), (**class1).clone());
+                    self.hierarchy
+                        .add_disjoint((**class1).clone(), (**class2).clone());
+                    self.hierarchy
+                        .add_disjoint((**class2).clone(), (**class1).clone());
                 }
             }
         }
@@ -372,8 +378,10 @@ impl ClassificationEngine {
                     .are_disjoint_classes(class1, class2)?;
 
                 if are_disjoint {
-                    self.hierarchy.add_disjoint((*class1).clone(), (*class2).clone());
-                    self.hierarchy.add_disjoint((*class2).clone(), (*class1).clone());
+                    self.hierarchy
+                        .add_disjoint((*class1).clone(), (*class2).clone());
+                    self.hierarchy
+                        .add_disjoint((*class2).clone(), (*class1).clone());
                 }
             }
         }
@@ -747,7 +755,7 @@ mod tests {
         ontology.add_class(human_class).unwrap();
 
         // Add equivalent classes axiom
-        let equiv_axiom = EquivalentClassesAxiom::new(vec![person_iri.clone(), human_iri.clone()]);
+        let equiv_axiom = EquivalentClassesAxiom::new(vec![Arc::new(person_iri.clone()), Arc::new(human_iri.clone())]);
         ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
 
         let mut engine = ClassificationEngine::new(ontology);

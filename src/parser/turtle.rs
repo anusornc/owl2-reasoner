@@ -105,7 +105,9 @@ impl TurtleParser {
         self.validate_parser_input(content)?;
 
         if self.config.strict_validation && content.trim().is_empty() {
-            return Err(OwlError::ValidationError(self.alloc_string_clone(ERR_EMPTY_ONTOLOGY)));
+            return Err(OwlError::ValidationError(
+                self.alloc_string_clone(ERR_EMPTY_ONTOLOGY),
+            ));
         }
         let mut ontology = Ontology::new();
 
@@ -349,7 +351,9 @@ impl TurtleParser {
         if let Some(stripped) = token.strip_prefix("_:") {
             // Blank node - generate temporary IRI for processing using arena allocation
             let blank_iri = self.alloc_string(stripped);
-            IRI::new_optimized(format!("http://blank.node/{}", blank_iri)).map(|arc_iri| (*arc_iri).clone()).ok()
+            IRI::new_optimized(format!("http://blank.node/{}", blank_iri))
+                .map(|arc_iri| (*arc_iri).clone())
+                .ok()
         } else {
             let arena_token = self.alloc_string(token);
             self.parse_curie_or_iri(arena_token).ok()
@@ -361,7 +365,9 @@ impl TurtleParser {
         if token == "a" {
             // Use arena allocation for the type IRI
             let type_iri = self.alloc_string("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            IRI::new_optimized(type_iri).map(|arc_iri| (*arc_iri).clone()).ok()
+            IRI::new_optimized(type_iri)
+                .map(|arc_iri| (*arc_iri).clone())
+                .ok()
         } else {
             let arena_token = self.alloc_string(token);
             self.parse_curie_or_iri(arena_token).ok()
@@ -437,7 +443,8 @@ impl TurtleParser {
         let _unique_id = format!("nested_{}", hasher.finish());
 
         // Parse the content to extract properties
-        let clean_content = self.alloc_string(content.trim_start_matches('[').trim_end_matches(']').trim());
+        let clean_content =
+            self.alloc_string(content.trim_start_matches('[').trim_end_matches(']').trim());
         let tokens = self.tokenize_turtle_line(clean_content);
 
         let mut properties = HashMap::new();
@@ -549,8 +556,10 @@ impl TurtleParser {
             // OWL equivalent classes
             "http://www.w3.org/2002/07/owl#equivalentClass" => {
                 if let ObjectValue::IRI(equiv_class_iri) = object {
-                    let equiv_axiom =
-                        EquivalentClassesAxiom::new(vec![Arc::new(subject.clone()), Arc::new(equiv_class_iri.clone())]);
+                    let equiv_axiom = EquivalentClassesAxiom::new(vec![
+                        Arc::new(subject.clone()),
+                        Arc::new(equiv_class_iri.clone()),
+                    ]);
                     ontology.add_axiom(Axiom::EquivalentClasses(Box::new(equiv_axiom)))?;
                 } else if let ObjectValue::Nested(nested) = object {
                     // Handle complex equivalent class expressions (restrictions, intersections, etc.)
@@ -873,7 +882,8 @@ impl TurtleParser {
 
         if !items.is_empty() {
             // Create collection axiom
-            let collection_axiom = CollectionAxiom::new(Arc::new(subject.clone()), Arc::new(predicate), items);
+            let collection_axiom =
+                CollectionAxiom::new(Arc::new(subject.clone()), Arc::new(predicate), items);
 
             // Convert collection to property assertions and add them
             let assertions = collection_axiom.to_property_assertions()?;
@@ -915,40 +925,34 @@ impl TurtleParser {
             }
             "BlankNode" => {
                 // Check for restriction patterns in properties
-                if let Some(on_property) = nested
+                if let Some(ObjectValue::IRI(prop_iri)) = nested
                     .properties
                     .get("http://www.w3.org/2002/07/owl#onProperty")
                 {
-                    if let ObjectValue::IRI(prop_iri) = on_property {
-                        let property_expr = ObjectPropertyExpression::ObjectProperty(Box::new(
-                            ObjectProperty::new(prop_iri.clone()),
+                    let property_expr = ObjectPropertyExpression::ObjectProperty(Box::new(
+                        ObjectProperty::new(prop_iri.clone()),
+                    ));
+
+                    // Check for someValuesFrom
+                    if let Some(ObjectValue::IRI(range_iri)) = nested
+                        .properties
+                        .get("http://www.w3.org/2002/07/owl#someValuesFrom")
+                    {
+                        return Some(ClassExpression::ObjectSomeValuesFrom(
+                            Box::new(property_expr),
+                            Box::new(ClassExpression::Class(Class::new(range_iri.clone()))),
                         ));
+                    }
 
-                        // Check for someValuesFrom
-                        if let Some(some_values) = nested
-                            .properties
-                            .get("http://www.w3.org/2002/07/owl#someValuesFrom")
-                        {
-                            if let ObjectValue::IRI(range_iri) = some_values {
-                                return Some(ClassExpression::ObjectSomeValuesFrom(
-                                    Box::new(property_expr),
-                                    Box::new(ClassExpression::Class(Class::new(range_iri.clone()))),
-                                ));
-                            }
-                        }
-
-                        // Check for allValuesFrom
-                        if let Some(all_values) = nested
-                            .properties
-                            .get("http://www.w3.org/2002/07/owl#allValuesFrom")
-                        {
-                            if let ObjectValue::IRI(range_iri) = all_values {
-                                return Some(ClassExpression::ObjectAllValuesFrom(
-                                    Box::new(property_expr),
-                                    Box::new(ClassExpression::Class(Class::new(range_iri.clone()))),
-                                ));
-                            }
-                        }
+                    // Check for allValuesFrom
+                    if let Some(ObjectValue::IRI(range_iri)) = nested
+                        .properties
+                        .get("http://www.w3.org/2002/07/owl#allValuesFrom")
+                    {
+                        return Some(ClassExpression::ObjectAllValuesFrom(
+                            Box::new(property_expr),
+                            Box::new(ClassExpression::Class(Class::new(range_iri.clone()))),
+                        ));
                     }
                 }
                 None
@@ -1240,6 +1244,7 @@ impl TurtleParser {
 
 /// Object values in Turtle (IRI, Literal, Blank Node, or nested structure)
 #[derive(Debug, Clone)]
+#[allow(clippy::upper_case_acronyms)]
 enum ObjectValue {
     IRI(IRI),
     Literal(Literal),

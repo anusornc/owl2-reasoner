@@ -14,8 +14,10 @@ mod tests {
 
     #[test]
     fn test_empty_string_input() {
-        let mut config = ParserConfig::default();
-        config.strict_validation = true; // Explicit strict validation for error testing
+        let config = ParserConfig {
+            strict_validation: true, // Explicit strict validation for error testing
+            ..Default::default()
+        };
         let parser = TurtleParser::with_config(config);
         let result = parser.parse_str("");
 
@@ -51,8 +53,10 @@ ex:Person a owl:Class
 ex:Animal a owl:Class .
 "#; // Missing dot after first class declaration
 
-        let mut config = ParserConfig::default();
-        config.strict_validation = true; // Explicit strict validation for error testing
+        let config = ParserConfig {
+            strict_validation: true, // Explicit strict validation for error testing
+            ..Default::default()
+        };
         let parser = TurtleParser::with_config(config);
         let result = parser.parse_str(malformed_content);
 
@@ -155,8 +159,10 @@ ex:Person a owl:Class .  # Third declaration
 ex:Person a unknown:Class .  # undefined prefix 'unknown'
 "#;
 
-        let mut config = ParserConfig::default();
-        config.strict_validation = true; // Explicit strict validation for error testing
+        let config = ParserConfig {
+            strict_validation: true, // Explicit strict validation for error testing
+            ..Default::default()
+        };
         let parser = TurtleParser::with_config(config);
         let result = parser.parse_str(undefined_prefix_content);
 

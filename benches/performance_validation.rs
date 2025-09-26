@@ -30,7 +30,7 @@ fn performance_validation_suite(c: &mut Criterion) {
     println!("📊 OWL2 Reasoner Basic Performance Benchmark");
     println!("==========================================");
     println!("📈 Measuring Basic Performance Metrics");
-    println!("");
+    println!();
 
     // Note: Configure individual benchmark groups for faster execution
 
@@ -79,7 +79,7 @@ fn measure_response_times(c: &mut Criterion) {
                 for i in 0..classes.len().min(3) {
                     for j in 0..classes.len().min(3) {
                         if i != j {
-                            let _ = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                            let _ = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                         }
                     }
                 }
@@ -187,13 +187,13 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
                         for j in 0..classes.len().min(3) {
                             if i != j {
                                 let _ =
-                                    reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                                    reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                             }
                         }
                     }
 
                     for class in classes.iter().take(3) {
-                        let _ = reasoner.is_class_satisfiable(&class.iri());
+                        let _ = reasoner.is_class_satisfiable(class.iri());
                     }
                 }
 
@@ -315,7 +315,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                         .cloned()
                         .collect();
                     for class in classes.iter().take(2) {
-                        let _ = reasoner.is_class_satisfiable(&class.iri());
+                        let _ = reasoner.is_class_satisfiable(class.iri());
                     }
                 }
 
@@ -369,7 +369,7 @@ fn create_test_ontology(size: usize) -> Ontology {
 
     // Create classes with shared IRIs where possible
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -377,7 +377,7 @@ fn create_test_ontology(size: usize) -> Ontology {
 
     // Create object properties
     for i in 0..(size / 5).max(1) {
-        let iri = IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(iri);
         ontology.add_object_property(prop).unwrap();
     }
@@ -396,7 +396,7 @@ fn create_test_ontology(size: usize) -> Ontology {
 
     // Add some individuals for completeness
     for i in 0..(size / 2) {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }

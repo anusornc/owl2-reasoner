@@ -22,6 +22,7 @@ pub use tableaux::*;
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
+use std::sync::Arc;
 
 /// Main OWL2 reasoning engine
 pub struct OwlReasoner {
@@ -66,7 +67,7 @@ pub trait Reasoner {
     fn are_disjoint_classes(&mut self, a: &IRI, b: &IRI) -> OwlResult<bool>;
 
     /// Get all instances of a class
-    fn get_instances(&mut self, class: &IRI) -> OwlResult<Vec<IRI>>;
+    fn get_instances(&mut self, class: &IRI) -> OwlResult<Vec<Arc<IRI>>>;
 
     /// Check if an individual is an instance of a class
     fn is_instance_of(&mut self, individual: &IRI, class: &IRI) -> OwlResult<bool>;
@@ -149,14 +150,14 @@ impl Reasoner for OwlReasoner {
         Ok(false)
     }
 
-    fn get_instances(&mut self, class: &IRI) -> OwlResult<Vec<IRI>> {
+    fn get_instances(&mut self, class: &IRI) -> OwlResult<Vec<Arc<IRI>>> {
         self.simple.get_instances(class)
     }
 
     fn is_instance_of(&mut self, individual: &IRI, class: &IRI) -> OwlResult<bool> {
         // For now, check if individual is in instances of class
         let instances = self.get_instances(class)?;
-        Ok(instances.contains(individual))
+        Ok(instances.contains(&Arc::new((*individual).clone())))
     }
 }
 

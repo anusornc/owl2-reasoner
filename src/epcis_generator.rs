@@ -482,7 +482,7 @@ impl EPCISDataGenerator {
 
             let assertion = ClassAssertionAxiom::new(
                 ClassExpression::from(participant_class.clone()),
-                individual.iri().clone(),
+                individual(*(*iri())).clone(),
             );
             ontology.add_class_assertion(assertion)?;
         }
@@ -503,7 +503,7 @@ impl EPCISDataGenerator {
 
             let assertion = ClassAssertionAxiom::new(
                 ClassExpression::from(location_class.clone()),
-                individual.iri().clone(),
+                individual(*(*iri())).clone(),
             );
             ontology.add_class_assertion(assertion)?;
         }
@@ -517,7 +517,7 @@ impl EPCISDataGenerator {
 
             let assertion = ClassAssertionAxiom::new(
                 ClassExpression::from(read_point_class.clone()),
-                individual.iri().clone(),
+                individual(*(*iri())).clone(),
             );
             ontology.add_class_assertion(assertion)?;
         }

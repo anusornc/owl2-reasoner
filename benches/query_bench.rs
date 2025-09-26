@@ -1,11 +1,10 @@
 //! Query performance benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, BenchmarkId, Criterion};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::query::{PatternTerm, QueryEngine, QueryPattern, TriplePattern};
-use owl2_reasoner::reasoning::SimpleReasoner;
 
 /// Benchmark query engine creation
 pub fn bench_query_engine_creation(c: &mut Criterion) {
@@ -41,7 +40,7 @@ pub fn bench_simple_queries(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("simple_select", size), size, |b, _| {
             b.iter(|| {
                 let result = engine.execute_query(black_box(&pattern));
-                black_box(result);
+                let _ = black_box(result);
             })
         });
     }
@@ -67,7 +66,7 @@ pub fn bench_class_queries(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("class_type_query", size), size, |b, _| {
             b.iter(|| {
                 let result = engine.execute_query(black_box(&pattern));
-                black_box(result);
+                let _ = black_box(result);
             })
         });
     }
@@ -93,7 +92,7 @@ pub fn bench_subclass_queries(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("subclass_query", size), size, |b, _| {
             b.iter(|| {
                 let result = engine.execute_query(black_box(&pattern));
-                black_box(result);
+                let _ = black_box(result);
             })
         });
     }
@@ -108,7 +107,7 @@ fn create_query_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -116,7 +115,7 @@ fn create_query_ontology(size: usize) -> Ontology {
 
     // Create individuals
     for i in 0..size * 2 {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }

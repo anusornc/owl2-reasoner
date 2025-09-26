@@ -1,7 +1,8 @@
-//! Test for RDF Collections support (rdf:first, rdf:rest, rdf:nil)
-//!
-//! This test verifies that the parsers can now handle
-//! RDF collections using linked list structures.
+use std::sync::Arc;
+// Test for RDF Collections support (rdf:first, rdf:rest, rdf:nil)
+//
+// This test verifies that the parsers can now handle
+// RDF collections using linked list structures.
 
 use crate::*;
 
@@ -10,9 +11,9 @@ fn test_collection_axiom_creation() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create test items
-    let item1_iri = IRI::new("http://example.org/item1")?;
-    let item2_iri = IRI::new("http://example.org/item2")?;
-    let item3_iri = IRI::new("http://example.org/item3")?;
+    let item1_iri = Arc::new(IRI::new("http://example.org/item1")?);
+    let item2_iri = Arc::new(IRI::new("http://example.org/item2")?);
+    let item3_iri = Arc::new(IRI::new("http://example.org/item3")?);
 
     let items = vec![
         CollectionItem::Named(item1_iri.clone()),
@@ -22,8 +23,8 @@ fn test_collection_axiom_creation() -> OwlResult<()> {
 
     // Create collection axiom
     let collection_axiom = CollectionAxiom::new(
-        IRI::new("http://example.org/subject")?,
-        IRI::new("http://example.org/hasList")?,
+        Arc::new(IRI::new("http://example.org/subject")?),
+        Arc::new(IRI::new("http://example.org/hasList")?),
         items,
     );
 
@@ -34,7 +35,7 @@ fn test_collection_axiom_creation() -> OwlResult<()> {
     let collections: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::Collection(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::Collection(_)))
         .collect();
 
     assert_eq!(
@@ -46,11 +47,11 @@ fn test_collection_axiom_creation() -> OwlResult<()> {
     if let Axiom::Collection(collection) = &**collections[0] {
         assert_eq!(
             collection.subject(),
-            &IRI::new("http://example.org/subject")?
+            &Arc::new(IRI::new("http://example.org/subject")?)
         );
         assert_eq!(
             collection.property(),
-            &IRI::new("http://example.org/hasList")?
+            &Arc::new(IRI::new("http://example.org/hasList")?)
         );
         assert_eq!(collection.len(), 3, "Should have 3 items");
         assert!(!collection.is_empty(), "Collection should not be empty");
@@ -83,7 +84,7 @@ fn test_collection_with_mixed_items() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create test items with mixed types
-    let named_item = IRI::new("http://example.org/namedItem")?;
+    let named_item = Arc::new(IRI::new("http://example.org/namedItem")?);
     let anon_item = AnonymousIndividual::new("blank1");
     let literal_item = Literal::simple("test literal");
 
@@ -95,8 +96,8 @@ fn test_collection_with_mixed_items() -> OwlResult<()> {
 
     // Create collection axiom
     let collection_axiom = CollectionAxiom::new(
-        IRI::new("http://example.org/mixedSubject")?,
-        IRI::new("http://example.org/hasMixedList")?,
+        Arc::new(IRI::new("http://example.org/mixedSubject")?),
+        Arc::new(IRI::new("http://example.org/hasMixedList")?),
         items,
     );
 
@@ -118,8 +119,8 @@ fn test_collection_with_mixed_items() -> OwlResult<()> {
 #[test]
 fn test_empty_collection() -> OwlResult<()> {
     let collection_axiom = CollectionAxiom::new(
-        IRI::new("http://example.org/subject")?,
-        IRI::new("http://example.org/hasList")?,
+        Arc::new(IRI::new("http://example.org/subject")?),
+        Arc::new(IRI::new("http://example.org/hasList")?),
         Vec::new(),
     );
 
@@ -159,7 +160,7 @@ fn test_turtle_collection_parsing() -> OwlResult<()> {
     let property_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::PropertyAssertion(_)))
         .collect();
 
     // Should have property assertions from the collection

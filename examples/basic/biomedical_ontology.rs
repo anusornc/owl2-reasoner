@@ -325,11 +325,11 @@ fn main() -> OwlResult<()> {
             predicate: PatternTerm::IRI(IRI::new(
                 "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
             )?),
-            object: PatternTerm::IRI(gene.iri().clone()),
+            object: PatternTerm::IRI(gene.iri().as_ref().clone()),
         },
         TriplePattern {
             subject: PatternTerm::Variable("s".to_string()),
-            predicate: PatternTerm::IRI(associated_with.iri().clone()),
+            predicate: PatternTerm::IRI(associated_with.iri().as_ref().clone()),
             object: PatternTerm::Variable("o".to_string()),
         },
     ]);
@@ -343,7 +343,7 @@ fn main() -> OwlResult<()> {
     // Find all disease-symptom relationships
     let symptom_pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
         subject: PatternTerm::Variable("s".to_string()),
-        predicate: PatternTerm::IRI(has_symptom.iri().clone()),
+        predicate: PatternTerm::IRI(has_symptom.iri().as_ref().clone()),
         object: PatternTerm::Variable("o".to_string()),
     }]);
 
@@ -356,7 +356,7 @@ fn main() -> OwlResult<()> {
     // Find all protein-protein interactions
     let interaction_pattern = QueryPattern::BasicGraphPattern(vec![TriplePattern {
         subject: PatternTerm::Variable("s".to_string()),
-        predicate: PatternTerm::IRI(interacts_with.iri().clone()),
+        predicate: PatternTerm::IRI(interacts_with.iri().as_ref().clone()),
         object: PatternTerm::Variable("o".to_string()),
     }]);
 

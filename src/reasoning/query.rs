@@ -599,8 +599,10 @@ impl QueryEngine {
         triple: &TriplePattern,
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> Option<QueryBinding> {
-        let subject_match =
-            self.match_term(&triple.subject, &PatternTerm::IRI((**axiom.subject()).clone()));
+        let subject_match = self.match_term(
+            &triple.subject,
+            &PatternTerm::IRI((**axiom.subject()).clone()),
+        );
         let predicate_match = self.match_term(
             &triple.predicate,
             &PatternTerm::IRI((**axiom.property()).clone()),
@@ -820,15 +822,10 @@ impl QueryEngine {
                 left_value == right_value
             }
             FilterExpression::Type { term, type_iri: _ } => {
-                if let Some(value) = self.evaluate_term_opt(binding, term) {
-                    match value {
-                        QueryValue::IRI(_iri) => {
-                            // Check if the IRI has the specified type
-                            // This is simplified - in practice, we'd need to reason about types
-                            false // Placeholder implementation
-                        }
-                        _ => false,
-                    }
+                if let Some(QueryValue::IRI(_iri)) = self.evaluate_term_opt(binding, term) {
+                    // Check if the IRI has the specified type
+                    // This is simplified - in practice, we'd need to reason about types
+                    false // Placeholder implementation
                 } else {
                     false
                 }
@@ -997,7 +994,7 @@ mod tests {
 
         // Add class assertion
         let class_assertion =
-            ClassAssertionAxiom::new(john_iri.clone(), ClassExpression::Class(person_class));
+            ClassAssertionAxiom::new(Arc::new(john_iri.clone()), ClassExpression::Class(person_class));
         ontology
             .add_class_assertion(class_assertion)
             .expect("Failed to add class assertion");

@@ -1,8 +1,9 @@
-//! Regression Test Suite for OWL2 Reasoner
-//!
-//! This test suite ensures that performance improvements don't break existing functionality
-//! and provides baseline measurements for detecting performance regressions.
+use std::sync::Arc;
 
+/// Regression Test Suite for OWL2 Reasoner
+///
+/// This test suite ensures that performance improvements don't break existing functionality
+/// and provides baseline measurements for detecting performance regressions.
 use crate::*;
 use std::time::Instant;
 
@@ -14,8 +15,8 @@ fn test_basic_functionality_regression() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create basic ontology structure
-    let person_class = Class::new(IRI::new("http://example.org/Person")?);
-    let employee_class = Class::new(IRI::new("http://example.org/Employee")?);
+    let person_class = Class::new(Arc::new(IRI::new("http://example.org/Person")?));
+    let employee_class = Class::new(Arc::new(IRI::new("http://example.org/Employee")?));
 
     ontology.add_class(person_class.clone())?;
     ontology.add_class(employee_class.clone())?;
@@ -33,7 +34,7 @@ fn test_basic_functionality_regression() -> OwlResult<()> {
     assert!(is_consistent, "Basic ontology should be consistent");
 
     // Test subclass reasoning
-    let is_subclass = reasoner.is_subclass_of(&employee_class.iri(), &person_class.iri())?;
+    let is_subclass = reasoner.is_subclass_of(employee_class.iri(), person_class.iri())?;
     assert!(is_subclass, "Employee should be subclass of Person");
 
     let duration = start_time.elapsed();
@@ -61,7 +62,7 @@ fn test_ontology_scalability_regression() -> OwlResult<()> {
 
     // Create hierarchical class structure
     for i in 0..size {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
+        let class_iri = Arc::new(IRI::new(format!("http://example.org/Class{}", i))?);
         let class = Class::new(class_iri);
         ontology.add_class(class)?;
     }
@@ -69,8 +70,8 @@ fn test_ontology_scalability_regression() -> OwlResult<()> {
     // Create subclass relationships (tree structure)
     for i in 1..size {
         let parent_idx = (i - 1) / 2; // Binary tree structure
-        let subclass_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
-        let superclass_iri = IRI::new(&format!("http://example.org/Class{}", parent_idx))?;
+        let subclass_iri = Arc::new(IRI::new(format!("http://example.org/Class{}", i))?);
+        let superclass_iri = Arc::new(IRI::new(format!("http://example.org/Class{}", parent_idx))?);
 
         let subclass = ClassExpression::Class(Class::new(subclass_iri));
         let superclass = ClassExpression::Class(Class::new(superclass_iri));
@@ -91,8 +92,8 @@ fn test_ontology_scalability_regression() -> OwlResult<()> {
     for i in 0..10.min(size) {
         for j in 0..10.min(size) {
             if i != j {
-                let class_i_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
-                let class_j_iri = IRI::new(&format!("http://example.org/Class{}", j))?;
+                let class_i_iri = Arc::new(IRI::new(format!("http://example.org/Class{}", i))?);
+                let class_j_iri = Arc::new(IRI::new(format!("http://example.org/Class{}", j))?);
                 let _ = reasoner.is_subclass_of(&class_i_iri, &class_j_iri);
             }
         }
@@ -133,12 +134,12 @@ fn test_memory_usage_regression() -> OwlResult<()> {
 
     // Create many entities to test memory usage
     for i in 0..5000 {
-        let class_iri = IRI::new(&format!("http://example.org/Entity{}", i))?;
+        let class_iri = Arc::new(IRI::new(format!("http://example.org/Entity{}", i))?);
         let class = Class::new(class_iri);
         ontology.add_class(class)?;
 
         if i % 100 == 0 {
-            let prop_iri = IRI::new(&format!("http://example.org/hasProperty{}", i / 100))?;
+            let prop_iri = Arc::new(IRI::new(format!("http://example.org/hasProperty{}", i / 100))?);
             let prop = ObjectProperty::new(prop_iri);
             ontology.add_object_property(prop)?;
         }
@@ -146,8 +147,8 @@ fn test_memory_usage_regression() -> OwlResult<()> {
 
     // Create some relationships
     for i in 0..1000 {
-        let subclass_iri = IRI::new(&format!("http://example.org/Entity{}", i))?;
-        let superclass_iri = IRI::new(&format!("http://example.org/Entity{}", (i + 1) % 5000))?;
+        let subclass_iri = Arc::new(IRI::new(format!("http://example.org/Entity{}", i))?);
+        let superclass_iri = Arc::new(IRI::new(format!("http://example.org/Entity{}", (i + 1) % 5000))?);
 
         let subclass = ClassExpression::Class(Class::new(subclass_iri));
         let superclass = ClassExpression::Class(Class::new(superclass_iri));
@@ -195,7 +196,7 @@ fn test_complex_reasoning_regression() -> OwlResult<()> {
 
     let mut class_iris = Vec::new();
     for class_name in &classes {
-        let iri = IRI::new(&format!("http://example.org/{}", class_name))?;
+        let iri = Arc::new(IRI::new(format!("http://example.org/{}", class_name))?);
         let class = Class::new(iri.clone());
         ontology.add_class(class)?;
         class_iris.push(iri);
@@ -268,7 +269,7 @@ fn test_error_handling_regression() -> OwlResult<()> {
     // Test error creation performance
     let error_start = Instant::now();
     for i in 0..1000 {
-        let _ = IRI::new(&format!("invalid_iri_{}", i));
+        let _ = IRI::new(format!("invalid_iri_{}", i));
     }
     let error_duration = error_start.elapsed();
 
@@ -279,10 +280,10 @@ fn test_error_handling_regression() -> OwlResult<()> {
     for i in 0..500 {
         if i % 10 == 0 {
             // Invalid IRI
-            let _ = ontology.add_class(Class::new(IRI::new("invalid")?));
+            let _ = ontology.add_class(Class::new(Arc::new(IRI::new("invalid")?)));
         } else {
             // Valid IRI
-            let iri = IRI::new(&format!("http://example.org/Class{}", i))?;
+            let iri = Arc::new(IRI::new(format!("http://example.org/Class{}", i))?);
             let class = Class::new(iri);
             ontology.add_class(class)?;
         }

@@ -449,7 +449,8 @@ impl Ontology {
                 let assertion_arc = Arc::new((**axiom).clone());
                 self.class_assertions.push(assertion_arc);
                 // Update class instances index
-                if let Some(class_iri) = axiom.class_expr().as_named().map(|c| (**c.iri()).clone()) {
+                if let Some(class_iri) = axiom.class_expr().as_named().map(|c| (**c.iri()).clone())
+                {
                     self.class_instances
                         .entry((**axiom.individual()).clone())
                         .or_default()
@@ -469,7 +470,7 @@ impl Ontology {
                     self.property_ranges
                         .entry((**axiom.property()).clone())
                         .or_default()
-                    .push((**object_iri).clone());
+                        .push((**object_iri).clone());
                 }
             }
             axioms::Axiom::DataPropertyAssertion(axiom) => {
@@ -643,8 +644,7 @@ impl Ontology {
             }
             axioms::Axiom::Import(axiom) => {
                 // Add import to the ontology's import set
-                self.imports
-                    .insert(axiom.imported_ontology().clone());
+                self.imports.insert(axiom.imported_ontology().clone());
             }
             axioms::Axiom::Collection(_axiom) => {
                 // Collection axioms are stored in the general axioms list
@@ -1291,6 +1291,7 @@ impl Ontology {
     }
 
     /// Validate cardinality within a class expression
+    #[allow(clippy::only_used_in_recursion)]
     fn validate_cardinality_in_expression(
         &self,
         expr: &ClassExpression,

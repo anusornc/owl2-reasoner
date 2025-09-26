@@ -253,13 +253,11 @@ fn validate_gs1_epcis_2_0(events: &[EPCISEvent]) -> OwlResult<f64> {
         let has_epcs = !event.epc_list.is_empty();
         let has_action = matches!(event.action, EPCISAction::Observe | EPCISAction::Add);
 
-        let event_checks = vec![
-            has_event_id,
+        let event_checks = [has_event_id,
             has_event_time,
             has_event_type,
             has_epcs,
-            has_action,
-        ];
+            has_action];
         compliant_events += event_checks.iter().filter(|&&x| x).count();
         total_checks += event_checks.len();
     }
@@ -303,7 +301,7 @@ fn validate_event_structure(events: &[EPCISEvent]) -> OwlResult<f64> {
             EPCISEventType::AggregationEvent => event
                 .child_epcs
                 .as_ref()
-                .map_or(false, |children| !children.is_empty()),
+                .is_some_and(|children| !children.is_empty()),
             EPCISEventType::ObjectEvent => !event.epc_list.is_empty(),
             _ => true,
         };
@@ -644,7 +642,7 @@ fn validate_scalability(events: &[EPCISEvent]) -> OwlResult<f64> {
 fn validate_memory_efficiency(events: &[EPCISEvent]) -> OwlResult<f64> {
     // Target: < 1KB per event
     let target_memory_per_event = 1024.0;
-    let estimated_memory = events.len() * std::mem::size_of::<EPCISEvent>();
+    let estimated_memory = std::mem::size_of_val(events);
     let actual_memory_per_event = estimated_memory as f64 / events.len() as f64;
 
     Ok(if actual_memory_per_event <= target_memory_per_event {

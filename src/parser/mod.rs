@@ -509,6 +509,7 @@ impl NtriplesParser {
 
 /// N-Triples term types
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 enum NtriplesTerm {
     IRI(IRI),
     Literal {

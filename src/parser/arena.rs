@@ -165,6 +165,7 @@ impl Default for LocalParserArena {
 }
 
 /// Thread-safe parser arena using Arc for shared access
+#[derive(Clone)]
 pub struct SharedParserArena {
     arena: Arc<std::sync::Mutex<ParserArena>>,
 }
@@ -187,12 +188,6 @@ impl SharedParserArena {
         unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
     }
 
-    /// Clone the shared arena (increases reference count)
-    pub fn clone(&self) -> Self {
-        Self {
-            arena: Arc::clone(&self.arena),
-        }
-    }
 }
 
 impl Default for SharedParserArena {
@@ -385,12 +380,13 @@ mod tests {
 
     #[test]
     fn test_builder_pattern() {
-        let arena = ParserArenaBuilder::new()
+        let _arena = ParserArenaBuilder::new()
             .with_capacity(2048)
             .shared()
             .build();
 
-        assert_eq!(arena.memory_usage() % 1, 0); // Check memory usage is valid
+        // Test that arena was created successfully
+        // (memory_usage() returns usize, so it's always >= 0)
     }
 
     #[test]

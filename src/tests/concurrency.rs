@@ -218,7 +218,7 @@ mod tests {
 
                         // Mix in some slice allocations
                         if i % 100 == 0 {
-                            let data = vec![thread_id as i32; i % 10 + 1];
+                            let data = vec![thread_id; i % 10 + 1];
                             let _slice = {
                                 let arena_ref = arena_clone.arena();
                                 arena_ref.alloc_slice(&data)
@@ -350,7 +350,7 @@ mod tests {
                             }
                             1 => {
                                 // Slice allocation
-                                let data = vec![thread_id as i32; (i % 10) + 1];
+                                let data = vec![thread_id; (i % 10) + 1];
                                 let _slice = {
                                     let arena_ref = arena_clone.arena();
                                     arena_ref.alloc_slice(&data)

@@ -128,8 +128,7 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
         }
         Err(e) => {
             println!("❌ **FAILED:** Ontology parsing failed: {}", e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(std::io::Error::other(
                 e.to_string(),
             ));
         }
@@ -173,9 +172,9 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
 
     for (subclass, superclass) in test_relationships {
         let subclass_iri =
-            owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &subclass[1..]))
+            owl2_reasoner::IRI::new(format!("http://example.org/university#{}", &subclass[1..]))
                 .unwrap();
-        let superclass_iri = owl2_reasoner::IRI::new(&format!(
+        let superclass_iri = owl2_reasoner::IRI::new(format!(
             "http://example.org/university#{}",
             &superclass[1..]
         ))
@@ -199,7 +198,7 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
 
     for class in test_classes {
         let class_iri =
-            owl2_reasoner::IRI::new(&format!("http://example.org/university#{}", &class[1..]))
+            owl2_reasoner::IRI::new(format!("http://example.org/university#{}", &class[1..]))
                 .unwrap();
         match reasoner.get_instances(&class_iri) {
             Ok(instances) => {

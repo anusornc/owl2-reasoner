@@ -225,8 +225,10 @@ impl RdfXmlStreamingParser {
             _ => {
                 // Generic type assertion
                 let class = Class::new(object_iri.clone());
-                let assertion =
-                    ClassAssertionAxiom::new(Arc::new(subject.clone()), ClassExpression::Class(class));
+                let assertion = ClassAssertionAxiom::new(
+                    Arc::new(subject.clone()),
+                    ClassExpression::Class(class),
+                );
                 ontology.add_class_assertion(assertion)?;
             }
         }
@@ -263,7 +265,10 @@ impl RdfXmlStreamingParser {
         let class = Class::new(object_iri.clone());
 
         // This is simplified - in practice, you'd need to determine the property type
-        let axiom = ObjectPropertyDomainAxiom::new(Arc::new(subject.clone()), ClassExpression::Class(class));
+        let axiom = ObjectPropertyDomainAxiom::new(
+            Arc::new(subject.clone()),
+            ClassExpression::Class(class),
+        );
         // Add as generic axiom for now
         ontology.add_axiom(crate::axioms::Axiom::ObjectPropertyDomain(Box::new(axiom)))?;
         Ok(())

@@ -429,7 +429,7 @@ fn test_manchester_syntax_specific_features() -> OwlResult<()> {
     let equivalent_class_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::EquivalentClasses(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::EquivalentClasses(_)))
         .collect();
 
     assert!(
@@ -442,8 +442,8 @@ fn test_manchester_syntax_specific_features() -> OwlResult<()> {
         .axioms()
         .iter()
         .filter(|axiom| {
-            matches!(***axiom, Axiom::TransitiveProperty(_))
-                || matches!(***axiom, Axiom::AsymmetricProperty(_))
+            matches!(axiom.as_ref(), Axiom::TransitiveProperty(_))
+                || matches!(axiom.as_ref(), Axiom::AsymmetricProperty(_))
         })
         .collect();
 
@@ -456,11 +456,11 @@ fn test_manchester_syntax_specific_features() -> OwlResult<()> {
     let inverse_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::InverseObjectProperties(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::InverseObjectProperties(_)))
         .collect();
 
     assert!(
-        inverse_axioms.len() >= 1,
+        !inverse_axioms.is_empty(),
         "Should have inverse property axioms"
     );
 
@@ -488,11 +488,11 @@ fn test_manchester_syntax_specific_features() -> OwlResult<()> {
     let disjoint_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DisjointClasses(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DisjointClasses(_)))
         .collect();
 
     assert!(
-        disjoint_axioms.len() >= 1,
+        !disjoint_axioms.is_empty(),
         "Should have disjoint class axioms"
     );
 
@@ -572,11 +572,11 @@ Ontology(<http://example.org/test>
     let equivalent_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::EquivalentClasses(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::EquivalentClasses(_)))
         .collect();
 
     assert!(
-        equivalent_axioms.len() >= 1,
+        !equivalent_axioms.is_empty(),
         "Should have equivalent class axioms"
     );
 
@@ -588,7 +588,7 @@ Ontology(<http://example.org/test>
         .collect();
 
     assert!(
-        transitive_axioms.len() >= 1,
+        !transitive_axioms.is_empty(),
         "Should have transitive property axioms"
     );
 
@@ -597,11 +597,11 @@ Ontology(<http://example.org/test>
         .axioms()
         .iter()
         .filter(|axiom| {
-            matches!(***axiom, Axiom::TransitiveProperty(_))
-                || matches!(***axiom, Axiom::AsymmetricProperty(_))
-                || matches!(***axiom, Axiom::IrreflexiveProperty(_))
-                || matches!(***axiom, Axiom::FunctionalProperty(_))
-                || matches!(***axiom, Axiom::FunctionalDataProperty(_))
+            matches!(axiom.as_ref(), Axiom::TransitiveProperty(_))
+                || matches!(axiom.as_ref(), Axiom::AsymmetricProperty(_))
+                || matches!(axiom.as_ref(), Axiom::IrreflexiveProperty(_))
+                || matches!(axiom.as_ref(), Axiom::FunctionalProperty(_))
+                || matches!(axiom.as_ref(), Axiom::FunctionalDataProperty(_))
         })
         .collect();
 
@@ -614,7 +614,7 @@ Ontology(<http://example.org/test>
     let annotation_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::AnnotationAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::AnnotationAssertion(_)))
         .collect();
 
     assert!(
@@ -626,11 +626,11 @@ Ontology(<http://example.org/test>
     let different_individuals_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DifferentIndividuals(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DifferentIndividuals(_)))
         .collect();
 
     assert!(
-        different_individuals_axioms.len() >= 1,
+        !different_individuals_axioms.is_empty(),
         "Should have different individuals axioms"
     );
 

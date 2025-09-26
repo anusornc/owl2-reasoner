@@ -100,7 +100,7 @@ pub struct ReasoningStats {
 pub use core::{
     MemoryStats, NodeId, ReasoningConfig, ReasoningRules, TableauxNode, TableauxReasoner,
 };
-pub use parallel::{ParallelTableauxReasoner, ParallelReasoningCache, WorkerConfig};
+pub use parallel::{ParallelReasoningCache, ParallelTableauxReasoner, WorkerConfig};
 
 // Re-export other essential types
 pub use blocking::{BlockingConstraint, BlockingManager, BlockingStrategy};

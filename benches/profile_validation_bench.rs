@@ -10,9 +10,6 @@ use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator, ProfileValidato
 use owl2_reasoner::OntologyParser;
 use std::sync::Arc;
 
-/// Benchmark configuration for different ontology sizes
-const BENCHMARK_SIZES: &[usize] = &[10, 50, 100, 500, 1000];
-
 /// Benchmark data generators for different profiles
 mod benchmark_data {
 
@@ -176,7 +173,7 @@ mod benchmark_data {
 fn bench_el_profile_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("el_profile_validation");
 
-    for size in BENCHMARK_SIZES.iter() {
+    for size in [10, 50, 100, 500, 1000].iter() {
         group.bench_with_input(BenchmarkId::new("optimized", size), size, |b, &size| {
             let ontology_str = benchmark_data::generate_el_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
@@ -197,7 +194,7 @@ fn bench_el_profile_validation(c: &mut Criterion) {
 fn bench_ql_profile_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("ql_profile_validation");
 
-    for size in BENCHMARK_SIZES.iter() {
+    for size in [10, 50, 100, 500, 1000].iter() {
         group.bench_with_input(BenchmarkId::new("optimized", size), size, |b, &size| {
             let ontology_str = benchmark_data::generate_ql_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
@@ -218,7 +215,7 @@ fn bench_ql_profile_validation(c: &mut Criterion) {
 fn bench_rl_profile_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("rl_profile_validation");
 
-    for size in BENCHMARK_SIZES.iter() {
+    for size in [10, 50, 100, 500, 1000].iter() {
         group.bench_with_input(BenchmarkId::new("optimized", size), size, |b, &size| {
             let ontology_str = benchmark_data::generate_rl_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();

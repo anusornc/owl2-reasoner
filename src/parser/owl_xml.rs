@@ -9,9 +9,9 @@ use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::parser::{OntologyParser, ParserConfig};
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 /// OWL/XML format parser
 pub struct OwlXmlParser {
@@ -806,8 +806,10 @@ mod tests {
     </Declaration>
 </Ontology>"#;
 
-        let mut config = ParserConfig::default();
-        config.strict_validation = false; // Disable validation for debugging
+        let config = ParserConfig {
+            strict_validation: false, // Disable validation for debugging
+            ..Default::default()
+        };
         let parser = OwlXmlParser::with_config(config);
         let result = parser.parse_str(simple_owl_xml);
 

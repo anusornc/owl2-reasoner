@@ -81,7 +81,13 @@ impl ElProfileValidator {
         if !self.ontology.disjoint_classes_axioms().is_empty() {
             let mut affected_entities = Vec::new();
             for axiom in self.ontology.disjoint_classes_axioms() {
-                affected_entities.extend(axiom.classes().iter().map(|iri| (**iri).clone()).collect::<Vec<IRI>>());
+                affected_entities.extend(
+                    axiom
+                        .classes()
+                        .iter()
+                        .map(|iri| (**iri).clone())
+                        .collect::<Vec<IRI>>(),
+                );
             }
 
             violations.push(ProfileViolation {
@@ -183,6 +189,7 @@ impl ElProfileValidator {
     }
 
     // Helper methods
+    #[allow(clippy::only_used_in_recursion)]
     fn is_simple_class_expression(&self, expr: &crate::axioms::ClassExpression) -> bool {
         use crate::axioms::ClassExpression::*;
 
@@ -285,7 +292,7 @@ mod tests {
         let _validator = ElProfileValidator::new(ontology);
 
         // Should create without error
-        assert!(true);
+        // Assertion removed - always true
     }
 
     #[test]

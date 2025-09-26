@@ -543,7 +543,8 @@ impl Annotation {
     /// Create a new annotation
     pub fn new<P: Into<IRI>, V: Into<AnnotationValue>>(property: P, value: V) -> Self {
         Annotation {
-            property: IRI::new_optimized(property.into().as_str()).expect("Failed to create annotation property IRI"),
+            property: IRI::new_optimized(property.into().as_str())
+                .expect("Failed to create annotation property IRI"),
             value: value.into(),
         }
     }
@@ -616,7 +617,8 @@ impl Literal {
     pub fn simple<S: Into<String>>(value: S) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new_optimized(XSD_STRING).expect("XSD string IRI should always be valid"),
+            datatype: IRI::new_optimized(XSD_STRING)
+                .expect("XSD string IRI should always be valid"),
             language_tag: None,
         }
     }
@@ -625,7 +627,8 @@ impl Literal {
     pub fn typed<S: Into<String>, D: Into<IRI>>(value: S, datatype: D) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new_optimized(datatype.into().as_str()).expect("Failed to create datatype IRI"),
+            datatype: IRI::new_optimized(datatype.into().as_str())
+                .expect("Failed to create datatype IRI"),
             language_tag: None,
         }
     }
@@ -634,7 +637,8 @@ impl Literal {
     pub fn lang_tagged<S: Into<String>, L: Into<String>>(value: S, language: L) -> Self {
         Literal {
             lexical_form: value.into(),
-            datatype: IRI::new_optimized(RDF_LANG_STRING).expect("RDF langString IRI should always be valid"),
+            datatype: IRI::new_optimized(RDF_LANG_STRING)
+                .expect("RDF langString IRI should always be valid"),
             language_tag: Some(language.into()),
         }
     }

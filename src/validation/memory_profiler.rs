@@ -651,7 +651,6 @@ mod tests {
         let ontology = Ontology::new();
 
         let analysis = profiler.analyze_arc_sharing(&ontology)?;
-        assert_eq!(analysis.total_entities % 1, 0); // Check total entities is valid
         assert!(analysis.sharing_ratio >= 0.0 && analysis.sharing_ratio <= 1.0);
 
         Ok(())

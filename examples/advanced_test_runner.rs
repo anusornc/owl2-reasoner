@@ -36,6 +36,9 @@ fn main() -> OwlResult<()> {
             debug: false,
             incremental: true,
             timeout: Some(45000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         },
     };
 

@@ -1,8 +1,9 @@
-//! Test for blank node property assertions in RDF/XML parser
-//!
-//! This test verifies that the RDF/XML parser can now handle
-//! blank node property assertions correctly.
+use std::sync::Arc;
 
+/// Test for blank node property assertions in RDF/XML parser
+///
+/// This test verifies that the RDF/XML parser can now handle
+/// blank node property assertions correctly.
 use crate::*;
 
 #[test]
@@ -37,11 +38,13 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
     let ontology = parser.parse_str(rdf_xml_content)?;
 
     // Verify that the ontology contains the expected individuals
-    let john_iri = IRI::new("http://example.org/john")?;
-    assert!(ontology
-        .named_individuals()
-        .iter()
-        .any(|ni| ni(*iri()).as_ref() == &john_iri));
+    let john_iri = Arc::new(IRI::new("http://example.org/john")?);
+    assert!(
+        ontology
+            .named_individuals()
+            .iter()
+            .any(|ni| ni.iri() == &john_iri)
+    );
 
     // Check that we have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();
@@ -54,7 +57,7 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
     let property_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::PropertyAssertion(_)))
         .collect();
 
     // Should have property assertions
@@ -101,7 +104,7 @@ fn test_rdf_xml_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create named individual
-    let john_iri = IRI::new("http://example.org/john")?;
+    let john_iri = Arc::new(IRI::new("http://example.org/john")?);
     let john = NamedIndividual::new(john_iri.clone());
     ontology.add_named_individual(john)?;
 
@@ -110,7 +113,7 @@ fn test_rdf_xml_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
     ontology.add_anonymous_individual(anon_individual.clone())?;
 
     // Create property
-    let knows_iri = IRI::new("http://example.org/knows")?;
+    let knows_iri = Arc::new(IRI::new("http://example.org/knows")?);
     let knows = ObjectProperty::new(knows_iri.clone());
     ontology.add_object_property(knows)?;
 
@@ -191,7 +194,7 @@ fn test_rdf_xml_nested_blank_nodes() -> OwlResult<()> {
     let property_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::PropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::PropertyAssertion(_)))
         .collect();
 
     assert!(

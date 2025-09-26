@@ -54,64 +54,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn create_sample_epcis_events() -> Vec<EPCISSimpleEvent> {
-    let mut events = Vec::new();
-
-    // Manufacturing event
-    events.push(EPCISSimpleEvent {
-        event_id: "mfg_001".to_string(),
-        event_type: "ObjectEvent".to_string(),
-        event_time: "2023-01-01T08:00:00Z".to_string(),
-        epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
-        biz_step: Some("urn:epcglobal:cbv:bizstep:manufacturing".to_string()),
-        disposition: Some("urn:epcglobal:cbv:disp:in_progress".to_string()),
-        action: "ADD".to_string(),
-    });
-
-    // Quality inspection event
-    events.push(EPCISSimpleEvent {
-        event_id: "qc_001".to_string(),
-        event_type: "ObjectEvent".to_string(),
-        event_time: "2023-01-01T09:00:00Z".to_string(),
-        epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
-        biz_step: Some("urn:epcglobal:cbv:bizstep:inspecting".to_string()),
-        disposition: Some("urn:epcglobal:cbv:disp:in_progress".to_string()),
-        action: "OBSERVE".to_string(),
-    });
-
-    // Shipping event
-    events.push(EPCISSimpleEvent {
-        event_id: "ship_001".to_string(),
-        event_type: "ObjectEvent".to_string(),
-        event_time: "2023-01-01T10:00:00Z".to_string(),
-        epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
-        biz_step: Some("urn:epcglobal:cbv:bizstep:shipping".to_string()),
-        disposition: Some("urn:epcglobal:cbv:disp:in_transit".to_string()),
-        action: "OBSERVE".to_string(),
-    });
-
-    // Receiving event at distributor
-    events.push(EPCISSimpleEvent {
-        event_id: "recv_001".to_string(),
-        event_type: "ObjectEvent".to_string(),
-        event_time: "2023-01-02T14:00:00Z".to_string(),
-        epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
-        biz_step: Some("urn:epcglobal:cbv:bizstep:receiving".to_string()),
-        disposition: Some("urn:epcglobal:cbv:disp:in_stock".to_string()),
-        action: "OBSERVE".to_string(),
-    });
-
-    // Retail sale event
-    events.push(EPCISSimpleEvent {
-        event_id: "sale_001".to_string(),
-        event_type: "ObjectEvent".to_string(),
-        event_time: "2023-01-03T16:00:00Z".to_string(),
-        epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
-        biz_step: Some("urn:epcglobal:cbv:bizstep:selling".to_string()),
-        disposition: Some("urn:epcglobal:cbv:disp:sold".to_string()),
-        action: "OBSERVE".to_string(),
-    });
-
-    events
+    vec![
+        // Manufacturing event
+        EPCISSimpleEvent {
+            event_id: "mfg_001".to_string(),
+            event_type: "ObjectEvent".to_string(),
+            event_time: "2023-01-01T08:00:00Z".to_string(),
+            epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
+            biz_step: Some("urn:epcglobal:cbv:bizstep:manufacturing".to_string()),
+            disposition: Some("urn:epcglobal:cbv:disp:in_progress".to_string()),
+            action: "ADD".to_string(),
+        },
+        // Quality inspection event
+        EPCISSimpleEvent {
+            event_id: "qc_001".to_string(),
+            event_type: "ObjectEvent".to_string(),
+            event_time: "2023-01-01T09:00:00Z".to_string(),
+            epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
+            biz_step: Some("urn:epcglobal:cbv:bizstep:inspecting".to_string()),
+            disposition: Some("urn:epcglobal:cbv:disp:in_progress".to_string()),
+            action: "OBSERVE".to_string(),
+        },
+        // Shipping event
+        EPCISSimpleEvent {
+            event_id: "ship_001".to_string(),
+            event_type: "ObjectEvent".to_string(),
+            event_time: "2023-01-01T10:00:00Z".to_string(),
+            epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
+            biz_step: Some("urn:epcglobal:cbv:bizstep:shipping".to_string()),
+            disposition: Some("urn:epcglobal:cbv:disp:in_transit".to_string()),
+            action: "OBSERVE".to_string(),
+        },
+        // Receiving event at distributor
+        EPCISSimpleEvent {
+            event_id: "recv_001".to_string(),
+            event_type: "ObjectEvent".to_string(),
+            event_time: "2023-01-02T14:00:00Z".to_string(),
+            epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
+            biz_step: Some("urn:epcglobal:cbv:bizstep:receiving".to_string()),
+            disposition: Some("urn:epcglobal:cbv:disp:in_stock".to_string()),
+            action: "OBSERVE".to_string(),
+        },
+        // Retail sale event
+        EPCISSimpleEvent {
+            event_id: "sale_001".to_string(),
+            event_type: "ObjectEvent".to_string(),
+            event_time: "2023-01-03T16:00:00Z".to_string(),
+            epcs: vec!["urn:epc:id:sgtin:0614141.107346.1001".to_string()],
+            biz_step: Some("urn:epcglobal:cbv:bizstep:selling".to_string()),
+            disposition: Some("urn:epcglobal:cbv:disp:sold".to_string()),
+            action: "OBSERVE".to_string(),
+        },
+    ]
 }
 
 fn demonstrate_core_processing(

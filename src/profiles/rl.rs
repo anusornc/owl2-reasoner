@@ -52,94 +52,82 @@ impl RlProfileValidator {
     }
 
     fn validate_nominals(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow nominals (ObjectOneOf in class expressions)
         // This would check class expressions for ObjectOneOf constructs
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::Nominals,
             message:
                 "Nominals (named individuals in class expressions) are not allowed in RL profile"
                     .to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_data_complement(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow DataComplementOf
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::DataComplementOf,
             message: "Data complement of expressions are not allowed in RL profile".to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_data_one_of(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow DataOneOf
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::DataOneOf,
             message: "Data one of expressions are not allowed in RL profile".to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_object_complement(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow ObjectComplementOf
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::ObjectComplementOf,
             message: "Object complement of expressions are not allowed in RL profile".to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_object_one_of(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow ObjectOneOf
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::ObjectOneOf,
             message: "Object one of expressions are not allowed in RL profile".to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_object_has_self(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // RL profile does not allow ObjectHasSelf
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::ObjectHasSelf,
             message: "Object has self restrictions are not allowed in RL profile".to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
@@ -173,37 +161,33 @@ impl RlProfileValidator {
     }
 
     fn detect_cycles_in_subclass_hierarchy(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // Simple cycle detection in subclass hierarchy
         // This would implement a graph cycle detection algorithm
 
         // Placeholder implementation
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::CycleInHierarchy,
             message: "Cycle detection in subclass hierarchy (placeholder implementation)"
                 .to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Warning,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn detect_cycles_in_property_hierarchy(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // Simple cycle detection in property hierarchy
         // This would check for cycles in subproperty hierarchies
 
         // Placeholder implementation
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::CycleInHierarchy,
             message: "Cycle detection in property hierarchy (placeholder implementation)"
                 .to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Warning,
-        });
+        }];
 
         Ok(violations)
     }
@@ -220,7 +204,7 @@ mod tests {
         let ontology = Arc::new(Ontology::new());
         let _validator = RlProfileValidator::new(ontology);
 
-        assert!(true); // Should create without error
+        // Assertion removed - always true
     }
 
     #[test]

@@ -38,7 +38,7 @@ Ontology(<http://example.org/test>
     let data_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyAssertion(_)))
         .collect();
 
     assert_eq!(
@@ -131,7 +131,7 @@ Ontology(<http://example.org/test>
     let neg_data_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::NegativeDataPropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::NegativeDataPropertyAssertion(_)))
         .collect();
 
     assert_eq!(
@@ -193,7 +193,7 @@ Ontology(<http://example.org/test>
     let data_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyAssertion(_)))
         .collect();
 
     assert_eq!(

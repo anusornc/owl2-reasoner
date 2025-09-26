@@ -18,7 +18,6 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
         let ontology = create_hierarchy_ontology(*size);
 
         // Simple Reasoner
-        let simple_reasoner = SimpleReasoner::new(ontology.clone());
         group.bench_with_input(
             BenchmarkId::new("simple_consistency", size),
             size,
@@ -26,7 +25,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
                 b.iter(|| {
                     let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -37,6 +36,9 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
             debug: false,
             incremental: true,
             timeout: Some(30000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         };
         let advanced_config = ReasoningConfig {
             enable_reasoning: true,
@@ -54,7 +56,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
                         black_box(advanced_config.clone()),
                     );
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -68,6 +70,9 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
                 debug: false,
                 incremental: true,
                 timeout: Some(60000),
+                enable_parallel: false,
+                parallel_workers: None,
+                parallel_chunk_size: 64,
             },
         };
         // Hybrid reasoning configuration
@@ -81,7 +86,7 @@ pub fn bench_consistency_checking(c: &mut Criterion) {
                         black_box(hybrid_config.clone()),
                     );
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -106,8 +111,8 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
                 |b, _| {
                     b.iter(|| {
                         let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
-                        let result = reasoner.is_class_satisfiable(black_box(&first_class.iri()));
-                        black_box(result);
+                        let result = reasoner.is_class_satisfiable(black_box(first_class.iri()));
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -119,6 +124,9 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
             debug: false,
             incremental: true,
             timeout: Some(30000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         };
         let advanced_config = ReasoningConfig {
             enable_reasoning: true,
@@ -135,8 +143,8 @@ pub fn bench_class_satisfiability(c: &mut Criterion) {
                             black_box(ontology.clone()),
                             black_box(advanced_config.clone()),
                         );
-                        let result = reasoner.is_class_satisfiable(black_box(&first_class.iri()));
-                        black_box(result);
+                        let result = reasoner.is_class_satisfiable(black_box(first_class.iri()));
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -156,7 +164,7 @@ pub fn bench_cache_operations(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("cache_clear", size), size, |b, _| {
             b.iter(|| {
-                reasoner.clear_caches();
+                let _ = reasoner.clear_caches();
                 black_box(());
             })
         });
@@ -164,7 +172,7 @@ pub fn bench_cache_operations(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("cache_stats", size), size, |b, _| {
             b.iter(|| {
                 let stats = reasoner.cache_stats();
-                black_box(stats);
+                let _ = black_box(stats);
             })
         });
     }
@@ -179,7 +187,7 @@ fn create_hierarchy_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -213,10 +221,10 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
                 b.iter(|| {
                     let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_subclass_of(
-                        black_box(&first_class.iri()),
-                        black_box(&second_class.iri()),
+                        black_box(first_class.iri()),
+                        black_box(second_class.iri()),
                     );
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             });
         }
@@ -227,6 +235,9 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
             debug: false,
             incremental: true,
             timeout: Some(30000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         };
         let advanced_config = ReasoningConfig {
             enable_reasoning: true,
@@ -245,10 +256,10 @@ pub fn bench_subclass_checking(c: &mut Criterion) {
                             black_box(advanced_config.clone()),
                         );
                         let result = reasoner.is_subclass_of(
-                            black_box(&first_class.iri()),
-                            black_box(&second_class.iri()),
+                            black_box(first_class.iri()),
+                            black_box(second_class.iri()),
                         );
-                        black_box(result);
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -279,6 +290,9 @@ pub fn bench_memory_usage(c: &mut Criterion) {
             debug: false,
             incremental: true,
             timeout: Some(30000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         };
         let advanced_config = ReasoningConfig {
             enable_reasoning: true,
@@ -318,7 +332,7 @@ pub fn bench_large_scale_ontologies(c: &mut Criterion) {
                 b.iter(|| {
                     let reasoner = SimpleReasoner::new(black_box(ontology.clone()));
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -329,6 +343,9 @@ pub fn bench_large_scale_ontologies(c: &mut Criterion) {
             debug: false,
             incremental: true,
             timeout: Some(120000),
+            enable_parallel: false,
+            parallel_workers: None,
+            parallel_chunk_size: 64,
         };
         let advanced_config = ReasoningConfig {
             enable_reasoning: true,
@@ -345,7 +362,7 @@ pub fn bench_large_scale_ontologies(c: &mut Criterion) {
                         black_box(advanced_config.clone()),
                     );
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -361,7 +378,7 @@ fn create_large_hierarchy_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/large_class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/large_class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);

@@ -38,7 +38,7 @@ use crate::cache::BoundedCache;
 use crate::error::{OwlError, OwlResult};
 use once_cell::sync::Lazy;
 use std::fmt;
-use std::hash::{Hash, Hasher, DefaultHasher};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -216,6 +216,20 @@ impl From<&Arc<IRI>> for IRIRef {
     }
 }
 
+// Allow converting from `Arc<IRI>` to owned `IRI` to satisfy
+// generic constructors that take `Into<IRI>`.
+impl From<Arc<IRI>> for IRI {
+    fn from(arc: Arc<IRI>) -> Self {
+        (*arc).clone()
+    }
+}
+
+impl From<&Arc<IRI>> for IRI {
+    fn from(arc: &Arc<IRI>) -> Self {
+        (**arc).clone()
+    }
+}
+
 /// Clear the global IRI cache
 pub fn clear_global_iri_cache() -> OwlResult<()> {
     GLOBAL_IRI_CACHE.clear()?;
@@ -378,7 +392,7 @@ impl IRI {
 
         // Single allocation with Arc::from for zero-copy when possible
         let iri = Arc::new(IRI {
-            iri: Arc::from(iri_str),  // Zero-copy when possible
+            iri: Arc::from(iri_str), // Zero-copy when possible
             prefix: None,
             hash,
         });
@@ -395,7 +409,7 @@ impl IRI {
     /// Create a new IRI with a namespace prefix using optimized operations
     pub fn with_prefix_optimized<S: AsRef<str>, P: AsRef<str>>(
         iri_str: S,
-        prefix: P
+        prefix: P,
     ) -> OwlResult<Arc<IRI>> {
         let iri = Self::new_optimized(iri_str)?;
         let mut iri_mut = Arc::try_unwrap(iri).unwrap_or_else(|iri| (*iri).clone());

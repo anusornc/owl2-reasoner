@@ -84,41 +84,37 @@ impl QlProfileValidator {
     }
 
     fn validate_cardinality_restrictions(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // QL profile allows only qualified cardinality restrictions
         // No unqualified cardinality restrictions
 
         // This would need to examine cardinality restriction axioms
         // For now, we'll add a placeholder
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::ComplexCardinalityRestrictions,
             message:
                 "Complex cardinality restrictions should be validated in QL profile (placeholder)"
                     .to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Warning,
-        });
+        }];
 
         Ok(violations)
     }
 
     fn validate_property_chains(&self) -> OwlResult<Vec<ProfileViolation>> {
-        let mut violations = Vec::new();
-
         // QL profile does not allow property chain axioms (SubPropertyOf with complex expressions)
 
         // This would check for complex subproperty axioms
         // For now, placeholder
 
-        violations.push(ProfileViolation {
+        let violations = vec![ProfileViolation {
             violation_type: ProfileViolationType::PropertyChainAxioms,
             message: "Property chain axioms are not allowed in QL profile (placeholder)"
                 .to_string(),
             affected_entities: Vec::new(),
             severity: ViolationSeverity::Error,
-        });
+        }];
 
         Ok(violations)
     }
@@ -159,7 +155,7 @@ mod tests {
         let ontology = Arc::new(Ontology::new());
         let _validator = QlProfileValidator::new(ontology);
 
-        assert!(true); // Should create without error
+        // Assertion removed - always true
     }
 
     #[test]

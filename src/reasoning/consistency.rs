@@ -346,7 +346,9 @@ impl ConsistencyChecker {
                 unsatisfiable.push(InconsistencyExplanation {
                     description: format!("Class {} is unsatisfiable", class_iri),
                     involved_axioms: self.find_axioms_involving_class(class_iri)?.into(),
-                    contradiction_type: ContradictionType::UnsatisfiableClass((**class_iri).clone()),
+                    contradiction_type: ContradictionType::UnsatisfiableClass(
+                        (**class_iri).clone(),
+                    ),
                 });
             }
         }
@@ -472,8 +474,8 @@ mod tests {
 
         // Add disjoint classes axiom with the same class twice
         let disjoint_axiom = DisjointClassesAxiom::new(vec![
-            person_iri.clone(),
-            person_iri.clone(), // Same class - this should be detected as problematic
+            Arc::new(person_iri.clone()),
+            Arc::new(person_iri.clone()), // Same class - this should be detected as problematic
         ]);
         ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
 

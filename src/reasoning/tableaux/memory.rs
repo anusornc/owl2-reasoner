@@ -64,6 +64,7 @@ use bumpalo::Bump;
 use hashbrown::HashMap;
 use std::mem;
 use std::ptr::NonNull;
+use std::sync::Mutex;
 
 /// Arena allocation statistics
 #[derive(Debug, Clone, Default)]
@@ -86,11 +87,11 @@ pub struct ArenaStats {
 #[derive(Debug)]
 pub struct ArenaManager {
     pub stats: ArenaStats,
-    pub node_arena: Bump,
-    pub expression_arena: Bump,
-    pub constraint_arena: Bump,
-    pub string_arena: Bump,
-    pub string_interner: HashMap<String, *const u8>,
+    pub node_arena: Mutex<Bump>,
+    pub expression_arena: Mutex<Bump>,
+    pub constraint_arena: Mutex<Bump>,
+    pub string_arena: Mutex<Bump>,
+    pub string_interner: Mutex<HashMap<String, *const u8>>,
 }
 
 impl ArenaManager {
@@ -98,69 +99,85 @@ impl ArenaManager {
     pub fn new() -> Self {
         Self {
             stats: ArenaStats::default(),
-            node_arena: Bump::new(),
-            expression_arena: Bump::new(),
-            constraint_arena: Bump::new(),
-            string_arena: Bump::new(),
-            string_interner: HashMap::new(),
+            node_arena: Mutex::new(Bump::new()),
+            expression_arena: Mutex::new(Bump::new()),
+            constraint_arena: Mutex::new(Bump::new()),
+            string_arena: Mutex::new(Bump::new()),
+            string_interner: Mutex::new(HashMap::new()),
         }
     }
 
     /// Allocate a TableauxNode in the node arena
     pub fn allocate_node(&mut self, node: TableauxNode) -> NonNull<TableauxNode> {
         self.stats.arena_allocated_nodes += 1;
-        let allocated = self.node_arena.alloc(node);
+        let node_arena = self.node_arena.lock().unwrap();
+        let allocated = node_arena.alloc(node);
         NonNull::from(allocated)
     }
 
     /// Allocate a ClassExpression in the expression arena
     pub fn allocate_expression(&mut self, expr: ClassExpression) -> NonNull<ClassExpression> {
         self.stats.arena_allocated_expressions += 1;
-        let allocated = self.expression_arena.alloc(expr);
+        let expression_arena = self.expression_arena.lock().unwrap();
+        let allocated = expression_arena.alloc(expr);
         NonNull::from(allocated)
     }
 
     /// Allocate a blocking constraint in the constraint arena
     pub fn allocate_constraint<T>(&mut self, constraint: T) -> NonNull<T> {
         self.stats.arena_allocated_constraints += 1;
-        let allocated = self.constraint_arena.alloc(constraint);
+        let constraint_arena = self.constraint_arena.lock().unwrap();
+        let allocated = constraint_arena.alloc(constraint);
         NonNull::from(allocated)
     }
 
     /// Intern a string in the string arena
     pub fn intern_string(&mut self, s: &str) -> NonNull<str> {
-        if let Some(&ptr) = self.string_interner.get(s) {
+        let mut string_interner = self.string_interner.lock().unwrap();
+        if let Some(&ptr) = string_interner.get(s) {
             // SAFETY: The pointer was originally allocated from the string arena
             // and we ensure the arena stays alive for the lifetime of this manager
             let interned_str = unsafe {
-                std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr as *const u8, s.len()))
+                std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len()))
             };
             return NonNull::from(interned_str);
         }
 
-        let allocated = self.string_arena.alloc_str(s);
+        let string_arena = self.string_arena.lock().unwrap();
+        let allocated = string_arena.alloc_str(s);
         let ptr = allocated.as_ptr();
-        self.string_interner.insert(s.to_string(), ptr);
+        string_interner.insert(s.to_string(), ptr);
         self.stats.string_intern_savings += s.len() * 2; // Estimate savings from interning
         NonNull::from(allocated)
     }
 
     /// Reset all arenas (for tableaux restart)
     pub fn reset(&mut self) {
-        self.node_arena.reset();
-        self.expression_arena.reset();
-        self.constraint_arena.reset();
-        self.string_arena.reset();
-        self.string_interner.clear();
+        let mut node_arena = self.node_arena.lock().unwrap();
+        let mut expression_arena = self.expression_arena.lock().unwrap();
+        let mut constraint_arena = self.constraint_arena.lock().unwrap();
+        let mut string_arena = self.string_arena.lock().unwrap();
+        let mut string_interner = self.string_interner.lock().unwrap();
+
+        node_arena.reset();
+        expression_arena.reset();
+        constraint_arena.reset();
+        string_arena.reset();
+        string_interner.clear();
         self.stats = ArenaStats::default();
     }
 
     /// Get total memory usage across all arenas
     pub fn total_allocated_bytes(&self) -> usize {
-        self.node_arena.allocated_bytes()
-            + self.expression_arena.allocated_bytes()
-            + self.constraint_arena.allocated_bytes()
-            + self.string_arena.allocated_bytes()
+        let node_arena = self.node_arena.lock().unwrap();
+        let expression_arena = self.expression_arena.lock().unwrap();
+        let constraint_arena = self.constraint_arena.lock().unwrap();
+        let string_arena = self.string_arena.lock().unwrap();
+
+        node_arena.allocated_bytes()
+            + expression_arena.allocated_bytes()
+            + constraint_arena.allocated_bytes()
+            + string_arena.allocated_bytes()
     }
 
     /// Get current statistics
@@ -221,38 +238,45 @@ impl ArenaTableauxNode {
 /// Memory manager for tableaux reasoning
 #[derive(Debug)]
 pub struct MemoryManager {
-    pub arena_manager: ArenaManager,
-    pub memory_stats: MemoryStats,
+    pub arena_manager: Mutex<ArenaManager>,
+    pub memory_stats: Mutex<MemoryStats>,
 }
 
 impl MemoryManager {
     pub fn new() -> Self {
         Self {
-            arena_manager: ArenaManager::new(),
-            memory_stats: MemoryStats::new(),
+            arena_manager: Mutex::new(ArenaManager::new()),
+            memory_stats: Mutex::new(MemoryStats::new()),
         }
     }
 
-    pub fn allocate_node(&mut self, node: TableauxNode) -> ArenaTableauxNode {
+    pub fn allocate_node(&self, node: TableauxNode) -> ArenaTableauxNode {
         let node_size = mem::size_of::<TableauxNode>();
-        let arena_node = ArenaTableauxNode::new(node, &mut self.arena_manager.node_arena);
-        self.memory_stats.add_node_allocation(node_size);
+        let arena_manager = self.arena_manager.lock().unwrap();
+        let mut memory_stats = self.memory_stats.lock().unwrap();
+        let mut node_arena = arena_manager.node_arena.lock().unwrap();
+        let arena_node = ArenaTableauxNode::new(node, &mut node_arena);
+        memory_stats.add_node_allocation(node_size);
         arena_node
     }
 
-    pub fn allocate_expression(&mut self, expr: ClassExpression) -> NonNull<ClassExpression> {
+    pub fn allocate_expression(&self, expr: ClassExpression) -> NonNull<ClassExpression> {
         let expr_size = mem::size_of::<ClassExpression>();
-        let allocated = self.arena_manager.allocate_expression(expr);
-        self.memory_stats.add_expression_allocation(expr_size);
+        let mut arena_manager = self.arena_manager.lock().unwrap();
+        let mut memory_stats = self.memory_stats.lock().unwrap();
+        let allocated = arena_manager.allocate_expression(expr);
+        memory_stats.add_expression_allocation(expr_size);
         allocated
     }
 
-    pub fn intern_string(&mut self, s: &str) -> NonNull<str> {
-        self.arena_manager.intern_string(s)
+    pub fn intern_string(&self, s: &str) -> NonNull<str> {
+        let mut arena_manager = self.arena_manager.lock().unwrap();
+        arena_manager.intern_string(s)
     }
 
     pub fn get_memory_efficiency_ratio(&self) -> f64 {
-        let stats = &self.arena_manager.stats;
+        let arena_manager = self.arena_manager.lock().unwrap();
+        let stats = &arena_manager.stats;
         let total_traditional_allocations = stats.arena_allocated_nodes * 64 + // Traditional node allocation overhead
                                            stats.arena_allocated_expressions * 48 + // Traditional expression overhead
                                            stats.arena_allocated_constraints * 32; // Traditional constraint overhead
@@ -268,21 +292,26 @@ impl MemoryManager {
     }
 
     pub fn get_total_memory_savings(&self) -> usize {
-        let stats = &self.arena_manager.stats;
+        let arena_manager = self.arena_manager.lock().unwrap();
+        let stats = &arena_manager.stats;
         stats.string_intern_savings + stats.arena_allocation_savings
     }
 
-    pub fn reset(&mut self) {
-        self.arena_manager.reset();
-        self.memory_stats = MemoryStats::new();
+    pub fn reset(&self) {
+        let mut arena_manager = self.arena_manager.lock().unwrap();
+        let mut memory_stats = self.memory_stats.lock().unwrap();
+        arena_manager.reset();
+        *memory_stats = MemoryStats::new();
     }
 
     pub fn get_arena_stats(&self) -> ArenaStats {
-        self.arena_manager.stats.clone()
+        let arena_manager = self.arena_manager.lock().unwrap();
+        arena_manager.stats.clone()
     }
 
     pub fn get_memory_stats(&self) -> MemoryStats {
-        self.memory_stats.clone()
+        let memory_stats = self.memory_stats.lock().unwrap();
+        memory_stats.clone()
     }
 }
 

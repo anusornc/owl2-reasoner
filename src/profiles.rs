@@ -1131,7 +1131,7 @@ impl Owl2ProfileValidator {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::EquivalentClassesAxiom,
                     message: "Complex equivalent classes axioms with more than 2 classes are not allowed in EL profile".to_string(),
-                    affected_entities: axiom.classes().to_vec(),
+                    affected_entities: axiom.classes().iter().map(|iri| (**iri).clone()).collect(),
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -1284,12 +1284,13 @@ impl Owl2ProfileValidator {
         Ok(violations)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_iri_from_property_expression(
         &self,
         prop_expr: &ObjectPropertyExpression,
-    ) -> OwlResult<IRI> {
+    ) -> OwlResult<Arc<IRI>> {
         match prop_expr {
-            ObjectPropertyExpression::ObjectProperty(prop) => Ok(prop.iri().clone()),
+            ObjectPropertyExpression::ObjectProperty(prop) => Ok(Arc::clone(prop.iri())),
             ObjectPropertyExpression::ObjectInverseOf(prop_expr) => {
                 self.extract_iri_from_property_expression(prop_expr.as_ref())
             }
@@ -1304,11 +1305,11 @@ impl Owl2ProfileValidator {
 
         match expr {
             ClassExpression::Class(class) => {
-                entities.push(class.iri().clone());
+                entities.push((**class.iri()).clone());
             }
             ClassExpression::ObjectSomeValuesFrom(prop, class_expr)
             | ClassExpression::ObjectAllValuesFrom(prop, class_expr) => {
-                entities.push(self.extract_iri_from_property_expression(prop)?);
+                entities.push((*self.extract_iri_from_property_expression(prop)?).clone());
                 entities.extend(self.extract_entities_from_class_expression(class_expr)?);
             }
             ClassExpression::ObjectIntersectionOf(classes) => {
@@ -1317,15 +1318,15 @@ impl Owl2ProfileValidator {
                 }
             }
             ClassExpression::ObjectHasValue(prop, individual) => {
-                entities.push(self.extract_iri_from_property_expression(prop)?);
+                entities.push((*self.extract_iri_from_property_expression(prop)?).clone());
                 if let Some(iri) = individual.iri() {
-                    entities.push(iri.clone());
+                    entities.push((**iri).clone());
                 }
             }
             ClassExpression::ObjectOneOf(individuals) => {
                 for individual in individuals.iter() {
                     if let Some(iri) = individual.iri() {
-                        entities.push(iri.clone());
+                        entities.push((**iri).clone());
                     }
                 }
             }
@@ -1357,6 +1358,7 @@ impl Owl2ProfileValidator {
     // Note: This method is currently unused since data property range axioms are not directly accessible
     // It would be used when data property range validation is fully implemented
     #[allow(dead_code)]
+    #[allow(clippy::only_used_in_recursion)]
     fn validate_data_range_for_el(
         &self,
         range: &DataRange,
@@ -1380,7 +1382,7 @@ impl Owl2ProfileValidator {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::DataComplementOf,
                     message: "Data complement of ranges are not allowed in EL profile".to_string(),
-                    affected_entities: vec![property.iri().clone()],
+                    affected_entities: vec![(**property.iri()).clone()],
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -1388,7 +1390,7 @@ impl Owl2ProfileValidator {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::DataOneOf,
                     message: "Data one of ranges are not allowed in EL profile".to_string(),
-                    affected_entities: vec![property.iri().clone()],
+                    affected_entities: vec![(**property.iri()).clone()],
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -1396,7 +1398,7 @@ impl Owl2ProfileValidator {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
                     message: "Data union of ranges are not allowed in EL profile".to_string(),
-                    affected_entities: vec![property.iri().clone()],
+                    affected_entities: vec![(**property.iri()).clone()],
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -1404,7 +1406,7 @@ impl Owl2ProfileValidator {
                 violations.push(ProfileViolation {
                     violation_type: ProfileViolationType::ComplexDataRanges,
                     message: "Datatype restrictions are not allowed in EL profile".to_string(),
-                    affected_entities: vec![property.iri().clone()],
+                    affected_entities: vec![(**property.iri()).clone()],
                     severity: ViolationSeverity::Error,
                 });
             }
@@ -1442,6 +1444,7 @@ impl Owl2ProfileValidator {
         Ok(violations)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn validate_data_range_in_expression(
         &self,
         range: &DataRange,
@@ -1503,7 +1506,7 @@ impl Owl2ProfileValidator {
             violations.push(ProfileViolation {
                 violation_type: ProfileViolationType::TransitiveProperties,
                 message: "Transitive properties are not allowed in QL profile".to_string(),
-                affected_entities: vec![axiom.property().clone()],
+                affected_entities: vec![(**axiom.property()).clone()],
                 severity: ViolationSeverity::Error,
             });
         }
@@ -1520,7 +1523,7 @@ impl Owl2ProfileValidator {
             violations.push(ProfileViolation {
                 violation_type: ProfileViolationType::AsymmetricProperties,
                 message: "Asymmetric properties are not allowed in QL profile".to_string(),
-                affected_entities: vec![axiom.property().clone()],
+                affected_entities: vec![(**axiom.property()).clone()],
                 severity: ViolationSeverity::Error,
             });
         }
@@ -1715,6 +1718,7 @@ impl Owl2ProfileValidator {
         Ok(violations)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn check_data_complement_in_range(
         &self,
         range: &DataRange,
@@ -1846,7 +1850,7 @@ impl Owl2ProfileValidator {
     fn get_affected_entities_from_disjoint_classes(&self) -> Vec<IRI> {
         let mut entities = Vec::new();
         for axiom in self.ontology.disjoint_classes_axioms() {
-            entities.extend(axiom.classes().to_vec());
+            entities.extend(axiom.classes().iter().map(|iri| (**iri).clone()));
         }
         entities
     }

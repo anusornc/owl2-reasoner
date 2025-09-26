@@ -87,6 +87,7 @@ impl OwlFunctionalSyntaxParser {
     }
 
     /// Allocate a string in the arena if available, otherwise clone
+    #[allow(dead_code)]
     fn alloc_string_clone(&self, s: &str) -> String {
         if let Some(arena) = self.arena() {
             arena.arena().alloc_str(s).to_string()
@@ -133,8 +134,10 @@ impl OwlFunctionalSyntaxParser {
                 // Extract prefix and namespace
                 let prefix_content = self.alloc_string(&line[7..line.len() - 1]);
                 if let Some((prefix_part, namespace_part)) = prefix_content.split_once('=') {
-                    let arena_prefix_part = self.alloc_string(prefix_part.trim().trim_matches('<').trim_matches('>'));
-                    let arena_namespace_part = self.alloc_string(namespace_part.trim().trim_matches('<').trim_matches('>'));
+                    let arena_prefix_part =
+                        self.alloc_string(prefix_part.trim().trim_matches('<').trim_matches('>'));
+                    let arena_namespace_part = self
+                        .alloc_string(namespace_part.trim().trim_matches('<').trim_matches('>'));
 
                     let mut prefix = arena_prefix_part;
                     let namespace = arena_namespace_part;
@@ -163,11 +166,13 @@ impl OwlFunctionalSyntaxParser {
                 // Handle both single-line and multi-line ontology declarations
                 if let Some(ontology_content) = content.strip_suffix(")") {
                     // Single-line declaration
-                    let arena_iri = self.alloc_string(ontology_content.trim().trim_matches('<').trim_matches('>'));
+                    let arena_iri = self
+                        .alloc_string(ontology_content.trim().trim_matches('<').trim_matches('>'));
                     return Some(arena_iri.to_string());
                 } else {
                     // Multi-line declaration - extract IRI from first line
-                    let arena_iri = self.alloc_string(content.trim().trim_matches('<').trim_matches('>'));
+                    let arena_iri =
+                        self.alloc_string(content.trim().trim_matches('<').trim_matches('>'));
                     if !arena_iri.is_empty() {
                         return Some(arena_iri.to_string());
                     }
@@ -814,7 +819,8 @@ impl OwlFunctionalSyntaxParser {
                 IRI::new_optimized(arena_full_iri).map(|arc_iri| (*arc_iri).clone())
             } else {
                 Err(crate::error::OwlError::ParseError(format!(
-                    "Unknown prefix: {}", prefix
+                    "Unknown prefix: {}",
+                    prefix
                 )))
             }
         } else {
@@ -906,7 +912,8 @@ impl OwlFunctionalSyntaxParser {
         content: &str,
         ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        let prop_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let prop_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -923,7 +930,8 @@ impl OwlFunctionalSyntaxParser {
         content: &str,
         ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        let prop_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let prop_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -1095,7 +1103,8 @@ impl OwlFunctionalSyntaxParser {
         content: &str,
         ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        let prop_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let prop_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -1112,7 +1121,8 @@ impl OwlFunctionalSyntaxParser {
         content: &str,
         ontology: &mut Ontology,
     ) -> OwlResult<()> {
-        let prop_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let prop_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -1176,7 +1186,7 @@ impl OwlFunctionalSyntaxParser {
             let subject_iri = Arc::new(self.resolve_iri(parts[1])?);
             let object_iri = Arc::new(self.resolve_iri(parts[2])?);
 
-            let assertion = PropertyAssertionAxiom::new(subject_iri, prop_iri, object_iri);
+            let assertion = PropertyAssertionAxiom::new(subject_iri.clone(), prop_iri, object_iri);
             ontology.add_axiom(Axiom::PropertyAssertion(Box::new(assertion)))?;
         }
         Ok(())
@@ -1197,8 +1207,11 @@ impl OwlFunctionalSyntaxParser {
             let (literal, _remaining_parts) = self.parse_literal_from_parts(&parts[2..])?;
 
             if let Some(lit) = literal {
-                let assertion =
-                    DataPropertyAssertionAxiom::new(Arc::new(subject_iri.clone()), Arc::new(prop_iri.clone()), lit);
+                let assertion = DataPropertyAssertionAxiom::new(
+                    Arc::new(subject_iri.clone()),
+                    Arc::new(prop_iri.clone()),
+                    lit,
+                );
                 ontology.add_axiom(Axiom::DataPropertyAssertion(Box::new(assertion)))?;
             }
         }
@@ -1335,7 +1348,8 @@ impl OwlFunctionalSyntaxParser {
 
     /// Parse SameIndividual axiom
     fn parse_same_individual(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
-        let individual_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let individual_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -1348,7 +1362,8 @@ impl OwlFunctionalSyntaxParser {
 
     /// Parse DifferentIndividuals axiom
     fn parse_different_individuals(&self, content: &str, ontology: &mut Ontology) -> OwlResult<()> {
-        let individual_iris: Vec<Arc<IRI>> = self.parse_iri_list(content)?
+        let individual_iris: Vec<Arc<IRI>> = self
+            .parse_iri_list(content)?
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -1812,8 +1827,11 @@ impl OwlFunctionalSyntaxParser {
                 crate::entities::AnnotationValue::IRI(Arc::new(value_iri))
             };
 
-            let annotation_assertion =
-                AnnotationAssertionAxiom::new(Arc::new(property_iri), Arc::new(subject_iri), annotation_value);
+            let annotation_assertion = AnnotationAssertionAxiom::new(
+                Arc::new(property_iri),
+                Arc::new(subject_iri),
+                annotation_value,
+            );
             ontology.add_axiom(Axiom::AnnotationAssertion(Box::new(annotation_assertion)))?;
         }
         Ok(())
@@ -1830,7 +1848,8 @@ impl OwlFunctionalSyntaxParser {
             let sub_prop_iri = self.resolve_iri(parts[0])?;
             let super_prop_iri = self.resolve_iri(parts[1])?;
 
-            let sub_axiom = SubAnnotationPropertyOfAxiom::new(Arc::new(sub_prop_iri), Arc::new(super_prop_iri));
+            let sub_axiom =
+                SubAnnotationPropertyOfAxiom::new(Arc::new(sub_prop_iri), Arc::new(super_prop_iri));
             ontology.add_axiom(Axiom::SubAnnotationPropertyOf(sub_axiom))?;
         }
         Ok(())
@@ -1847,7 +1866,8 @@ impl OwlFunctionalSyntaxParser {
             let prop_iri = self.resolve_iri(parts[0])?;
             let domain_iri = self.resolve_iri(parts[1])?;
 
-            let domain_axiom = AnnotationPropertyDomainAxiom::new(Arc::new(prop_iri), Arc::new(domain_iri));
+            let domain_axiom =
+                AnnotationPropertyDomainAxiom::new(Arc::new(prop_iri), Arc::new(domain_iri));
             ontology.add_axiom(Axiom::AnnotationPropertyDomain(domain_axiom))?;
         }
         Ok(())
@@ -1864,7 +1884,8 @@ impl OwlFunctionalSyntaxParser {
             let prop_iri = self.resolve_iri(parts[0])?;
             let range_iri = self.resolve_iri(parts[1])?;
 
-            let range_axiom = AnnotationPropertyRangeAxiom::new(Arc::new(prop_iri), Arc::new(range_iri));
+            let range_axiom =
+                AnnotationPropertyRangeAxiom::new(Arc::new(prop_iri), Arc::new(range_iri));
             ontology.add_axiom(Axiom::AnnotationPropertyRange(range_axiom))?;
         }
         Ok(())
@@ -2094,7 +2115,7 @@ DifferentIndividuals(:John :Mary)
                 "Should have parsed at least 2 object properties"
             );
             assert!(
-                ontology.data_properties().len() >= 1,
+                !ontology.data_properties().is_empty(),
                 "Should have parsed at least 1 data property"
             );
             assert!(

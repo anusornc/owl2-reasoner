@@ -8,6 +8,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use owl2_reasoner::axioms::*;
 use owl2_reasoner::entities::*;
 use owl2_reasoner::iri::IRI;
+use std::sync::Arc;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::tableaux::dependency::{
     ChoiceType, DependencySource, DependencyType,
@@ -35,7 +36,7 @@ pub fn bench_tableaux_core(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -59,7 +60,7 @@ pub fn bench_tableaux_graph(c: &mut Criterion) {
         let mut graph = TableauxGraph::new();
 
         // Create nodes
-        let nodes: Vec<NodeId> = (0..*node_count).map(|_| graph.add_node()).collect();
+        let _nodes: Vec<NodeId> = (0..*node_count).map(|_| graph.add_node()).collect();
 
         group.bench_with_input(
             BenchmarkId::new("node_creation", node_count),
@@ -130,7 +131,7 @@ pub fn bench_tableaux_memory(c: &mut Criterion) {
             allocation_count,
             |b, count| {
                 b.iter(|| {
-                    let mut memory_manager = MemoryManager::new();
+                    let memory_manager = MemoryManager::new();
                     // Memory manager doesn't need explicit arena creation in this version
 
                     for i in 0..*count {
@@ -173,7 +174,7 @@ pub fn bench_tableaux_blocking(c: &mut Criterion) {
 
     for strategy in strategies.iter() {
         for node_count in [100, 500, 1000].iter() {
-            let mut blocking_manager = BlockingManager::new(strategy.clone());
+            let blocking_manager = BlockingManager::new(strategy.clone());
             let mut graph = TableauxGraph::new();
 
             // Create test nodes
@@ -256,10 +257,10 @@ pub fn bench_tableaux_expansion(c: &mut Criterion) {
     let mut group = c.benchmark_group("tableaux_expansion");
 
     for complexity in [10, 50, 100, 200].iter() {
-        let ontology = create_complex_ontology(*complexity);
+        let _ontology = create_complex_ontology(*complexity);
         let mut graph = TableauxGraph::new();
         let mut memory_manager = MemoryManager::new();
-        let mut expansion_engine = ExpansionEngine::new();
+        let _expansion_engine = ExpansionEngine::new();
 
         group.bench_with_input(
             BenchmarkId::new("expansion_engine_creation", complexity),
@@ -280,7 +281,7 @@ pub fn bench_tableaux_expansion(c: &mut Criterion) {
                     let mut test_engine = ExpansionEngine::new();
                     let max_depth = 50;
                     let result = test_engine.expand(&mut graph, &mut memory_manager, max_depth);
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -316,7 +317,7 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("full_reasoning_pipeline", ontology_size),
             ontology_size,
-            |b, size| {
+            |b, _size| {
                 b.iter(|| {
                     let reasoner = TableauxReasoner::with_config(
                         black_box(ontology.clone()),
@@ -325,6 +326,9 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                             debug: false,
                             incremental: true,
                             timeout: Some(30000),
+                            enable_parallel: false,
+                            parallel_workers: None,
+                            parallel_chunk_size: 64,
                         },
                     );
 
@@ -345,6 +349,9 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                     debug: false,
                     incremental: false,
                     timeout: Some(5000),
+                    enable_parallel: false,
+                    parallel_workers: None,
+                    parallel_chunk_size: 64,
                 },
             ),
             (
@@ -354,6 +361,9 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                     debug: false,
                     incremental: true,
                     timeout: Some(15000),
+                    enable_parallel: false,
+                    parallel_workers: None,
+                    parallel_chunk_size: 64,
                 },
             ),
             (
@@ -363,6 +373,9 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                     debug: true,
                     incremental: true,
                     timeout: Some(60000),
+                    enable_parallel: false,
+                    parallel_workers: None,
+                    parallel_chunk_size: 64,
                 },
             ),
         ];
@@ -379,7 +392,7 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                         );
 
                         let result = reasoner.is_consistent();
-                        black_box(result);
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -395,15 +408,15 @@ fn create_test_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(class_iri);
         ontology.add_class(class).unwrap();
     }
 
     // Create subclass hierarchy
     for i in 1..(size / 2) {
-        let subclass_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
-        let superclass_iri = IRI::new(&format!("http://example.org/Class{}", i / 2)).unwrap();
+        let subclass_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
+        let superclass_iri = IRI::new(format!("http://example.org/Class{}", i / 2)).unwrap();
 
         let subclass = ClassExpression::Class(Class::new(subclass_iri));
         let superclass = ClassExpression::Class(Class::new(superclass_iri));
@@ -420,14 +433,14 @@ fn create_complex_ontology(complexity: usize) -> Ontology {
 
     // Create classes
     for i in 0..complexity {
-        let class_iri = IRI::new(&format!("http://example.org/ComplexClass{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/ComplexClass{}", i)).unwrap();
         let class = Class::new(class_iri);
         ontology.add_class(class).unwrap();
     }
 
     // Create object properties
     for i in 0..(complexity / 10) {
-        let prop_iri = IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(prop_iri);
         ontology.add_object_property(prop).unwrap();
     }
@@ -435,9 +448,9 @@ fn create_complex_ontology(complexity: usize) -> Ontology {
     // Create complex class expressions
     for i in 0..(complexity / 5) {
         if i + 1 < complexity {
-            let class1_iri = IRI::new(&format!("http://example.org/ComplexClass{}", i)).unwrap();
+            let class1_iri = IRI::new(format!("http://example.org/ComplexClass{}", i)).unwrap();
             let class2_iri =
-                IRI::new(&format!("http://example.org/ComplexClass{}", i + 1)).unwrap();
+                IRI::new(format!("http://example.org/ComplexClass{}", i + 1)).unwrap();
 
             let class1 = ClassExpression::Class(Class::new(class1_iri));
             let class2 = ClassExpression::Class(Class::new(class2_iri));
@@ -457,22 +470,22 @@ fn create_comprehensive_test_ontology(size: usize) -> Ontology {
 
     // Create hierarchical class structure
     for i in 0..size {
-        let class_iri = IRI::new(&format!("http://example.org/TestClass{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/TestClass{}", i)).unwrap();
         let class = Class::new(class_iri);
         ontology.add_class(class).unwrap();
     }
 
     // Create object properties
     for i in 0..(size / 20) {
-        let prop_iri = IRI::new(&format!("http://example.org/testProperty{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/testProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(prop_iri);
         ontology.add_object_property(prop).unwrap();
     }
 
     // Create subclass relationships
     for i in 1..(size / 2) {
-        let subclass_iri = IRI::new(&format!("http://example.org/TestClass{}", i)).unwrap();
-        let superclass_iri = IRI::new(&format!("http://example.org/TestClass{}", i / 2)).unwrap();
+        let subclass_iri = IRI::new(format!("http://example.org/TestClass{}", i)).unwrap();
+        let superclass_iri = IRI::new(format!("http://example.org/TestClass{}", i / 2)).unwrap();
 
         let subclass = ClassExpression::Class(Class::new(subclass_iri));
         let superclass = ClassExpression::Class(Class::new(superclass_iri));
@@ -483,13 +496,13 @@ fn create_comprehensive_test_ontology(size: usize) -> Ontology {
     // Create equivalent classes
     for i in 0..(size / 10) {
         if i + 1 < size {
-            let class1_iri = IRI::new(&format!("http://example.org/TestClass{}", i)).unwrap();
-            let class2_iri = IRI::new(&format!("http://example.org/TestClass{}", i + 1)).unwrap();
+            let class1_iri = IRI::new(format!("http://example.org/TestClass{}", i)).unwrap();
+            let class2_iri = IRI::new(format!("http://example.org/TestClass{}", i + 1)).unwrap();
 
-            let class1 = ClassExpression::Class(Class::new(class1_iri.clone()));
-            let class2 = ClassExpression::Class(Class::new(class2_iri.clone()));
+            let _class1 = ClassExpression::Class(Class::new(class1_iri.clone()));
+            let _class2 = ClassExpression::Class(Class::new(class2_iri.clone()));
 
-            let equiv_axiom = EquivalentClassesAxiom::new(vec![class1_iri, class2_iri]);
+            let equiv_axiom = EquivalentClassesAxiom::new(vec![Arc::new(class1_iri), Arc::new(class2_iri)]);
             ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
         }
     }
@@ -530,7 +543,7 @@ pub fn bench_tableaux_memory_usage(c: &mut Criterion) {
                     let property_iri = IRI::new("http://example.org/testProperty").unwrap();
 
                     // Create many nodes and edges
-                    for i in 0..*size {
+                    for _i in 0..*size {
                         let node1 = graph.add_node();
                         let node2 = graph.add_node();
                         graph.add_edge(node1, &property_iri, node2);
@@ -550,7 +563,7 @@ pub fn bench_tableaux_caching(c: &mut Criterion) {
     let mut group = c.benchmark_group("tableaux_caching");
 
     for cache_size in [100, 500, 1000].iter() {
-        let mut reasoner = TableauxReasoner::new(create_test_ontology(*cache_size));
+        let reasoner = TableauxReasoner::new(create_test_ontology(*cache_size));
 
         // Warm up cache
         for _ in 0..*cache_size {
@@ -563,7 +576,7 @@ pub fn bench_tableaux_caching(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );

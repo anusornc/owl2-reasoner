@@ -187,22 +187,22 @@ fn measure_our_implementation() -> OwlResult<ReasonerPerformance> {
 
     // Add classes
     for i in 0..1000 {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i))?;
+        let iri = IRI::new(format!("http://example.org/Class{}", i))?;
         let class = Class::new(iri);
         ontology.add_class(class)?;
     }
 
     // Add properties
     for i in 0..100 {
-        let iri = IRI::new(&format!("http://example.org/hasProperty{}", i))?;
+        let iri = IRI::new(format!("http://example.org/hasProperty{}", i))?;
         let prop = ObjectProperty::new(iri);
         ontology.add_object_property(prop)?;
     }
 
     // Add subclass relationships
     for i in 1..200 {
-        let child_iri = IRI::new(&format!("http://example.org/Class{}", i))?;
-        let parent_iri = IRI::new(&format!("http://example.org/Class{}", i / 2))?;
+        let child_iri = IRI::new(format!("http://example.org/Class{}", i))?;
+        let parent_iri = IRI::new(format!("http://example.org/Class{}", i / 2))?;
 
         let child = ClassExpression::Class(Class::new(child_iri));
         let parent = ClassExpression::Class(Class::new(parent_iri));
@@ -226,7 +226,7 @@ fn measure_our_implementation() -> OwlResult<ReasonerPerformance> {
     for i in 0..classes.len() {
         for j in 0..classes.len() {
             if i != j {
-                let _ = reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                let _ = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                 checks += 1;
             }
         }
@@ -316,7 +316,7 @@ fn calculate_performance_score(perf: &ReasonerPerformance) -> f64 {
     let feature_penalty = perf.limitations.len() as f64 * 1.0;
     score += feature_bonus - feature_penalty;
 
-    score.max(0.0).min(100.0)
+    score.clamp(0.0, 100.0)
 }
 
 fn generate_performance_comparison_table(data: &[(String, ReasonerPerformance)]) -> OwlResult<()> {
@@ -423,7 +423,7 @@ fn generate_comparative_report(
             report.push_str("(less efficient)\n");
         }
 
-        report.push_str("\n");
+        report.push('\n');
     }
 
     report.push_str("Key Findings:\n");

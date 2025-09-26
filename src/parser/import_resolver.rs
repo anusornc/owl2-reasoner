@@ -621,7 +621,7 @@ impl ImportResolver {
         // Resolve with timeout
         let resolved_ontology = if self.config.enable_concurrent_resolution {
             // Use concurrent resolution if enabled
-            self.concurrent_resolve(source, import_iri)?
+            self.concurrent_resolve(source.as_ref(), import_iri)?
         } else {
             // Sequential resolution
             source.resolve(import_iri, &self.config)?
@@ -656,7 +656,7 @@ impl ImportResolver {
     }
 
     /// Concurrent resolution (simplified version)
-    fn concurrent_resolve(&self, source: &Box<dyn ImportSource>, iri: &IRI) -> OwlResult<Ontology> {
+    fn concurrent_resolve(&self, source: &dyn ImportSource, iri: &IRI) -> OwlResult<Ontology> {
         // For now, just resolve synchronously
         // In a full implementation, this would use async/await with proper concurrency control
         source.resolve(iri, &self.config)

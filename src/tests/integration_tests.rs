@@ -198,7 +198,7 @@ ex:TechCorp a ex:Company .
         // Verify ontology structure
         // Note: Current parser captures basic entity declarations
         assert!(
-            ontology.classes().len() >= 1,
+            !ontology.classes().is_empty(),
             "Should have at least basic classes"
         );
         assert!(

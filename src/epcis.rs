@@ -359,8 +359,8 @@ impl EPCISEvent {
         ontology.add_object_property(event_type_prop.clone())?;
 
         let event_type_class = Class::new(format!(
-            "http://example.org/epcis/{}",
-            format!("{:?}", self.event_type)
+            "http://example.org/epcis/{:?}",
+            self.event_type
         ));
         ontology.add_class(event_type_class.clone())?;
 

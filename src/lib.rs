@@ -119,6 +119,10 @@ pub mod epcis_test_generator;
 /// Configurable caching system with eviction strategies
 pub mod cache;
 
+/// Web service API for OWL2 reasoning and EPCIS processing
+#[cfg(feature = "web-service")]
+pub mod web_service;
+
 /// Global cache management with encapsulated synchronization
 pub mod cache_manager;
 
@@ -151,6 +155,15 @@ pub use reasoning::*;
 pub use storage::*;
 pub use test_suite_advanced::*;
 pub use test_suite_simple::*;
+
+#[cfg(feature = "web-service")]
+pub use web_service::{start_web_service, WebServiceState};
+
+/// Start the web service - dummy function when feature is disabled
+#[cfg(not(feature = "web-service"))]
+pub async fn start_web_service(_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    Err("Web service feature not enabled. Compile with --features web-service".into())
+}
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

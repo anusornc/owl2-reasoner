@@ -37,8 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .cleanup_interval(std::time::Duration::from_secs(30)),
     );
 
-    advanced_cache.insert("pi".to_string(), 3.14159)?;
-    advanced_cache.insert("e".to_string(), 2.71828)?;
+    advanced_cache.insert("pi".to_string(), std::f64::consts::PI)?;
+    advanced_cache.insert("e".to_string(), std::f64::consts::E)?;
 
     println!("   Cache stats: {:?}", advanced_cache.stats());
     println!();
@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     struct EntityInfo {
         name: String,
         description: String,
-        created_at: std::time::SystemTime,
+        _created_at: std::time::SystemTime,
     }
 
     let entity_cache = BoundedCache::<String, EntityInfo>::from_builder(
@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let info = EntityInfo {
             name: name.to_string(),
             description: desc.to_string(),
-            created_at: std::time::SystemTime::now(),
+            _created_at: std::time::SystemTime::now(),
         };
 
         entity_cache.insert(name.to_string(), info)?;

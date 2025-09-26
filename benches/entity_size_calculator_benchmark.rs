@@ -3,13 +3,12 @@
 //! This benchmark provides basic measurements of entity size calculations
 //! without making fake breakthrough claims or hardcoded assertions.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::ClassExpression;
 use owl2_reasoner::axioms::SubClassOfAxiom;
 use owl2_reasoner::entities::{Class, ObjectProperty};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
-use owl2_reasoner::reasoning::simple::SimpleReasoner;
 use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
 use std::time::Instant;
 
@@ -127,15 +126,15 @@ fn measure_scaling_performance(c: &mut Criterion) {
                 let mut total_bytes = 0;
 
                 for class in ontology.classes() {
-                    total_bytes += EntitySizeCalculator::estimate_class_size(&class);
+                    total_bytes += EntitySizeCalculator::estimate_class_size(class);
                 }
 
                 for prop in ontology.object_properties() {
-                    total_bytes += EntitySizeCalculator::estimate_object_property_size(&prop);
+                    total_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
                 }
 
                 for axiom in ontology.subclass_axioms() {
-                    total_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(&axiom);
+                    total_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
                 }
 
                 let elapsed_time = start_time.elapsed();
@@ -159,22 +158,22 @@ fn create_test_ontology(entity_count: usize) -> Ontology {
 
     // Add classes
     for i in 0..entity_count {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class).unwrap();
     }
 
     // Add properties
     for i in 0..(entity_count / 10).max(1) {
-        let iri = IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(iri);
         ontology.add_object_property(prop).unwrap();
     }
 
     // Add subclass relationships
     for i in 1..(entity_count / 5).max(1) {
-        let child_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
-        let parent_iri = IRI::new(&format!("http://example.org/Class{}", i / 2)).unwrap();
+        let child_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
+        let parent_iri = IRI::new(format!("http://example.org/Class{}", i / 2)).unwrap();
 
         let child = ClassExpression::Class(Class::new(child_iri));
         let parent = ClassExpression::Class(Class::new(parent_iri));

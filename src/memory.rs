@@ -441,6 +441,6 @@ mod tests {
     #[test]
     fn test_memory_pressure() {
         let pressure = get_memory_pressure_level();
-        assert!(pressure >= 0.0 && pressure <= 1.0);
+        assert!((0.0..=1.0).contains(&pressure));
     }
 }

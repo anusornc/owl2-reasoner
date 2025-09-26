@@ -192,7 +192,7 @@ ex:MainClass a owl:Class .
 
         assert_eq!(ontology.imports().len(), 5, "Should have 5 imports");
         assert!(
-            ontology.classes().len() >= 1,
+            !ontology.classes().is_empty(),
             "Should have at least the main class"
         );
     }

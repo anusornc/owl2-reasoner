@@ -212,18 +212,15 @@ HasKey(:Person (:hasEmail))
             // Check for property restrictions
             let mut restriction_count = 0;
             for axiom in ontology.axioms() {
-                match axiom.as_ref() {
-                    owl2_reasoner::axioms::Axiom::SubClassOf(subclass_axiom) => {
-                        let class_expr_str = format!("{:?}", subclass_axiom.super_class());
-                        if class_expr_str.contains("SomeValuesFrom")
-                            || class_expr_str.contains("AllValuesFrom")
-                            || class_expr_str.contains("HasValue")
-                            || class_expr_str.contains("HasSelf")
-                        {
-                            restriction_count += 1;
-                        }
+                if let owl2_reasoner::axioms::Axiom::SubClassOf(subclass_axiom) = axiom.as_ref() {
+                    let class_expr_str = format!("{:?}", subclass_axiom.super_class());
+                    if class_expr_str.contains("SomeValuesFrom")
+                        || class_expr_str.contains("AllValuesFrom")
+                        || class_expr_str.contains("HasValue")
+                        || class_expr_str.contains("HasSelf")
+                    {
+                        restriction_count += 1;
                     }
-                    _ => {}
                 }
             }
 
@@ -234,14 +231,11 @@ HasKey(:Person (:hasEmail))
             // Check for cardinality restrictions
             let mut cardinality_count = 0;
             for axiom in ontology.axioms() {
-                match axiom.as_ref() {
-                    owl2_reasoner::axioms::Axiom::SubClassOf(subclass_axiom) => {
-                        let class_expr_str = format!("{:?}", subclass_axiom.super_class());
-                        if class_expr_str.contains("Cardinality") {
-                            cardinality_count += 1;
-                        }
+                if let owl2_reasoner::axioms::Axiom::SubClassOf(subclass_axiom) = axiom.as_ref() {
+                    let class_expr_str = format!("{:?}", subclass_axiom.super_class());
+                    if class_expr_str.contains("Cardinality") {
+                        cardinality_count += 1;
                     }
-                    _ => {}
                 }
             }
 
@@ -272,12 +266,12 @@ HasKey(:Person (:hasEmail))
             }
 
             // Check for imports
-            if ontology.imports().len() > 0 {
+            if !ontology.imports().is_empty() {
                 println!("   ✅ Import declarations: {}", ontology.imports().len());
             }
 
             // Check for anonymous individuals
-            if ontology.anonymous_individuals().len() > 0 {
+            if !ontology.anonymous_individuals().is_empty() {
                 println!(
                     "   ✅ Anonymous individuals: {}",
                     ontology.anonymous_individuals().len()
@@ -312,8 +306,7 @@ HasKey(:Person (:hasEmail))
         }
         Err(e) => {
             println!("❌ **FAILED:** Complex OWL2 ontology parsing failed: {}", e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(std::io::Error::other(
                 e.to_string(),
             ));
         }

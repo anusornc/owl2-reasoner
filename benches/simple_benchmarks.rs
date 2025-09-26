@@ -47,7 +47,7 @@ fn bench_consistency_checking(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -69,8 +69,8 @@ fn bench_class_satisfiability(c: &mut Criterion) {
                 size,
                 |b, _| {
                     b.iter(|| {
-                        let result = reasoner.is_class_satisfiable(&first_class.iri());
-                        black_box(result);
+                        let result = reasoner.is_class_satisfiable(first_class.iri());
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -89,7 +89,7 @@ fn bench_cache_operations(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("cache_clear", size), size, |b, _| {
             b.iter(|| {
-                reasoner.clear_caches();
+                let _ = reasoner.clear_caches();
                 black_box(());
             })
         });
@@ -118,7 +118,7 @@ fn bench_turtle_parsing(c: &mut Criterion) {
             b.iter(|| {
                 let parser = owl2_reasoner::parser::turtle::TurtleParser::new();
                 let result = parser.parse_str(black_box(content));
-                black_box(result);
+                let _ = black_box(result);
             })
         },
     );
@@ -159,7 +159,7 @@ fn bench_simple_queries(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("simple_select", size), size, |b, _| {
             b.iter(|| {
                 let result = engine.execute_query(black_box(&pattern));
-                black_box(result);
+                let _ = black_box(result);
             })
         });
     }
@@ -192,7 +192,7 @@ fn create_hierarchy_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -217,7 +217,7 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -225,7 +225,7 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
     // Create individuals
     for i in 0..size * 2 {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }

@@ -1,6 +1,6 @@
 //! Scalability benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
@@ -20,7 +20,7 @@ pub fn bench_large_ontology_handling(c: &mut Criterion) {
                     let ontology = create_large_ontology(*size);
                     let reasoner = SimpleReasoner::new(ontology);
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -63,7 +63,7 @@ pub fn bench_deep_hierarchy_reasoning(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -86,7 +86,7 @@ pub fn bench_wide_hierarchy_reasoning(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let result = reasoner.is_consistent();
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );
@@ -141,7 +141,7 @@ fn create_large_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -149,7 +149,7 @@ fn create_large_ontology(size: usize) -> Ontology {
 
     // Create individuals
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }
@@ -174,7 +174,7 @@ fn create_deep_hierarchy(depth: usize) -> Ontology {
 
     // Create classes in a deep hierarchy
     for i in 0..depth {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -205,7 +205,7 @@ fn create_wide_hierarchy(width: usize) -> Ontology {
 
     // Create many direct subclasses
     for i in 0..width {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);

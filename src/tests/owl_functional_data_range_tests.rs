@@ -41,7 +41,7 @@ Ontology(<http://example.org/test>
     let range_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyRange(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyRange(_)))
         .collect();
 
     assert_eq!(
@@ -126,7 +126,7 @@ Ontology(<http://example.org/test>
     let range_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyRange(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyRange(_)))
         .collect();
 
     assert_eq!(
@@ -218,7 +218,7 @@ Ontology(<http://example.org/test>
     let range_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyRange(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyRange(_)))
         .collect();
 
     assert_eq!(
@@ -290,7 +290,7 @@ Ontology(<http://example.org/test>
     let range_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::DataPropertyRange(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::DataPropertyRange(_)))
         .collect();
 
     assert_eq!(

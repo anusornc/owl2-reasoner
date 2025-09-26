@@ -1,6 +1,6 @@
 //! Memory usage benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
@@ -51,17 +51,17 @@ pub fn bench_cache_memory_usage(c: &mut Criterion) {
 
     for size in [100, 500, 1000, 5000].iter() {
         let ontology = create_memory_intensive_ontology(*size);
-        let mut reasoner = SimpleReasoner::new(ontology);
+        let reasoner = SimpleReasoner::new(ontology);
 
         // Perform some operations to populate cache
         let _ = reasoner.is_consistent();
 
         group.bench_with_input(BenchmarkId::new("cache_operations", size), size, |b, _| {
             b.iter(|| {
-                reasoner.clear_caches();
+                let _ = reasoner.clear_caches();
                 let _ = reasoner.is_consistent();
-                let _ = reasoner.cache_stats();
-                black_box(());
+                let stats = reasoner.cache_stats();
+                let _ = black_box(stats);
             })
         });
     }
@@ -94,7 +94,7 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);
@@ -102,7 +102,7 @@ fn create_memory_intensive_ontology(size: usize) -> Ontology {
 
     // Create individuals
     for i in 0..size * 2 {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         ontology.add_named_individual(individual).unwrap();
     }

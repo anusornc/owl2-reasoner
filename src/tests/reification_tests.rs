@@ -1,8 +1,9 @@
-//! Test for RDF Reification support (rdf:subject, rdf:predicate, rdf:object)
-//!
-//! This test verifies that the parsers can now handle
-//! RDF reification for making statements about statements.
+use std::sync::Arc;
 
+/// Test for RDF Reification support (rdf:subject, rdf:predicate, rdf:object)
+///
+/// This test verifies that the parsers can now handle
+/// RDF reification for making statements about statements.
 use crate::*;
 
 #[test]
@@ -11,10 +12,10 @@ fn test_reification_axiom_creation() -> OwlResult<()> {
 
     // Create reification axiom for: :john :hasParent :mary
     let reification_axiom = ReificationAxiom::new(
-        IRI::new("http://example.org/statement1")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasParent")?,
-        ReificationObject::Named(IRI::new("http://example.org/mary")?),
+        Arc::new(IRI::new("http://example.org/statement1")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasParent")?),
+        ReificationObject::Named(Arc::new(IRI::new("http://example.org/mary")?)),
     );
 
     // Add to ontology
@@ -24,7 +25,7 @@ fn test_reification_axiom_creation() -> OwlResult<()> {
     let reifications: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::Reification(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::Reification(_)))
         .collect();
 
     assert_eq!(
@@ -36,26 +37,26 @@ fn test_reification_axiom_creation() -> OwlResult<()> {
     if let Axiom::Reification(reification) = &**reifications[0] {
         assert_eq!(
             reification.reification_resource(),
-            &IRI::new("http://example.org/statement1")?
+            &Arc::new(IRI::new("http://example.org/statement1")?)
         );
-        assert_eq!(reification.subject(), &IRI::new("http://example.org/john")?);
+        assert_eq!(reification.subject(), &Arc::new(IRI::new("http://example.org/john")?));
         assert_eq!(
             reification.predicate(),
-            &IRI::new("http://example.org/hasParent")?
+            &Arc::new(IRI::new("http://example.org/hasParent")?)
         );
 
         if let ReificationObject::Named(object) = reification.object() {
-            assert_eq!(object, &IRI::new("http://example.org/mary")?);
+            assert_eq!(object, &Arc::new(IRI::new("http://example.org/mary")?));
         } else {
             panic!("Expected named object");
         }
 
         // Test original statement extraction
         let (subj, pred, obj) = reification.original_statement();
-        assert_eq!(subj, &IRI::new("http://example.org/john")?);
-        assert_eq!(pred, &IRI::new("http://example.org/hasParent")?);
+        assert_eq!(subj, &Arc::new(IRI::new("http://example.org/john")?));
+        assert_eq!(pred, &Arc::new(IRI::new("http://example.org/hasParent")?));
         if let ReificationObject::Named(obj_iri) = obj {
-            assert_eq!(obj_iri, &IRI::new("http://example.org/mary")?);
+            assert_eq!(obj_iri, &Arc::new(IRI::new("http://example.org/mary")?));
         }
     }
 
@@ -104,9 +105,9 @@ fn test_reification_with_anonymous_object() -> OwlResult<()> {
 
     // Create reification axiom with anonymous object
     let reification_axiom = ReificationAxiom::new(
-        IRI::new("http://example.org/statement2")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasFriend")?,
+        Arc::new(IRI::new("http://example.org/statement2")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasFriend")?),
         ReificationObject::Anonymous(Box::new(anon_individual.clone())),
     );
 
@@ -132,9 +133,9 @@ fn test_reification_with_anonymous_object() -> OwlResult<()> {
 #[test]
 fn test_reification_with_literal_object() -> OwlResult<()> {
     let reification_axiom = ReificationAxiom::new(
-        IRI::new("http://example.org/statement3")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasAge")?,
+        Arc::new(IRI::new("http://example.org/statement3")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasAge")?),
         ReificationObject::Literal(Literal::simple("25")),
     );
 
@@ -159,17 +160,17 @@ fn test_reification_with_additional_properties() -> OwlResult<()> {
 
     // Create additional property (e.g., dc:creator for provenance)
     let creator_property = PropertyAssertionAxiom::new(
-        IRI::new("http://example.org/statement4")?,
-        IRI::new("http://purl.org/dc/elements/1.1/creator")?,
-        IRI::new("http://example.org/alice")?,
+        Arc::new(IRI::new("http://example.org/statement4")?),
+        Arc::new(IRI::new("http://purl.org/dc/elements/1.1/creator")?),
+        Arc::new(IRI::new("http://example.org/alice")?),
     );
 
     // Create reification axiom with additional properties
     let mut reification_axiom = ReificationAxiom::new(
-        IRI::new("http://example.org/statement4")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasParent")?,
-        ReificationObject::Named(IRI::new("http://example.org/mary")?),
+        Arc::new(IRI::new("http://example.org/statement4")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasParent")?),
+        ReificationObject::Named(Arc::new(IRI::new("http://example.org/mary")?)),
     );
 
     // Add additional property
@@ -210,23 +211,23 @@ fn test_reification_with_properties_constructor() -> OwlResult<()> {
     // Create additional properties
     let properties = vec![
         PropertyAssertionAxiom::new(
-            IRI::new("http://example.org/statement5")?,
-            IRI::new("http://purl.org/dc/elements/1.1/creator")?,
-            IRI::new("http://example.org/alice")?,
+            Arc::new(IRI::new("http://example.org/statement5")?),
+            Arc::new(IRI::new("http://purl.org/dc/elements/1.1/creator")?),
+            Arc::new(IRI::new("http://example.org/alice")?),
         ),
         PropertyAssertionAxiom::new(
-            IRI::new("http://example.org/statement5")?,
-            IRI::new("http://purl.org/dc/elements/1.1/date")?,
-            IRI::new("http://example.org/2023-01-01")?,
+            Arc::new(IRI::new("http://example.org/statement5")?),
+            Arc::new(IRI::new("http://purl.org/dc/elements/1.1/date")?),
+            Arc::new(IRI::new("http://example.org/2023-01-01")?),
         ),
     ];
 
     // Create reification axiom with properties using constructor
     let reification_axiom = ReificationAxiom::with_properties(
-        IRI::new("http://example.org/statement5")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasParent")?,
-        ReificationObject::Named(IRI::new("http://example.org/mary")?),
+        Arc::new(IRI::new("http://example.org/statement5")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasParent")?),
+        ReificationObject::Named(Arc::new(IRI::new("http://example.org/mary")?)),
         properties,
     );
 
@@ -259,10 +260,10 @@ fn test_reification_statement_structure() -> OwlResult<()> {
 
     // Test 1: Named subject, predicate, object
     let stmt1 = ReificationAxiom::new(
-        IRI::new("http://example.org/statement1")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/knows")?,
-        ReificationObject::Named(IRI::new("http://example.org/mary")?),
+        Arc::new(IRI::new("http://example.org/statement1")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/knows")?),
+        ReificationObject::Named(Arc::new(IRI::new("http://example.org/mary")?)),
     );
 
     let assertions1 = stmt1.to_property_assertions()?;
@@ -271,9 +272,9 @@ fn test_reification_statement_structure() -> OwlResult<()> {
     // Test 2: Named subject, predicate, anonymous object
     let anon = AnonymousIndividual::new("anon1");
     let stmt2 = ReificationAxiom::new(
-        IRI::new("http://example.org/statement2")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasFriend")?,
+        Arc::new(IRI::new("http://example.org/statement2")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasFriend")?),
         ReificationObject::Anonymous(Box::new(anon)),
     );
 
@@ -282,9 +283,9 @@ fn test_reification_statement_structure() -> OwlResult<()> {
 
     // Test 3: Named subject, predicate, literal object
     let stmt3 = ReificationAxiom::new(
-        IRI::new("http://example.org/statement3")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasAge")?,
+        Arc::new(IRI::new("http://example.org/statement3")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasAge")?),
         ReificationObject::Literal(Literal::simple("30")),
     );
 
@@ -303,10 +304,10 @@ fn test_reification_statement_structure() -> OwlResult<()> {
 #[test]
 fn test_reification_rdf_statement_type() -> OwlResult<()> {
     let reification_axiom = ReificationAxiom::new(
-        IRI::new("http://example.org/statement1")?,
-        IRI::new("http://example.org/john")?,
-        IRI::new("http://example.org/hasParent")?,
-        ReificationObject::Named(IRI::new("http://example.org/mary")?),
+        Arc::new(IRI::new("http://example.org/statement1")?),
+        Arc::new(IRI::new("http://example.org/john")?),
+        Arc::new(IRI::new("http://example.org/hasParent")?),
+        ReificationObject::Named(Arc::new(IRI::new("http://example.org/mary")?)),
     );
 
     let assertions = reification_axiom.to_property_assertions()?;
@@ -327,14 +328,14 @@ fn test_reification_rdf_statement_type() -> OwlResult<()> {
 
     let type_assertion = type_assertions[0];
     assert_eq!(
-        type_assertion.subject(),
-        &IRI::new("http://example.org/statement1")?
+        **type_assertion.subject(),
+        Arc::new(IRI::new("http://example.org/statement1")?).into()
     );
 
     if let Some(object_iri) = type_assertion.object_iri() {
         assert_eq!(
-            object_iri,
-            &IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement")?
+            **object_iri,
+            Arc::new(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement")?).into()
         );
     } else {
         panic!("Expected IRI object for rdf:type");

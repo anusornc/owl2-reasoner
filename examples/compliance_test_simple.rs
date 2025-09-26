@@ -34,7 +34,7 @@ SubClassOf(:Person ObjectSomeValuesFrom(:hasFriend :Person))
 
     let parser = OwlFunctionalSyntaxParser::new();
     let ontology = parser.parse_str(basic_ontology)?;
-    let mut reasoner = TableauxReasoner::new(ontology);
+    let reasoner = TableauxReasoner::new(ontology);
 
     let person_iri = IRI::new("http://example.org/sroiq#Person")?;
     let result = reasoner.is_class_satisfiable(&person_iri);
@@ -69,7 +69,7 @@ ClassAssertion(:Person :Bob)
 )"#;
 
     let nominal_ontology = parser.parse_str(nominal_ontology)?;
-    let mut nominal_reasoner = TableauxReasoner::new(nominal_ontology);
+    let nominal_reasoner = TableauxReasoner::new(nominal_ontology);
 
     let specific_person_iri = IRI::new("http://example.org/nominal#SpecificPerson")?;
     let nominal_result = nominal_reasoner.is_class_satisfiable(&specific_person_iri);
@@ -100,7 +100,7 @@ SubClassOf(:SocialPerson ObjectHasSelf(:hasFriend))
 )"#;
 
     let self_ontology = parser.parse_str(self_ontology)?;
-    let mut self_reasoner = TableauxReasoner::new(self_ontology);
+    let self_reasoner = TableauxReasoner::new(self_ontology);
 
     let social_person_iri = IRI::new("http://example.org/self#SocialPerson")?;
     let self_result = self_reasoner.is_class_satisfiable(&social_person_iri);
@@ -132,7 +132,7 @@ SubClassOf(:Department ObjectMinCardinality(3 :hasMember :Person))
 )"#;
 
     let cardinality_ontology = parser.parse_str(cardinality_ontology)?;
-    let mut cardinality_reasoner = TableauxReasoner::new(cardinality_ontology);
+    let cardinality_reasoner = TableauxReasoner::new(cardinality_ontology);
 
     let dept_iri = IRI::new("http://example.org/cardinality#Department")?;
     let cardinality_result = cardinality_reasoner.is_class_satisfiable(&dept_iri);
@@ -183,7 +183,7 @@ ClassAssertion(:Professor :Bob)
 )"#;
 
     let complex_ontology = parser.parse_str(complex_ontology)?;
-    let mut complex_reasoner = TableauxReasoner::new(complex_ontology);
+    let complex_reasoner = TableauxReasoner::new(complex_ontology);
 
     let person_iri = IRI::new("http://example.org/complex#Person")?;
     let complex_result = complex_reasoner.is_class_satisfiable(&person_iri);

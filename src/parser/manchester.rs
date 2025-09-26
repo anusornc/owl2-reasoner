@@ -490,7 +490,7 @@ impl ManchesterParser {
     }
 
     // Arena and optimized parsing methods will be implemented in future iterations
-// The core IRI optimization improvements are already integrated
+    // The core IRI optimization improvements are already integrated
 }
 
 /// Configuration for Manchester Syntax parser
@@ -643,6 +643,7 @@ impl LocatedToken {
 }
 
 /// Tokenizer for Manchester Syntax
+#[allow(dead_code)]
 pub struct Tokenizer<'a> {
     input: &'a str,
     config: &'a ParserConfig,
@@ -950,6 +951,7 @@ impl<'a> Tokenizer<'a> {
 }
 
 /// Parser that converts tokens to AST
+#[allow(dead_code)]
 pub struct Parser {
     tokens: Vec<LocatedToken>,
     current: usize,
@@ -1207,7 +1209,7 @@ impl Parser {
             self.consume_token(Token::Colon)?;
             let disjoint_class_iri = self.parse_iri_reference()?;
             let disjoint_axiom =
-                axioms::DisjointClassesAxiom::new(vec![class.iri().clone(), disjoint_class_iri]);
+                axioms::DisjointClassesAxiom::new(vec![Arc::new((**class.iri()).clone()), disjoint_class_iri]);
             axioms.push(axioms::Axiom::DisjointClasses(Box::new(disjoint_axiom)));
         }
 
@@ -1215,6 +1217,7 @@ impl Parser {
     }
 
     /// Parse a class declaration (legacy method for AST parsing)
+    #[allow(dead_code)]
     fn parse_class_declaration(&mut self) -> OwlResult<Vec<axioms::Axiom>> {
         let (_, axioms) = self.parse_class_declaration_with_class()?;
         Ok(axioms)
@@ -1274,7 +1277,8 @@ impl Parser {
             self.advance();
             self.consume_token(Token::Colon)?;
             let range = self.parse_class_expression()?;
-            let range_axiom = axioms::ObjectPropertyRangeAxiom::new((**property.iri()).clone(), range);
+            let range_axiom =
+                axioms::ObjectPropertyRangeAxiom::new((**property.iri()).clone(), range);
             axioms.push(axioms::Axiom::ObjectPropertyRange(Box::new(range_axiom)));
 
             // Skip whitespace tokens before looking for Characteristics
@@ -1286,48 +1290,44 @@ impl Parser {
             self.advance();
             self.consume_token(Token::Colon)?;
 
-            loop {
-                if let Some(Token::Keyword(ref char_str)) = self.peek_token() {
-                    let char_axiom = match char_str.as_str() {
-                        "Transitive" => axioms::Axiom::TransitiveProperty(Box::new(
-                            axioms::TransitivePropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "Symmetric" => axioms::Axiom::SymmetricProperty(Box::new(
-                            axioms::SymmetricPropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "Asymmetric" => axioms::Axiom::AsymmetricProperty(Box::new(
-                            axioms::AsymmetricPropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "Reflexive" => axioms::Axiom::ReflexiveProperty(Box::new(
-                            axioms::ReflexivePropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "Irreflexive" => axioms::Axiom::IrreflexiveProperty(Box::new(
-                            axioms::IrreflexivePropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "Functional" => axioms::Axiom::FunctionalProperty(Box::new(
-                            axioms::FunctionalPropertyAxiom::new(property.iri().clone()),
-                        )),
-                        "InverseFunctional" => axioms::Axiom::InverseFunctionalProperty(Box::new(
-                            axioms::InverseFunctionalPropertyAxiom::new(property.iri().clone()),
-                        )),
-                        _ => {
-                            return Err(self.parse_error(&format!(
-                                "Unknown property characteristic: {}",
-                                char_str
-                            )))
-                        }
-                    };
-                    axioms.push(char_axiom);
-
-                    self.advance();
-
-                    if self.peek_token() != Some(&Token::Comma) {
-                        break;
+            while let Some(Token::Keyword(ref char_str)) = self.peek_token() {
+                let char_axiom = match char_str.as_str() {
+                    "Transitive" => axioms::Axiom::TransitiveProperty(Box::new(
+                        axioms::TransitivePropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "Symmetric" => axioms::Axiom::SymmetricProperty(Box::new(
+                        axioms::SymmetricPropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "Asymmetric" => axioms::Axiom::AsymmetricProperty(Box::new(
+                        axioms::AsymmetricPropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "Reflexive" => axioms::Axiom::ReflexiveProperty(Box::new(
+                        axioms::ReflexivePropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "Irreflexive" => axioms::Axiom::IrreflexiveProperty(Box::new(
+                        axioms::IrreflexivePropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "Functional" => axioms::Axiom::FunctionalProperty(Box::new(
+                        axioms::FunctionalPropertyAxiom::new(property.iri().clone()),
+                    )),
+                    "InverseFunctional" => axioms::Axiom::InverseFunctionalProperty(Box::new(
+                        axioms::InverseFunctionalPropertyAxiom::new(property.iri().clone()),
+                    )),
+                    _ => {
+                        return Err(self.parse_error(&format!(
+                            "Unknown property characteristic: {}",
+                            char_str
+                        )))
                     }
-                    self.advance(); // consume comma
-                } else {
+                };
+                axioms.push(char_axiom);
+
+                self.advance();
+
+                if self.peek_token() != Some(&Token::Comma) {
                     break;
                 }
+                self.advance(); // consume comma
             }
         }
 
@@ -1335,12 +1335,14 @@ impl Parser {
     }
 
     /// Parse an object property declaration (legacy method for AST parsing)
+    #[allow(dead_code)]
     fn parse_object_property_declaration(&mut self) -> OwlResult<Vec<axioms::Axiom>> {
         let (_, axioms) = self.parse_object_property_declaration_with_property()?;
         Ok(axioms)
     }
 
     /// Parse a data property declaration
+    #[allow(dead_code)]
     fn parse_data_property_declaration(&mut self) -> OwlResult<Vec<axioms::Axiom>> {
         self.consume_keyword("DataProperty")?;
         self.consume_token(Token::Colon)?;
@@ -1358,7 +1360,8 @@ impl Parser {
             self.advance();
             self.consume_token(Token::Colon)?;
             let domain = self.parse_class_expression()?;
-            let domain_axiom = axioms::DataPropertyDomainAxiom::new((**property.iri()).clone(), domain);
+            let domain_axiom =
+                axioms::DataPropertyDomainAxiom::new((**property.iri()).clone(), domain);
             axioms.push(axioms::Axiom::DataPropertyDomain(Box::new(domain_axiom)));
 
             // Skip whitespace tokens before looking for Range
@@ -1377,8 +1380,10 @@ impl Parser {
                         .parse_error("Complex data ranges not yet supported in property ranges"))
                 }
             };
-            let range_axiom =
-                axioms::DataPropertyRangeAxiom::new((**property.iri()).clone(), IRI::new(&range_iri)?);
+            let range_axiom = axioms::DataPropertyRangeAxiom::new(
+                (**property.iri()).clone(),
+                IRI::new(&range_iri)?,
+            );
             axioms.push(axioms::Axiom::DataPropertyRange(Box::new(range_axiom)));
 
             // Skip whitespace tokens before looking for Characteristics
@@ -1420,7 +1425,8 @@ impl Parser {
             self.advance();
             self.consume_token(Token::Colon)?;
             let domain = self.parse_class_expression()?;
-            let domain_axiom = axioms::DataPropertyDomainAxiom::new((**property.iri()).clone(), domain);
+            let domain_axiom =
+                axioms::DataPropertyDomainAxiom::new((**property.iri()).clone(), domain);
             axioms.push(axioms::Axiom::DataPropertyDomain(Box::new(domain_axiom)));
             // Skip whitespace tokens before looking for Range
             self.skip_whitespace_tokens();
@@ -1568,7 +1574,8 @@ impl Parser {
                         Token::Identifier(_) | Token::Keyword(_) => {
                             // Object property assertion
                             let object_iri = self.parse_iri_reference()?;
-                            let object_individual = entities::NamedIndividual::new((*object_iri).clone());
+                            let object_individual =
+                                entities::NamedIndividual::new((*object_iri).clone());
 
                             let prop_assertion = axioms::PropertyAssertionAxiom::new(
                                 individual_iri.clone(),
@@ -1662,6 +1669,7 @@ impl Parser {
     }
 
     /// Parse an individual declaration (legacy method for AST parsing)
+    #[allow(dead_code)]
     fn parse_individual_declaration(&mut self) -> OwlResult<Vec<axioms::Axiom>> {
         let (_, axioms) = self.parse_individual_declaration_with_individual()?;
         Ok(axioms)
@@ -1734,14 +1742,18 @@ impl Parser {
                     } else {
                         // Simple class reference
                         let iri = self.parse_iri_reference()?;
-                        Ok(axioms::ClassExpression::Class(entities::Class::new((*iri).clone())))
+                        Ok(axioms::ClassExpression::Class(entities::Class::new(
+                            (*iri).clone(),
+                        )))
                     }
                 }
             }
         } else {
             // Simple class reference
             let iri = self.parse_iri_reference()?;
-            Ok(axioms::ClassExpression::Class(entities::Class::new((*iri).clone())))
+            Ok(axioms::ClassExpression::Class(entities::Class::new(
+                (*iri).clone(),
+            )))
         }
     }
 
@@ -1952,6 +1964,7 @@ impl Parser {
     }
 
     /// Parse annotations for an entity
+    #[allow(dead_code)]
     fn parse_annotations(&mut self) -> OwlResult<Vec<axioms::Annotation>> {
         let mut annotations = Vec::new();
 
@@ -2140,34 +2153,30 @@ impl Parser {
             self.advance();
             self.consume_token(Token::Colon)?;
 
-            loop {
-                if let Some(Token::Keyword(ref char_str)) = self.peek_token() {
-                    let characteristic = match char_str.as_str() {
-                        "Transitive" => PropertyCharacteristic::Transitive,
-                        "Symmetric" => PropertyCharacteristic::Symmetric,
-                        "Asymmetric" => PropertyCharacteristic::Asymmetric,
-                        "Reflexive" => PropertyCharacteristic::Reflexive,
-                        "Irreflexive" => PropertyCharacteristic::Irreflexive,
-                        "Functional" => PropertyCharacteristic::Functional,
-                        "InverseFunctional" => PropertyCharacteristic::InverseFunctional,
-                        _ => {
-                            return Err(self.parse_error(&format!(
-                                "Unknown property characteristic: {}",
-                                char_str
-                            )))
-                        }
-                    };
-
-                    characteristics.push(characteristic);
-                    self.advance();
-
-                    if self.peek_token() != Some(&Token::Comma) {
-                        break;
+            while let Some(Token::Keyword(ref char_str)) = self.peek_token() {
+                let characteristic = match char_str.as_str() {
+                    "Transitive" => PropertyCharacteristic::Transitive,
+                    "Symmetric" => PropertyCharacteristic::Symmetric,
+                    "Asymmetric" => PropertyCharacteristic::Asymmetric,
+                    "Reflexive" => PropertyCharacteristic::Reflexive,
+                    "Irreflexive" => PropertyCharacteristic::Irreflexive,
+                    "Functional" => PropertyCharacteristic::Functional,
+                    "InverseFunctional" => PropertyCharacteristic::InverseFunctional,
+                    _ => {
+                        return Err(self.parse_error(&format!(
+                            "Unknown property characteristic: {}",
+                            char_str
+                        )))
                     }
-                    self.advance(); // consume comma
-                } else {
+                };
+
+                characteristics.push(characteristic);
+                self.advance();
+
+                if self.peek_token() != Some(&Token::Comma) {
                     break;
                 }
+                self.advance(); // consume comma
             }
         }
 

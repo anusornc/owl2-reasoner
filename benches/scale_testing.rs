@@ -72,7 +72,7 @@ fn scale_ontology_operations(c: &mut Criterion) {
 
                     // Add classes
                     for i in 0..*count {
-                        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+                        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
                         let class = Class::new(iri);
                         let _ = ontology.add_class(class);
                     }
@@ -80,7 +80,7 @@ fn scale_ontology_operations(c: &mut Criterion) {
                     // Add properties (fewer than classes)
                     for i in 0..(*count / 10).max(1) {
                         let iri =
-                            IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
+                            IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
                         let prop = ObjectProperty::new(iri);
                         let _ = ontology.add_object_property(prop);
                     }
@@ -88,9 +88,9 @@ fn scale_ontology_operations(c: &mut Criterion) {
                     // Add some subclass relationships
                     for i in 1..(*count / 5).max(1) {
                         let subclass_iri =
-                            IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+                            IRI::new(format!("http://example.org/Class{}", i)).unwrap();
                         let superclass_iri =
-                            IRI::new(&format!("http://example.org/Class{}", i / 2)).unwrap();
+                            IRI::new(format!("http://example.org/Class{}", i / 2)).unwrap();
 
                         let subclass = ClassExpression::Class(Class::new(subclass_iri));
                         let superclass = ClassExpression::Class(Class::new(superclass_iri));
@@ -220,7 +220,7 @@ fn scale_combined_operations(c: &mut Criterion) {
                         for j in 0..classes.len().min(5) {
                             if i != j {
                                 let _ =
-                                    reasoner.is_subclass_of(&classes[i].iri(), &classes[j].iri());
+                                    reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                             }
                         }
                     }
@@ -246,15 +246,15 @@ fn create_consistent_test_ontology(size: usize) -> Ontology {
 
     // Create classes in a hierarchy (no cycles to ensure consistency)
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         let _ = ontology.add_class(class);
     }
 
     // Create hierarchical relationships (parent -> child)
     for i in 1..(size / 2).max(1) {
-        let child_iri = IRI::new(&format!("http://example.org/Class{}", i * 2)).unwrap();
-        let parent_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let child_iri = IRI::new(format!("http://example.org/Class{}", i * 2)).unwrap();
+        let parent_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
 
         let child = ClassExpression::Class(Class::new(child_iri));
         let parent = ClassExpression::Class(Class::new(parent_iri));
@@ -271,22 +271,22 @@ fn create_large_test_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(iri);
         let _ = ontology.add_class(class);
     }
 
     // Create object properties (fewer than classes)
     for i in 0..(size / 10).max(1) {
-        let iri = IRI::new(&format!("http://example.org/hasProperty{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
         let prop = ObjectProperty::new(iri);
         let _ = ontology.add_object_property(prop);
     }
 
     // Create subclass relationships
     for i in 1..(size / 5).max(1) {
-        let child_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
-        let parent_iri = IRI::new(&format!("http://example.org/Class{}", i / 2)).unwrap();
+        let child_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
+        let parent_iri = IRI::new(format!("http://example.org/Class{}", i / 2)).unwrap();
 
         let child = ClassExpression::Class(Class::new(child_iri));
         let parent = ClassExpression::Class(Class::new(parent_iri));
@@ -296,7 +296,7 @@ fn create_large_test_ontology(size: usize) -> Ontology {
 
     // Create some individuals
     for i in 0..(size / 3).max(1) {
-        let iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(iri);
         let _ = ontology.add_named_individual(individual);
     }

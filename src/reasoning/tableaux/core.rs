@@ -150,7 +150,7 @@ impl Default for ReasoningConfig {
             max_depth: 1000,
             debug: false,
             incremental: true,
-            timeout: Some(30000), // 30 seconds default
+            timeout: Some(30000),   // 30 seconds default
             enable_parallel: false, // Disabled by default for compatibility
             parallel_workers: None, // Use all available cores
             parallel_chunk_size: 64,
@@ -371,6 +371,11 @@ impl TableauxReasoner {
 
     pub fn is_class_satisfiable(&self, _class: &IRI) -> OwlResult<bool> {
         // Placeholder implementation - check if the class can be instantiated
+        Ok(true)
+    }
+
+    pub fn is_class_expression_satisfiable(&self, _class: &ClassExpression) -> OwlResult<bool> {
+        // Placeholder implementation - check if the class expression can be instantiated
         Ok(true)
     }
 

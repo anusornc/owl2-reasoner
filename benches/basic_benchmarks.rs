@@ -73,7 +73,7 @@ fn bench_class_operations(c: &mut Criterion) {
             b.iter(|| {
                 let mut ontology = Ontology::new();
                 for i in 0..*size {
-                    let iri = IRI::new(&format!("http://example.org/class{}", i)).unwrap();
+                    let iri = IRI::new(format!("http://example.org/class{}", i)).unwrap();
                     let class = Class::new(iri);
                     let _ = ontology.add_class(class);
                 }
@@ -91,7 +91,7 @@ fn create_hierarchy_ontology(size: usize) -> Ontology {
 
     // Create classes
     for i in 0..size {
-        let iri = IRI::new(&format!("http://example.org/class{}", i)).unwrap();
+        let iri = IRI::new(format!("http://example.org/class{}", i)).unwrap();
         let class = Class::new(iri);
         ontology.add_class(class.clone()).unwrap();
         classes.push(class);

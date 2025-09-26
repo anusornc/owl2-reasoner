@@ -23,10 +23,11 @@ fn create_iri_safe(iri_str: &str) -> OwlResult<Arc<IRI>> {
 
 /// Helper function to create blank node IRIs safely
 fn create_blank_node_iri(node_id: &str) -> OwlResult<Arc<IRI>> {
-    IRI::new_optimized(&format!("{}{}", BLANK_NODE_PREFIX, node_id))
-        .map_err(|_| OwlError::IriCreationError {
+    IRI::new_optimized(format!("{}{}", BLANK_NODE_PREFIX, node_id)).map_err(|_| {
+        OwlError::IriCreationError {
             iri_str: format!("{}{}", BLANK_NODE_PREFIX, node_id),
-        })
+        }
+    })
 }
 
 /// Object value for property assertions
@@ -417,7 +418,11 @@ impl PropertyAssertionAxiom {
     }
 
     /// Create a new property assertion axiom with anonymous individual (blank node)
-    pub fn new_with_anonymous(subject: Arc<IRI>, property: Arc<IRI>, object: AnonymousIndividual) -> Self {
+    pub fn new_with_anonymous(
+        subject: Arc<IRI>,
+        property: Arc<IRI>,
+        object: AnonymousIndividual,
+    ) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -426,7 +431,11 @@ impl PropertyAssertionAxiom {
     }
 
     /// Create a new property assertion axiom with property assertion object
-    pub fn new_with_object(subject: Arc<IRI>, property: Arc<IRI>, object: PropertyAssertionObject) -> Self {
+    pub fn new_with_object(
+        subject: Arc<IRI>,
+        property: Arc<IRI>,
+        object: PropertyAssertionObject,
+    ) -> Self {
         PropertyAssertionAxiom {
             subject,
             property,
@@ -838,7 +847,10 @@ pub struct HasKeyAxiom {
 
 impl HasKeyAxiom {
     /// Create a new has key axiom
-    pub fn new(class_expression: class_expressions::ClassExpression, properties: Vec<Arc<IRI>>) -> Self {
+    pub fn new(
+        class_expression: class_expressions::ClassExpression,
+        properties: Vec<Arc<IRI>>,
+    ) -> Self {
         HasKeyAxiom {
             class_expression,
             properties,
@@ -1618,8 +1630,11 @@ impl ContainerAxiom {
             ContainerType::Alternative => rdf::alt(),
         };
 
-        let type_assertion =
-            PropertyAssertionAxiom::new(container_iri.clone(), IRI::new_optimized(type_property.as_str())?, IRI::new_optimized(type_value.as_str())?);
+        let type_assertion = PropertyAssertionAxiom::new(
+            container_iri.clone(),
+            IRI::new_optimized(type_property.as_str())?,
+            IRI::new_optimized(type_value.as_str())?,
+        );
         assertions.push(type_assertion);
 
         // Add numbered elements (rdf:_1, rdf:_2, etc.)
@@ -1835,8 +1850,8 @@ mod tests {
 
     #[test]
     fn test_equivalent_classes_axiom() {
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let human_iri = IRI::new("http://example.org/Human").unwrap();
+        let person_iri = Arc::new(IRI::new("http://example.org/Person").unwrap());
+        let human_iri = Arc::new(IRI::new("http://example.org/Human").unwrap());
 
         let axiom = EquivalentClassesAxiom::new(vec![person_iri.clone(), human_iri.clone()]);
 
@@ -1847,13 +1862,13 @@ mod tests {
 
     #[test]
     fn test_class_assertion_axiom() {
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let john_iri = IRI::new("http://example.org/john").unwrap();
+        let person_iri = Arc::new(IRI::new("http://example.org/Person").unwrap());
+        let john_iri = Arc::new(IRI::new("http://example.org/john").unwrap());
 
         let axiom = ClassAssertionAxiom::new(
             john_iri.clone(),
             class_expressions::ClassExpression::Class(crate::entities::Class::new(
-                person_iri.clone(),
+                (*person_iri).clone(),
             )),
         );
 
@@ -1861,16 +1876,16 @@ mod tests {
         assert_eq!(
             axiom.class_expr(),
             &class_expressions::ClassExpression::Class(crate::entities::Class::new(
-                person_iri.clone()
+                (*person_iri).clone()
             ))
         );
     }
 
     #[test]
     fn test_property_assertion_axiom() {
-        let john_iri = IRI::new("http://example.org/john").unwrap();
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let mary_iri = IRI::new("http://example.org/mary").unwrap();
+        let john_iri = Arc::new(IRI::new("http://example.org/john").unwrap());
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let mary_iri = Arc::new(IRI::new("http://example.org/mary").unwrap());
 
         let axiom =
             PropertyAssertionAxiom::new(john_iri.clone(), has_parent_iri.clone(), mary_iri.clone());
@@ -1883,7 +1898,7 @@ mod tests {
     // Tests for property characteristic axioms
     #[test]
     fn test_functional_property_axiom() {
-        let has_father_iri = IRI::new("http://example.org/hasFather").unwrap();
+        let has_father_iri = Arc::new(IRI::new("http://example.org/hasFather").unwrap());
         let axiom = FunctionalPropertyAxiom::new(has_father_iri.clone());
 
         assert_eq!(axiom.property(), &has_father_iri);
@@ -1891,7 +1906,7 @@ mod tests {
 
     #[test]
     fn test_inverse_functional_property_axiom() {
-        let has_ssn_iri = IRI::new("http://example.org/hasSSN").unwrap();
+        let has_ssn_iri = Arc::new(IRI::new("http://example.org/hasSSN").unwrap());
         let axiom = InverseFunctionalPropertyAxiom::new(has_ssn_iri.clone());
 
         assert_eq!(axiom.property(), &has_ssn_iri);
@@ -1899,7 +1914,7 @@ mod tests {
 
     #[test]
     fn test_reflexive_property_axiom() {
-        let knows_iri = IRI::new("http://example.org/knows").unwrap();
+        let knows_iri = Arc::new(IRI::new("http://example.org/knows").unwrap());
         let axiom = ReflexivePropertyAxiom::new(knows_iri.clone());
 
         assert_eq!(axiom.property(), &knows_iri);
@@ -1907,7 +1922,7 @@ mod tests {
 
     #[test]
     fn test_irreflexive_property_axiom() {
-        let parent_of_iri = IRI::new("http://example.org/parentOf").unwrap();
+        let parent_of_iri = Arc::new(IRI::new("http://example.org/parentOf").unwrap());
         let axiom = IrreflexivePropertyAxiom::new(parent_of_iri.clone());
 
         assert_eq!(axiom.property(), &parent_of_iri);
@@ -1915,7 +1930,7 @@ mod tests {
 
     #[test]
     fn test_symmetric_property_axiom() {
-        let spouse_iri = IRI::new("http://example.org/spouse").unwrap();
+        let spouse_iri = Arc::new(IRI::new("http://example.org/spouse").unwrap());
         let axiom = SymmetricPropertyAxiom::new(spouse_iri.clone());
 
         assert_eq!(axiom.property(), &spouse_iri);
@@ -1923,7 +1938,7 @@ mod tests {
 
     #[test]
     fn test_asymmetric_property_axiom() {
-        let parent_of_iri = IRI::new("http://example.org/parentOf").unwrap();
+        let parent_of_iri = Arc::new(IRI::new("http://example.org/parentOf").unwrap());
         let axiom = AsymmetricPropertyAxiom::new(parent_of_iri.clone());
 
         assert_eq!(axiom.property(), &parent_of_iri);
@@ -1931,7 +1946,7 @@ mod tests {
 
     #[test]
     fn test_transitive_property_axiom() {
-        let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
+        let ancestor_iri = Arc::new(IRI::new("http://example.org/ancestor").unwrap());
         let axiom = TransitivePropertyAxiom::new(ancestor_iri.clone());
 
         assert_eq!(axiom.property(), &ancestor_iri);
@@ -1939,9 +1954,9 @@ mod tests {
 
     #[test]
     fn test_axiom_enum_property_characteristics() {
-        let has_father_iri = IRI::new("http://example.org/hasFather").unwrap();
-        let knows_iri = IRI::new("http://example.org/knows").unwrap();
-        let ancestor_iri = IRI::new("http://example.org/ancestor").unwrap();
+        let has_father_iri = Arc::new(IRI::new("http://example.org/hasFather").unwrap());
+        let knows_iri = Arc::new(IRI::new("http://example.org/knows").unwrap());
+        let ancestor_iri = Arc::new(IRI::new("http://example.org/ancestor").unwrap());
 
         let functional_axiom = Axiom::FunctionalProperty(Box::new(FunctionalPropertyAxiom::new(
             has_father_iri.clone(),
@@ -1953,26 +1968,26 @@ mod tests {
 
         // Test that axioms can be created and matched
         match functional_axiom {
-            Axiom::FunctionalProperty(_) => assert!(true),
-            _ => assert!(false, "Expected FunctionalProperty axiom"),
+            Axiom::FunctionalProperty(_) => {},
+            _ => panic!("Expected FunctionalProperty axiom"),
         }
 
         match reflexive_axiom {
-            Axiom::ReflexiveProperty(_) => assert!(true),
-            _ => assert!(false, "Expected ReflexiveProperty axiom"),
+            Axiom::ReflexiveProperty(_) => {},
+            _ => panic!("Expected ReflexiveProperty axiom"),
         }
 
         match transitive_axiom {
-            Axiom::TransitiveProperty(_) => assert!(true),
-            _ => assert!(false, "Expected TransitiveProperty axiom"),
+            Axiom::TransitiveProperty(_) => {},
+            _ => panic!("Expected TransitiveProperty axiom"),
         }
     }
 
     // Tests for data property axioms
     #[test]
     fn test_sub_data_property_axiom() {
-        let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
-        let has_height_iri = IRI::new("http://example.org/hasHeight").unwrap();
+        let has_age_iri = Arc::new(IRI::new("http://example.org/hasAge").unwrap());
+        let has_height_iri = Arc::new(IRI::new("http://example.org/hasHeight").unwrap());
         let axiom = SubDataPropertyAxiom::new(has_age_iri.clone(), has_height_iri.clone());
 
         assert_eq!(axiom.sub_property(), &has_age_iri);
@@ -1981,8 +1996,8 @@ mod tests {
 
     #[test]
     fn test_equivalent_data_properties_axiom() {
-        let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
-        let age_in_years_iri = IRI::new("http://example.org/ageInYears").unwrap();
+        let has_age_iri = Arc::new(IRI::new("http://example.org/hasAge").unwrap());
+        let age_in_years_iri = Arc::new(IRI::new("http://example.org/ageInYears").unwrap());
 
         let axiom =
             EquivalentDataPropertiesAxiom::new(vec![has_age_iri.clone(), age_in_years_iri.clone()]);
@@ -1994,8 +2009,8 @@ mod tests {
 
     #[test]
     fn test_disjoint_data_properties_axiom() {
-        let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
-        let has_weight_iri = IRI::new("http://example.org/hasWeight").unwrap();
+        let has_age_iri = Arc::new(IRI::new("http://example.org/hasAge").unwrap());
+        let has_weight_iri = Arc::new(IRI::new("http://example.org/hasWeight").unwrap());
 
         let axiom =
             DisjointDataPropertiesAxiom::new(vec![has_age_iri.clone(), has_weight_iri.clone()]);
@@ -2007,7 +2022,7 @@ mod tests {
 
     #[test]
     fn test_functional_data_property_axiom() {
-        let has_birth_date_iri = IRI::new("http://example.org/hasBirthDate").unwrap();
+        let has_birth_date_iri = Arc::new(IRI::new("http://example.org/hasBirthDate").unwrap());
         let axiom = FunctionalDataPropertyAxiom::new(has_birth_date_iri.clone());
 
         assert_eq!(axiom.property(), &has_birth_date_iri);
@@ -2015,10 +2030,10 @@ mod tests {
 
     #[test]
     fn test_axiom_enum_data_properties() {
-        let has_age_iri = IRI::new("http://example.org/hasAge").unwrap();
-        let has_birth_date_iri = IRI::new("http://example.org/hasBirthDate").unwrap();
-        let height_iri = IRI::new("http://example.org/height").unwrap();
-        let weight_iri = IRI::new("http://example.org/weight").unwrap();
+        let has_age_iri = Arc::new(IRI::new("http://example.org/hasAge").unwrap());
+        let has_birth_date_iri = Arc::new(IRI::new("http://example.org/hasBirthDate").unwrap());
+        let height_iri = Arc::new(IRI::new("http://example.org/height").unwrap());
+        let weight_iri = Arc::new(IRI::new("http://example.org/weight").unwrap());
 
         let sub_data_axiom = Axiom::SubDataProperty(Box::new(SubDataPropertyAxiom::new(
             has_age_iri.clone(),
@@ -2040,30 +2055,30 @@ mod tests {
 
         // Test that axioms can be created and matched
         match sub_data_axiom {
-            Axiom::SubDataProperty(_) => assert!(true),
-            _ => assert!(false, "Expected SubDataProperty axiom"),
+            Axiom::SubDataProperty(_) => {},
+            _ => panic!("Expected SubDataProperty axiom"),
         }
 
         match functional_data_axiom {
-            Axiom::FunctionalDataProperty(_) => assert!(true),
-            _ => assert!(false, "Expected FunctionalDataProperty axiom"),
+            Axiom::FunctionalDataProperty(_) => {},
+            _ => panic!("Expected FunctionalDataProperty axiom"),
         }
 
         match equivalent_data_axiom {
-            Axiom::EquivalentDataProperties(_) => assert!(true),
-            _ => assert!(false, "Expected EquivalentDataProperties axiom"),
+            Axiom::EquivalentDataProperties(_) => {},
+            _ => panic!("Expected EquivalentDataProperties axiom"),
         }
 
         match disjoint_data_axiom {
-            Axiom::DisjointDataProperties(_) => assert!(true),
-            _ => assert!(false, "Expected DisjointDataProperties axiom"),
+            Axiom::DisjointDataProperties(_) => {},
+            _ => panic!("Expected DisjointDataProperties axiom"),
         }
     }
 
     #[test]
     fn test_same_individual_axiom() {
-        let individual1 = IRI::new("http://example.org/individual1").unwrap();
-        let individual2 = IRI::new("http://example.org/individual2").unwrap();
+        let individual1 = Arc::new(IRI::new("http://example.org/individual1").unwrap());
+        let individual2 = Arc::new(IRI::new("http://example.org/individual2").unwrap());
 
         let axiom = SameIndividualAxiom::new(vec![individual1.clone(), individual2.clone()]);
 
@@ -2074,9 +2089,9 @@ mod tests {
 
     #[test]
     fn test_different_individuals_axiom() {
-        let individual1 = IRI::new("http://example.org/individual1").unwrap();
-        let individual2 = IRI::new("http://example.org/individual2").unwrap();
-        let individual3 = IRI::new("http://example.org/individual3").unwrap();
+        let individual1 = Arc::new(IRI::new("http://example.org/individual1").unwrap());
+        let individual2 = Arc::new(IRI::new("http://example.org/individual2").unwrap());
+        let individual3 = Arc::new(IRI::new("http://example.org/individual3").unwrap());
 
         let axiom = DifferentIndividualsAxiom::new(vec![
             individual1.clone(),
@@ -2092,8 +2107,8 @@ mod tests {
 
     #[test]
     fn test_individual_axioms_in_enum() {
-        let individual1 = IRI::new("http://example.org/individual1").unwrap();
-        let individual2 = IRI::new("http://example.org/individual2").unwrap();
+        let individual1 = Arc::new(IRI::new("http://example.org/individual1").unwrap());
+        let individual2 = Arc::new(IRI::new("http://example.org/individual2").unwrap());
 
         let same_axiom = Axiom::SameIndividual(Box::new(SameIndividualAxiom::new(vec![
             individual1.clone(),
@@ -2106,26 +2121,26 @@ mod tests {
             ])));
 
         match same_axiom {
-            Axiom::SameIndividual(_) => assert!(true),
-            _ => assert!(false, "Expected SameIndividual axiom"),
+            Axiom::SameIndividual(_) => {},
+            _ => panic!("Expected SameIndividual axiom"),
         }
 
         match different_axiom {
-            Axiom::DifferentIndividuals(_) => assert!(true),
-            _ => assert!(false, "Expected DifferentIndividuals axiom"),
+            Axiom::DifferentIndividuals(_) => {},
+            _ => panic!("Expected DifferentIndividuals axiom"),
         }
     }
 
     #[test]
     fn test_sub_property_chain_of_axiom() {
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let has_grandparent_iri = Arc::new(IRI::new("http://example.org/hasGrandparent").unwrap());
 
         let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_parent_iri.clone(),
+            (*has_parent_iri).clone(),
         )));
         let has_grandparent = ObjectPropertyExpression::ObjectProperty(Box::new(
-            ObjectProperty::new(has_grandparent_iri.clone()),
+            ObjectProperty::new((*has_grandparent_iri).clone()),
         ));
 
         let axiom = SubPropertyChainOfAxiom::new(
@@ -2141,14 +2156,14 @@ mod tests {
 
     #[test]
     fn test_inverse_object_properties_axiom() {
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let has_child_iri = Arc::new(IRI::new("http://example.org/hasChild").unwrap());
 
         let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_parent_iri.clone(),
+            (*has_parent_iri).clone(),
         )));
         let has_child = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_child_iri.clone(),
+            (*has_child_iri).clone(),
         )));
 
         let axiom = InverseObjectPropertiesAxiom::new(has_parent.clone(), has_child.clone());
@@ -2159,15 +2174,15 @@ mod tests {
 
     #[test]
     fn test_property_chain_with_inverse() {
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let has_child_iri = Arc::new(IRI::new("http://example.org/hasChild").unwrap());
 
         let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_parent_iri.clone(),
+            (*has_parent_iri).clone(),
         )));
         let has_child_inverse = ObjectPropertyExpression::ObjectInverseOf(Box::new(
             ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-                has_child_iri.clone(),
+                (*has_child_iri).clone(),
             ))),
         ));
 
@@ -2181,14 +2196,14 @@ mod tests {
 
     #[test]
     fn test_property_chain_axioms_in_enum() {
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let has_grandparent_iri = IRI::new("http://example.org/hasGrandparent").unwrap();
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let has_grandparent_iri = Arc::new(IRI::new("http://example.org/hasGrandparent").unwrap());
 
         let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_parent_iri.clone(),
+            (*has_parent_iri).clone(),
         )));
         let has_grandparent = ObjectPropertyExpression::ObjectProperty(Box::new(
-            ObjectProperty::new(has_grandparent_iri.clone()),
+            ObjectProperty::new((*has_grandparent_iri).clone()),
         ));
 
         let chain_axiom = Axiom::SubPropertyChainOf(Box::new(SubPropertyChainOfAxiom::new(
@@ -2197,21 +2212,21 @@ mod tests {
         )));
 
         match chain_axiom {
-            Axiom::SubPropertyChainOf(_) => assert!(true),
-            _ => assert!(false, "Expected SubPropertyChainOf axiom"),
+            Axiom::SubPropertyChainOf(_) => {},
+            _ => panic!("Expected SubPropertyChainOf axiom"),
         }
     }
 
     #[test]
     fn test_inverse_properties_axioms_in_enum() {
-        let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
-        let has_child_iri = IRI::new("http://example.org/hasChild").unwrap();
+        let has_parent_iri = Arc::new(IRI::new("http://example.org/hasParent").unwrap());
+        let has_child_iri = Arc::new(IRI::new("http://example.org/hasChild").unwrap());
 
         let has_parent = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_parent_iri.clone(),
+            (*has_parent_iri).clone(),
         )));
         let has_child = ObjectPropertyExpression::ObjectProperty(Box::new(ObjectProperty::new(
-            has_child_iri.clone(),
+            (*has_child_iri).clone(),
         )));
 
         let inverse_axiom = Axiom::InverseObjectProperties(Box::new(
@@ -2219,8 +2234,8 @@ mod tests {
         ));
 
         match inverse_axiom {
-            Axiom::InverseObjectProperties(_) => assert!(true),
-            _ => assert!(false, "Expected InverseObjectProperties axiom"),
+            Axiom::InverseObjectProperties(_) => {},
+            _ => panic!("Expected InverseObjectProperties axiom"),
         }
     }
 }

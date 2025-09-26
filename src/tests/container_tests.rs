@@ -1,8 +1,9 @@
-//! Test for RDF Containers support (Seq, Bag, Alt)
-//!
-//! This test verifies that the parsers can now handle
-//! RDF containers using rdf:_1, rdf:_2, etc. properties.
+use std::sync::Arc;
 
+/// Test for RDF Containers support (Seq, Bag, Alt)
+///
+/// This test verifies that the parsers can now handle
+/// RDF containers using rdf:_1, rdf:_2, etc. properties.
 use crate::*;
 
 #[test]
@@ -10,14 +11,14 @@ fn test_container_axiom_creation() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create test items
-    let item1_iri = IRI::new("http://example.org/item1")?;
-    let item2_iri = IRI::new("http://example.org/item2")?;
-    let item3_iri = IRI::new("http://example.org/item3")?;
+    let item1_iri = Arc::new(IRI::new("http://example.org/item1")?);
+    let item2_iri = Arc::new(IRI::new("http://example.org/item2")?);
+    let item3_iri = Arc::new(IRI::new("http://example.org/item3")?);
 
     let items = vec![
-        ContainerItem::Named(item1_iri.clone()),
-        ContainerItem::Named(item2_iri.clone()),
-        ContainerItem::Named(item3_iri.clone()),
+        ContainerItem::Named((*item1_iri).clone()),
+        ContainerItem::Named((*item2_iri).clone()),
+        ContainerItem::Named((*item3_iri).clone()),
     ];
 
     // Create container axiom (Sequence)
@@ -35,7 +36,7 @@ fn test_container_axiom_creation() -> OwlResult<()> {
     let containers: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::Container(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::Container(_)))
         .collect();
 
     assert_eq!(
@@ -137,12 +138,12 @@ fn test_container_with_mixed_items() -> OwlResult<()> {
     let mut ontology = Ontology::new();
 
     // Create test items with mixed types
-    let named_item = IRI::new("http://example.org/namedItem")?;
+    let named_item = Arc::new(IRI::new("http://example.org/namedItem")?);
     let anon_item = AnonymousIndividual::new("blank1");
     let literal_item = Literal::simple("test literal");
 
     let items = vec![
-        ContainerItem::Named(named_item.clone()),
+        ContainerItem::Named((*named_item).clone()),
         ContainerItem::Anonymous(Box::new(anon_item.clone())),
         ContainerItem::Literal(literal_item.clone()),
     ];
@@ -205,8 +206,8 @@ fn test_empty_container() -> OwlResult<()> {
 #[test]
 fn test_container_vs_collection() -> OwlResult<()> {
     let items = vec![
-        CollectionItem::Named(IRI::new("http://example.org/item1")?),
-        CollectionItem::Named(IRI::new("http://example.org/item2")?),
+        CollectionItem::Named(Arc::new(IRI::new("http://example.org/item1")?)),
+        CollectionItem::Named(Arc::new(IRI::new("http://example.org/item2")?)),
     ];
 
     let container_items = vec![
@@ -216,8 +217,8 @@ fn test_container_vs_collection() -> OwlResult<()> {
 
     // Create collection (linked list with rdf:first/rdf:rest)
     let collection = CollectionAxiom::new(
-        IRI::new("http://example.org/subject")?,
-        IRI::new("http://example.org/hasCollection")?,
+        Arc::new(IRI::new("http://example.org/subject")?),
+        Arc::new(IRI::new("http://example.org/hasCollection")?),
         items,
     );
 

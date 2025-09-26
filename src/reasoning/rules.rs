@@ -149,108 +149,106 @@ impl RuleEngine {
 
     /// Create standard OWL2 reasoning rules
     fn create_standard_rules() -> Vec<ReasoningRule> {
-        let mut rules = Vec::new();
+        vec![
+            // Transitivity rule for properties
+            ReasoningRule {
+                name: "TransitiveProperty".to_string(),
+                description: "If R is transitive and R(a,b) and R(b,c), then R(a,c)".to_string(),
+                pattern: RulePattern {
+                    conditions: vec![
+                        PatternCondition::PropertyAssertion {
+                            subject: PatternVar::Variable("?a".to_string()),
+                            property: PatternVar::Variable("?r".to_string()),
+                            object: PatternVar::Variable("?b".to_string()),
+                        },
+                        PatternCondition::PropertyAssertion {
+                            subject: PatternVar::Variable("?b".to_string()),
+                            property: PatternVar::Variable("?r".to_string()),
+                            object: PatternVar::Variable("?c".to_string()),
+                        },
+                    ],
+                },
+                action: RuleAction {
+                    consequences: vec![RuleConsequence::AddPropertyAssertion {
+                        subject: PatternVar::Variable("?a".to_string()),
+                        property: PatternVar::Variable("?r".to_string()),
+                        object: PatternVar::Variable("?c".to_string()),
+                    }],
+                },
+                priority: 100,
+            },
 
-        // Transitivity rule for properties
-        rules.push(ReasoningRule {
-            name: "TransitiveProperty".to_string(),
-            description: "If R is transitive and R(a,b) and R(b,c), then R(a,c)".to_string(),
-            pattern: RulePattern {
-                conditions: vec![
-                    PatternCondition::PropertyAssertion {
+            // Subclass transitivity rule
+            ReasoningRule {
+                name: "SubClassTransitivity".to_string(),
+                description: "If A ⊑ B and B ⊑ C, then A ⊑ C".to_string(),
+                pattern: RulePattern {
+                    conditions: vec![
+                        PatternCondition::SubClassOf {
+                            sub_class: PatternVar::Variable("?a".to_string()),
+                            super_class: PatternVar::Variable("?b".to_string()),
+                        },
+                        PatternCondition::SubClassOf {
+                            sub_class: PatternVar::Variable("?b".to_string()),
+                            super_class: PatternVar::Variable("?c".to_string()),
+                        },
+                    ],
+                },
+                action: RuleAction {
+                    consequences: vec![RuleConsequence::AddSubClassOf {
+                        sub_class: PatternVar::Variable("?a".to_string()),
+                        super_class: PatternVar::Variable("?c".to_string()),
+                    }],
+                },
+                priority: 90,
+            },
+
+            // Inheritance rule: if C ⊑ D and a ∈ C, then a ∈ D
+            ReasoningRule {
+                name: "ClassInheritance".to_string(),
+                description: "If C ⊑ D and a ∈ C, then a ∈ D".to_string(),
+                pattern: RulePattern {
+                    conditions: vec![
+                        PatternCondition::SubClassOf {
+                            sub_class: PatternVar::Variable("?c".to_string()),
+                            super_class: PatternVar::Variable("?d".to_string()),
+                        },
+                        PatternCondition::ClassAssertion {
+                            individual: PatternVar::Variable("?a".to_string()),
+                            class: PatternVar::Variable("?c".to_string()),
+                        },
+                    ],
+                },
+                action: RuleAction {
+                    consequences: vec![RuleConsequence::AddClassAssertion {
+                        individual: PatternVar::Variable("?a".to_string()),
+                        class: PatternVar::Variable("?d".to_string()),
+                    }],
+                },
+                priority: 80,
+            },
+
+            // Symmetric property rule
+            ReasoningRule {
+                name: "SymmetricProperty".to_string(),
+                description: "If R is symmetric and R(a,b), then R(b,a)".to_string(),
+                pattern: RulePattern {
+                    conditions: vec![PatternCondition::PropertyAssertion {
                         subject: PatternVar::Variable("?a".to_string()),
                         property: PatternVar::Variable("?r".to_string()),
                         object: PatternVar::Variable("?b".to_string()),
-                    },
-                    PatternCondition::PropertyAssertion {
+                    }],
+                },
+                action: RuleAction {
+                    consequences: vec![RuleConsequence::AddPropertyAssertion {
                         subject: PatternVar::Variable("?b".to_string()),
                         property: PatternVar::Variable("?r".to_string()),
-                        object: PatternVar::Variable("?c".to_string()),
-                    },
-                ],
+                        object: PatternVar::Variable("?a".to_string()),
+                    }],
+                },
+                priority: 70,
             },
-            action: RuleAction {
-                consequences: vec![RuleConsequence::AddPropertyAssertion {
-                    subject: PatternVar::Variable("?a".to_string()),
-                    property: PatternVar::Variable("?r".to_string()),
-                    object: PatternVar::Variable("?c".to_string()),
-                }],
-            },
-            priority: 100,
-        });
-
-        // Subclass transitivity rule
-        rules.push(ReasoningRule {
-            name: "SubClassTransitivity".to_string(),
-            description: "If A ⊑ B and B ⊑ C, then A ⊑ C".to_string(),
-            pattern: RulePattern {
-                conditions: vec![
-                    PatternCondition::SubClassOf {
-                        sub_class: PatternVar::Variable("?a".to_string()),
-                        super_class: PatternVar::Variable("?b".to_string()),
-                    },
-                    PatternCondition::SubClassOf {
-                        sub_class: PatternVar::Variable("?b".to_string()),
-                        super_class: PatternVar::Variable("?c".to_string()),
-                    },
-                ],
-            },
-            action: RuleAction {
-                consequences: vec![RuleConsequence::AddSubClassOf {
-                    sub_class: PatternVar::Variable("?a".to_string()),
-                    super_class: PatternVar::Variable("?c".to_string()),
-                }],
-            },
-            priority: 90,
-        });
-
-        // Inheritance rule: if C ⊑ D and a ∈ C, then a ∈ D
-        rules.push(ReasoningRule {
-            name: "ClassInheritance".to_string(),
-            description: "If C ⊑ D and a ∈ C, then a ∈ D".to_string(),
-            pattern: RulePattern {
-                conditions: vec![
-                    PatternCondition::SubClassOf {
-                        sub_class: PatternVar::Variable("?c".to_string()),
-                        super_class: PatternVar::Variable("?d".to_string()),
-                    },
-                    PatternCondition::ClassAssertion {
-                        individual: PatternVar::Variable("?a".to_string()),
-                        class: PatternVar::Variable("?c".to_string()),
-                    },
-                ],
-            },
-            action: RuleAction {
-                consequences: vec![RuleConsequence::AddClassAssertion {
-                    individual: PatternVar::Variable("?a".to_string()),
-                    class: PatternVar::Variable("?d".to_string()),
-                }],
-            },
-            priority: 80,
-        });
-
-        // Symmetric property rule
-        rules.push(ReasoningRule {
-            name: "SymmetricProperty".to_string(),
-            description: "If R is symmetric and R(a,b), then R(b,a)".to_string(),
-            pattern: RulePattern {
-                conditions: vec![PatternCondition::PropertyAssertion {
-                    subject: PatternVar::Variable("?a".to_string()),
-                    property: PatternVar::Variable("?r".to_string()),
-                    object: PatternVar::Variable("?b".to_string()),
-                }],
-            },
-            action: RuleAction {
-                consequences: vec![RuleConsequence::AddPropertyAssertion {
-                    subject: PatternVar::Variable("?b".to_string()),
-                    property: PatternVar::Variable("?r".to_string()),
-                    object: PatternVar::Variable("?a".to_string()),
-                }],
-            },
-            priority: 70,
-        });
-
-        rules
+        ]
     }
 
     /// Run forward chaining reasoning
@@ -614,7 +612,7 @@ mod tests {
 
         // Add class assertion: john ∈ Person
         let class_assertion = crate::axioms::ClassAssertionAxiom::new(
-            individual_iri.clone(),
+            Arc::new(individual_iri.clone()),
             ClassExpression::Class(person_class.clone()),
         );
         ontology

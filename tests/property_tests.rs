@@ -5,7 +5,6 @@
 
 use owl2_reasoner::*;
 use proptest::prelude::*;
-use std::hash::Hash;
 
 // Property-based tests for IRI creation and validation
 proptest! {
@@ -64,27 +63,26 @@ proptest! {
         for class_str in classes {
             // Skip empty strings as they create invalid IRIs
             if !class_str.trim().is_empty() {
-                if let Ok(iri) = IRI::new(&format!("http://example.org/{}", class_str)) {
+                if let Ok(iri) = IRI::new(format!("http://example.org/{}", class_str)) {
                     // Skip duplicate IRIs to avoid conflicts
-                    if !seen_iris.contains(&iri) {
-                        if let Ok(_) = ontology.add_class(Class::new(iri.clone())) {
+                    if !seen_iris.contains(&iri)
+                        && ontology.add_class(Class::new(iri.clone())).is_ok() {
                             valid_iris.push(iri.clone());
                             seen_iris.insert(iri);
                         }
-                    }
                 }
             }
         }
 
         // Verify that all added classes can be retrieved
-        let retrieved_classes: Vec<IRI> = ontology.classes().iter().map(|c| c.iri().clone()).collect();
+        let retrieved_classes: Vec<IRI> = ontology.classes().iter().map(|c| IRI::clone(&**c.iri())).collect();
         assert_eq!(retrieved_classes.len(), valid_iris.len(),
                    "Retrieved classes count ({}) should match valid IRIs count ({})",
                    retrieved_classes.len(), valid_iris.len());
 
         // Verify each class is in the ontology
         for iri in &valid_iris {
-            assert!(ontology.classes().iter().any(|c| c.iri() == iri));
+            assert!(ontology.classes().iter().any(|c| **c.iri() == *iri));
         }
     }
 
@@ -97,8 +95,8 @@ proptest! {
         // Create classes
         let mut class_iris = Vec::new();
         for (i, class_str) in classes.iter().enumerate() {
-            let iri = IRI::new(&format!("http://example.org/{}", class_str))
-                .unwrap_or_else(|_| IRI::new(&format!("http://example.org/class{}", i)).unwrap());
+            let iri = IRI::new(format!("http://example.org/{}", class_str))
+                .unwrap_or_else(|_| IRI::new(format!("http://example.org/class{}", i)).unwrap());
             let class = Class::new(iri.clone());
             ontology.add_class(class).unwrap();
             class_iris.push(iri);
@@ -127,8 +125,8 @@ proptest! {
 }
 
 // Test utility functions
-fn create_test_iri(suffix: &str) -> IRI {
-    IRI::new(&format!("http://example.org/{}", suffix)).unwrap()
+fn _create_test_iri(suffix: &str) -> IRI {
+    IRI::new(format!("http://example.org/{}", suffix)).unwrap()
 }
 
 // Simple integration test to verify property testing works
@@ -142,6 +140,6 @@ fn test_property_testing_integration() {
 
     // Test property with random data
     let random_suffix = format!("test{}", rand::random::<u64>());
-    let random_iri = IRI::new(&format!("http://example.org/{}", random_suffix)).unwrap();
+    let random_iri = IRI::new(format!("http://example.org/{}", random_suffix)).unwrap();
     assert!(random_iri.as_str().ends_with(&random_suffix));
 }

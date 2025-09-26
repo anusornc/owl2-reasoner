@@ -325,7 +325,7 @@ mod tests {
 
         // Perform some reasoning operations
         let _ = reasoner.is_consistent();
-        let _ = reasoner.is_class_satisfiable(&person.iri());
+        let _ = reasoner.is_class_satisfiable(person.iri());
 
         // Get updated cache statistics
         let stats2 = reasoner.cache_stats();
@@ -346,14 +346,13 @@ mod tests {
         let class_result = ontology.add_class(Class::new("http://example.org/TestClass"));
         let individual_result = ontology
             .add_named_individual(NamedIndividual::new("http://example.org/TestIndividual"));
-        let entity_count = ontology.entity_count(); // Should work
+        let _entity_count = ontology.entity_count(); // Should work
 
         // Test with reasoner for consistency checking
         let reasoner = SimpleReasoner::new(ontology.clone());
         let consistency_result = reasoner.is_consistent();
 
         // All operations should complete without panics
-        assert_eq!(entity_count % 1, 0, "Entity count should be valid");
 
         // Check that operations completed successfully
         match (class_result, individual_result, consistency_result) {

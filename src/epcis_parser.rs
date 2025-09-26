@@ -48,6 +48,7 @@ pub struct EPCISSimpleEvent {
 }
 
 /// EPCIS Document Parser - Simplified version for compilation
+#[derive(Default)]
 pub struct EPCISDocumentParser {
     #[allow(dead_code)]
     config: EPCISParserConfig,
@@ -250,10 +251,6 @@ impl EPCISDocumentParser {
 
 /// Helper functions for EPCIS parsing
 impl EPCISDocumentParser {
-    /// Create parser with default configuration
-    pub fn default() -> Self {
-        Self::new(EPCISParserConfig::default())
-    }
 
     /// Extract all EPCs from events
     pub fn extract_all_epcs(&self, events: &[EPCISSimpleEvent]) -> Vec<String> {
@@ -337,7 +334,7 @@ mod tests {
     #[test]
     fn test_parser_initialization() {
         let parser = EPCISDocumentParser::new(EPCISParserConfig::default());
-        assert_eq!(parser.config.validate_schema, true);
+        assert!(parser.config.validate_schema);
     }
 
     #[test]
@@ -349,8 +346,8 @@ mod tests {
     #[test]
     fn test_config_initialization() {
         let config = EPCISParserConfig::default();
-        assert_eq!(config.validate_schema, true);
-        assert_eq!(config.include_extensions, true);
+        assert!(config.validate_schema);
+        assert!(config.include_extensions);
         assert!(config.namespace_mappings.contains_key("epcis"));
     }
 

@@ -35,7 +35,7 @@ Ontology(<http://example.org/test>
     let annotation_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::AnnotationAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::AnnotationAssertion(_)))
         .collect();
 
     assert_eq!(
@@ -125,7 +125,7 @@ Ontology(<http://example.org/test>
     let sub_annotation_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::SubAnnotationPropertyOf(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::SubAnnotationPropertyOf(_)))
         .collect();
 
     assert_eq!(
@@ -138,7 +138,7 @@ Ontology(<http://example.org/test>
     let domain_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::AnnotationPropertyDomain(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::AnnotationPropertyDomain(_)))
         .collect();
 
     assert_eq!(
@@ -151,7 +151,7 @@ Ontology(<http://example.org/test>
     let range_axioms: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::AnnotationPropertyRange(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::AnnotationPropertyRange(_)))
         .collect();
 
     assert_eq!(
@@ -209,7 +209,7 @@ Ontology(<http://example.org/test>
     let annotation_assertions: Vec<_> = ontology
         .axioms()
         .iter()
-        .filter(|axiom| matches!(***axiom, Axiom::AnnotationAssertion(_)))
+        .filter(|axiom| matches!(axiom.as_ref(), Axiom::AnnotationAssertion(_)))
         .collect();
 
     println!(
