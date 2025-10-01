@@ -187,7 +187,6 @@ impl SharedParserArena {
         // 4. This is necessary for API compatibility with the ParserArenaTrait
         unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
     }
-
 }
 
 impl Default for SharedParserArena {

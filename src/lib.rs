@@ -129,6 +129,9 @@ pub mod cache_manager;
 /// Memory leak prevention and monitoring system
 pub mod memory;
 
+/// Performance utilities and optimizations
+pub mod utils;
+
 pub mod test_suite_advanced;
 /// OWL2 Test Suite integration for W3C compliance validation
 pub mod test_suite_simple;
@@ -149,8 +152,28 @@ pub use error::{OwlError, OwlResult};
 pub use iri::{IRIRef, IRI};
 pub use memory::{LeakDetectionReport, MemoryMonitor, MemoryMonitorConfig, MemoryStats};
 pub use ontology::*;
-pub use parser::*;
-pub use profiles::*;
+// Re-export parser modules with specific naming to avoid conflicts
+pub use parser::arena::*;
+pub use parser::common as parser_common;
+pub use parser::import_resolver::*;
+pub use parser::manchester::{ManchesterAST, ManchesterParser};
+pub use parser::owl_functional::OwlFunctionalSyntaxParser;
+pub use parser::owl_xml::*;
+pub use parser::rdf_xml::*;
+pub use parser::turtle::*;
+pub use parser::{OntologyParser, ParserConfig, ParserFactory};
+
+// Re-export profile modules with specific naming to avoid conflicts
+pub use profiles::common::{
+    OntologyStats, OptimizationHint, OptimizationType, Owl2Profile, Owl2ProfileValidator,
+    ProfileAnalysisReport, ProfileValidationResult, ProfileValidator, ProfileViolation,
+    ProfileViolationType, ValidationStatistics, ViolationSeverity,
+};
+// Re-export profile-specific validators with explicit naming
+pub use profiles::el::validator::ElValidator;
+pub use profiles::ql::validator::QlValidator;
+pub use profiles::rl::*;
+// cache types are already available through profiles::common above
 pub use reasoning::*;
 pub use storage::*;
 pub use test_suite_advanced::*;

@@ -186,8 +186,7 @@ fn measure_cache_effectiveness(c: &mut Criterion) {
                     for i in 0..classes.len().min(3) {
                         for j in 0..classes.len().min(3) {
                             if i != j {
-                                let _ =
-                                    reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
+                                let _ = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                             }
                         }
                     }

@@ -139,7 +139,10 @@ fn test_memory_usage_regression() -> OwlResult<()> {
         ontology.add_class(class)?;
 
         if i % 100 == 0 {
-            let prop_iri = Arc::new(IRI::new(format!("http://example.org/hasProperty{}", i / 100))?);
+            let prop_iri = Arc::new(IRI::new(format!(
+                "http://example.org/hasProperty{}",
+                i / 100
+            ))?);
             let prop = ObjectProperty::new(prop_iri);
             ontology.add_object_property(prop)?;
         }
@@ -148,7 +151,10 @@ fn test_memory_usage_regression() -> OwlResult<()> {
     // Create some relationships
     for i in 0..1000 {
         let subclass_iri = Arc::new(IRI::new(format!("http://example.org/Entity{}", i))?);
-        let superclass_iri = Arc::new(IRI::new(format!("http://example.org/Entity{}", (i + 1) % 5000))?);
+        let superclass_iri = Arc::new(IRI::new(format!(
+            "http://example.org/Entity{}",
+            (i + 1) % 5000
+        ))?);
 
         let subclass = ClassExpression::Class(Class::new(subclass_iri));
         let superclass = ClassExpression::Class(Class::new(superclass_iri));

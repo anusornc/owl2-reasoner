@@ -3,7 +3,6 @@
 //! This module contains comprehensive benchmarks for all major components
 //! of the OWL2 reasoning system using the criterion benchmarking framework.
 
-
 mod memory_bench;
 mod parser_bench;
 mod query_bench;

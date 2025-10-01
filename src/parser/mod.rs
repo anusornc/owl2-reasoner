@@ -22,7 +22,7 @@ pub use arena::*;
 pub use common::*;
 pub use import_resolver::*;
 pub use manchester::{ManchesterAST, ManchesterParser};
-pub use owl_functional::*;
+pub use owl_functional::OwlFunctionalSyntaxParser;
 pub use owl_xml::*;
 pub use rdf_xml::*;
 pub use turtle::*;

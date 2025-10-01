@@ -121,10 +121,7 @@ pub mod family {
         // Add property hierarchy
         ontology
             .add_axiom(Axiom::SubObjectProperty(Box::new(
-                SubObjectPropertyAxiom::new(
-                    has_child.iri().clone(),
-                    has_parent.iri().clone(),
-                ),
+                SubObjectPropertyAxiom::new(has_child.iri().clone(), has_parent.iri().clone()),
             )))
             .unwrap();
 

@@ -207,7 +207,10 @@ fn bench_comprehensive_validation(c: &mut Criterion) {
                 .collect();
 
             // Simulate parallel processing
-            let results: Vec<usize> = offsets.par_iter().map(|&offset| black_box(offset % 100)).collect();
+            let results: Vec<usize> = offsets
+                .par_iter()
+                .map(|&offset| black_box(offset % 100))
+                .collect();
 
             let elapsed = start.elapsed();
             (results, elapsed)

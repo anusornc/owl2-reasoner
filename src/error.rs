@@ -128,6 +128,33 @@ pub enum OwlError {
     #[error("UTF-8 conversion error: {0}")]
     Utf8Error(#[from] std::string::FromUtf8Error),
 
+    /// Unexpected structure errors (replacing panic! calls)
+    #[error("Unexpected structure: {0}")]
+    UnexpectedStructure(String),
+
+    /// Expected entity type errors
+    #[error("Expected named object property")]
+    ExpectedNamedObjectProperty,
+
+    #[error("Expected literal value")]
+    ExpectedLiteralValue,
+
+    /// Expected specific axiom types
+    #[error("Expected FunctionalProperty axiom")]
+    ExpectedFunctionalPropertyAxiom,
+
+    #[error("Expected ReflexiveProperty axiom")]
+    ExpectedReflexivePropertyAxiom,
+
+    #[error("Expected TransitiveProperty axiom")]
+    ExpectedTransitivePropertyAxiom,
+
+    #[error("Expected SubDataProperty axiom")]
+    ExpectedSubDataPropertyAxiom,
+
+    #[error("Expected FunctionalDataProperty axiom")]
+    ExpectedFunctionalDataPropertyAxiom,
+
     /// Other errors
     #[error("Other error: {0}")]
     Other(String),

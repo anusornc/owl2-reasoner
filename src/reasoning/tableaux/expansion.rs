@@ -82,6 +82,7 @@ use super::core::NodeId;
 use super::graph::TableauxGraph;
 use super::memory::MemoryManager;
 use crate::axioms::class_expressions::ClassExpression;
+use crate::axioms::ObjectPropertyExpression;
 use crate::iri::IRI;
 use hashbrown::HashMap;
 use std::collections::{HashSet, VecDeque};
@@ -218,50 +219,193 @@ impl ExpansionRules {
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Simplified conjunction rule implementation
-        if let Some(_node) = graph.get_node_mut(context.current_node) {
-            // Apply conjunction rule to add concepts
-            // This is a placeholder implementation
+        // Decompose intersection: C ⊓ D → C, D
+        if let Some(node) = graph.get_node_mut(context.current_node) {
+            // Find all intersection concepts in the node
+            let intersections: Vec<_> = node
+                .concepts_iter()
+                .filter(|c| matches!(c, ClassExpression::ObjectIntersectionOf(_)))
+                .cloned()
+                .collect();
+
+            for intersection in intersections {
+                if let ClassExpression::ObjectIntersectionOf(operands) = intersection {
+                    // Add each operand to the node
+                    for operand in operands.iter() {
+                        node.add_concept((**operand).clone());
+                    }
+                    // Remove the intersection (optional - depends on strategy)
+                    // For now, we'll keep it for completeness
+                }
+            }
         }
         Ok(vec![])
     }
 
     fn apply_disjunction_rule(
         &self,
-        _graph: &mut TableauxGraph,
+        graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
-        _context: &mut ExpansionContext,
+        context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Simplified disjunction rule implementation
+        // Non-deterministic choice for union: C ⊔ D → C or D
+        if let Some(node) = graph.get_node_mut(context.current_node) {
+            // Find all union concepts in the node
+            let unions: Vec<_> = node
+                .concepts_iter()
+                .filter(|c| matches!(c, ClassExpression::ObjectUnionOf(_)))
+                .cloned()
+                .collect();
+
+            for union in unions {
+                if let ClassExpression::ObjectUnionOf(operands) = union {
+                    if !operands.is_empty() {
+                        // Create choice point for non-deterministic branching
+                        let choice = ExpansionTask {
+                            node_id: context.current_node,
+                            concept: (*operands[0]).clone(),
+                            rule_type: ExpansionRule::Disjunction,
+                            priority: 10, // Medium priority for disjunction
+                        };
+                        return Ok(vec![choice]);
+                    }
+                }
+            }
+        }
         Ok(vec![])
     }
 
     fn apply_existential_restriction_rule(
         &self,
-        _graph: &mut TableauxGraph,
+        graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
-        _context: &mut ExpansionContext,
+        context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Create a new node for existential restriction
-        let new_node = _graph.add_node();
+        // ∃R.C → create new node with C and R-edge from the current node
+        if let Some(node) = graph.get_node_mut(context.current_node) {
+            // Find all existential restrictions in the node
+            let existentials: Vec<_> = node
+                .concepts_iter()
+                .filter(|c| matches!(c, ClassExpression::ObjectSomeValuesFrom(_, _)))
+                .cloned()
+                .collect();
 
-        // Add edge from current node to new node
-        // This is simplified - in practice, you'd determine the property
-        let property_iri = IRI::new("http://example.org/property").unwrap();
-        _graph.add_edge(_context.current_node, &property_iri, new_node);
+            for existential in existentials {
+                if let ClassExpression::ObjectSomeValuesFrom(property, filler) = existential {
+                    // Extract the property IRI from the property expression
+                    let (_is_inverse, property_iri) = Self::resolve_property_direction(&property);
 
-        // Return new expansion tasks
+                    // Create new successor node
+                    let new_node_id = graph.add_node();
+
+                    // Add the filler concept to the new node
+                    graph.add_concept(new_node_id, (*filler).clone());
+
+                    // Add edge from current node to new node
+                    graph.add_edge(context.current_node, property_iri, new_node_id);
+
+                    // Create expansion task for the new node with the filler concept
+                    let task = ExpansionTask {
+                        node_id: new_node_id,
+                        concept: (*filler).clone(),
+                        rule_type: ExpansionRule::ExistentialRestriction,
+                        priority: 5, // High priority for existential restrictions
+                    };
+                    return Ok(vec![task]);
+                }
+            }
+        }
         Ok(vec![])
     }
 
     fn apply_universal_restriction_rule(
         &self,
-        _graph: &mut TableauxGraph,
+        graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
-        _context: &mut ExpansionContext,
+        context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Simplified universal restriction rule implementation
+        // ∀R.C → ensure all R-successors have C
+        if let Some(node) = graph.get_node_mut(context.current_node) {
+            // Find all universal restrictions in the node
+            let universals: Vec<_> = node
+                .concepts_iter()
+                .filter(|c| matches!(c, ClassExpression::ObjectAllValuesFrom(_, _)))
+                .cloned()
+                .collect();
+
+            for universal in universals {
+                if let ClassExpression::ObjectAllValuesFrom(property, filler) = universal {
+                    // Determine if we look at successors (R) or predecessors (R^-)
+                    let (is_inverse, property_iri) = Self::resolve_property_direction(&property);
+
+                    if !is_inverse {
+                        // Collect successors first to avoid holding an immutable borrow while mutating
+                        let successors: Vec<NodeId> = graph
+                            .get_successors(context.current_node, property_iri)
+                            .map(|s| s.to_vec())
+                            .unwrap_or_default();
+
+                        for successor_id in successors {
+                            let needs_add = graph
+                                .get_node(successor_id)
+                                .map(|n| !n.contains_concept(&filler))
+                                .unwrap_or(false);
+                            if needs_add {
+                                graph.add_concept(successor_id, (*filler).clone());
+
+                                // Create expansion task for the successor
+                                let task = ExpansionTask {
+                                    node_id: successor_id,
+                                    concept: (*filler).clone(),
+                                    rule_type: ExpansionRule::UniversalRestriction,
+                                    priority: 8, // Medium-high priority for universal restrictions
+                                };
+                                return Ok(vec![task]);
+                            }
+                        }
+                    } else {
+                        // For inverse properties, ensure all predecessors via R have the filler
+                        let predecessors: Vec<NodeId> = graph
+                            .get_predecessors(context.current_node, property_iri)
+                            .into_iter()
+                            .collect();
+
+                        for pred_id in predecessors {
+                            let needs_add = graph
+                                .get_node(pred_id)
+                                .map(|n| !n.contains_concept(&filler))
+                                .unwrap_or(false);
+                            if needs_add {
+                                graph.add_concept(pred_id, (*filler).clone());
+
+                                // Create expansion task for the predecessor
+                                let task = ExpansionTask {
+                                    node_id: pred_id,
+                                    concept: (*filler).clone(),
+                                    rule_type: ExpansionRule::UniversalRestriction,
+                                    priority: 8,
+                                };
+                                return Ok(vec![task]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(vec![])
+    }
+
+    /// Helper function to resolve property direction for inverse properties
+    pub fn resolve_property_direction(expr: &ObjectPropertyExpression) -> (bool, &IRI) {
+        fn flatten(e: &ObjectPropertyExpression, invert: bool) -> (bool, &IRI) {
+            match e {
+                ObjectPropertyExpression::ObjectProperty(prop) => (invert, prop.iri()),
+                ObjectPropertyExpression::ObjectInverseOf(inner) => {
+                    flatten(inner.as_ref(), !invert)
+                }
+            }
+        }
+        flatten(expr, false)
     }
 
     fn apply_nominal_rule(

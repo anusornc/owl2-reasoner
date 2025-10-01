@@ -197,12 +197,14 @@ impl ClassificationEngine {
                 .or_default();
 
             // If no parents specified, add owl:Thing as parent
-            if self.hierarchy.parents[&(**class_iri).clone()].is_empty() && **class_iri != thing_iri
-            {
+            let class_iri_clone = (**class_iri).clone();
+            let parents = self.hierarchy.parents.get(&class_iri_clone);
+            let is_empty_parents = parents.is_none_or(|p| p.is_empty());
+
+            if is_empty_parents && **class_iri != thing_iri {
                 self.hierarchy
-                    .add_parent((**class_iri).clone(), thing_iri.clone());
-                self.hierarchy
-                    .add_child(thing_iri.clone(), (**class_iri).clone());
+                    .add_parent(class_iri_clone.clone(), thing_iri.clone());
+                self.hierarchy.add_child(thing_iri.clone(), class_iri_clone);
             }
         }
 
@@ -247,7 +249,11 @@ impl ClassificationEngine {
 
             // Add all discovered transitive parents to the hierarchy
             for transitive_parent in transitive_parents {
-                if !self.hierarchy.parents[&class_iri].contains(&transitive_parent) {
+                let current_parents = self.hierarchy.parents.get(&class_iri);
+                let should_add =
+                    current_parents.is_none_or(|parents| !parents.contains(&transitive_parent));
+
+                if should_add {
                     self.hierarchy
                         .add_parent(class_iri.clone(), transitive_parent.clone());
                     self.hierarchy
@@ -443,7 +449,12 @@ impl ClassificationEngine {
         visited.insert(class_iri.clone());
         recursion_stack.insert(class_iri.clone());
 
-        for parent_iri in &self.hierarchy.parents[class_iri] {
+        for parent_iri in self
+            .hierarchy
+            .parents
+            .get(class_iri)
+            .unwrap_or(&HashSet::new())
+        {
             if !visited.contains(parent_iri) {
                 if self.has_cycle_dfs(parent_iri, visited, recursion_stack) {
                     return true;
@@ -709,24 +720,32 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let animal_iri = IRI::new("http://example.org/Animal").unwrap();
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI");
+        let animal_iri =
+            IRI::new("http://example.org/Animal").expect("Failed to create Animal IRI");
 
         let person_class = Class::new(person_iri.clone());
         let animal_class = Class::new(animal_iri.clone());
 
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(animal_class.clone()).unwrap();
+        ontology
+            .add_class(person_class.clone())
+            .expect("Failed to add Person class");
+        ontology
+            .add_class(animal_class.clone())
+            .expect("Failed to add Animal class");
 
         // Add subclass axiom: Person ⊑ Animal
         let subclass_axiom = SubClassOfAxiom::new(
             ClassExpression::Class(person_class.clone()),
             ClassExpression::Class(animal_class.clone()),
         );
-        ontology.add_subclass_axiom(subclass_axiom).unwrap();
+        ontology
+            .add_subclass_axiom(subclass_axiom)
+            .expect("Failed to add subclass axiom");
 
         let mut engine = ClassificationEngine::new(ontology);
-        let result = engine.classify().unwrap();
+        let result = engine.classify().expect("Classification failed");
 
         assert!(result.is_complete);
         assert_eq!(result.stats.classes_processed, 2);
@@ -745,21 +764,31 @@ mod tests {
         let mut ontology = Ontology::new();
 
         // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let human_iri = IRI::new("http://example.org/Human").unwrap();
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI");
+        let human_iri = IRI::new("http://example.org/Human").expect("Failed to create Human IRI");
 
         let person_class = Class::new(person_iri.clone());
         let human_class = Class::new(human_iri.clone());
 
-        ontology.add_class(person_class).unwrap();
-        ontology.add_class(human_class).unwrap();
+        ontology
+            .add_class(person_class)
+            .expect("Failed to add Person class");
+        ontology
+            .add_class(human_class)
+            .expect("Failed to add Human class");
 
         // Add equivalent classes axiom
-        let equiv_axiom = EquivalentClassesAxiom::new(vec![Arc::new(person_iri.clone()), Arc::new(human_iri.clone())]);
-        ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
+        let equiv_axiom = EquivalentClassesAxiom::new(vec![
+            Arc::new(person_iri.clone()),
+            Arc::new(human_iri.clone()),
+        ]);
+        ontology
+            .add_equivalent_classes_axiom(equiv_axiom)
+            .expect("Failed to add equivalent classes axiom");
 
         let mut engine = ClassificationEngine::new(ontology);
-        let result = engine.classify().unwrap();
+        let result = engine.classify().expect("Classification failed");
 
         assert_eq!(result.stats.equivalences_found, 1);
 
@@ -773,9 +802,12 @@ mod tests {
         let ontology = Arc::new(Ontology::new());
         let mut hierarchy = ClassHierarchy::new(&ontology);
 
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let animal_iri = IRI::new("http://example.org/Animal").unwrap();
-        let mammal_iri = IRI::new("http://example.org/Mammal").unwrap();
+        let person_iri =
+            IRI::new("http://example.org/Person").expect("Failed to create Person IRI");
+        let animal_iri =
+            IRI::new("http://example.org/Animal").expect("Failed to create Animal IRI");
+        let mammal_iri =
+            IRI::new("http://example.org/Mammal").expect("Failed to create Mammal IRI");
 
         // Add hierarchy: Person -> Mammal -> Animal
         hierarchy.add_parent(person_iri.clone(), mammal_iri.clone());

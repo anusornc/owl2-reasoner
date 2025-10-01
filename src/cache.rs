@@ -501,23 +501,28 @@ where
 
     /// Get a value from the cache
     pub fn get(&self, key: &K) -> OwlResult<Option<V>> {
-        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+        // Fast path: try read lock first
+        let entries = self.entries.read().map_err(|e| OwlError::CacheError {
             operation: "get".to_string(),
-            message: format!("Failed to acquire write lock: {}", e),
+            message: format!("Failed to acquire read lock: {}", e),
         })?;
 
-        if let Some((value, metadata)) = entries.get_mut(key) {
-            metadata.record_access();
-
-            // Update access order for LRU
-            self.update_access_order(key)?;
-
+        if let Some((value, _metadata)) = entries.get(key) {
+            // Record hit and clone value while we have the read lock
             if self.config.enable_stats {
                 self.stats.record_hit();
             }
+            let value = value.clone();
 
-            Ok(Some(value.clone()))
+            // Drop read lock before updating metadata to avoid contention
+            drop(entries);
+
+            // Slow path: upgrade to write lock only if we need to update metadata
+            self.update_metadata_on_access(key)?;
+
+            Ok(Some(value))
         } else {
+            // Record miss
             if self.config.enable_stats {
                 self.stats.record_miss();
             }
@@ -531,21 +536,31 @@ where
         K: std::borrow::Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+        // Fast path: try read lock first
+        let entries = self.entries.read().map_err(|e| OwlError::CacheError {
             operation: "get_by_ref".to_string(),
-            message: format!("Failed to acquire write lock: {}", e),
+            message: format!("Failed to acquire read lock: {}", e),
         })?;
 
-        if let Some((value, metadata)) = entries.get_mut(key) {
-            metadata.record_access();
-            // For LRU update, we'll handle this more efficiently by checking if we need to update
-            // Since we already have access to the entry via get_mut, we'll use a simplified approach
-
+        if let Some((value, _)) = entries.get(key) {
+            // Record hit and clone value while we have the read lock
             if self.config.enable_stats {
                 self.stats.record_hit();
             }
-            Ok(Some(value.clone()))
+            let value = value.clone();
+
+            // Drop read lock before updating metadata to avoid contention
+            drop(entries);
+
+            // Convert borrowed key to owned key for metadata update
+            // This is a limitation but necessary for LRU tracking
+            if let Some(owned_key) = self.find_key_by_ref(key)? {
+                self.update_metadata_on_access(&owned_key)?;
+            }
+
+            Ok(Some(value))
         } else {
+            // Record miss
             if self.config.enable_stats {
                 self.stats.record_miss();
             }
@@ -815,6 +830,43 @@ where
 
         Ok(())
     }
+
+    /// Update metadata on access (only called when entry exists)
+    fn update_metadata_on_access(&self, key: &K) -> OwlResult<()> {
+        let mut entries = self.entries.write().map_err(|e| OwlError::CacheError {
+            operation: "update_metadata_on_access".to_string(),
+            message: format!("Failed to acquire write lock: {}", e),
+        })?;
+
+        if let Some((_, metadata)) = entries.get_mut(key) {
+            metadata.record_access();
+        }
+
+        // Update access order for LRU tracking
+        self.update_access_order(key)?;
+
+        Ok(())
+    }
+
+    /// Find owned key by borrowed reference (helper for get_by_ref)
+    fn find_key_by_ref<Q>(&self, key: &Q) -> OwlResult<Option<K>>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let entries = self.entries.read().map_err(|e| OwlError::CacheError {
+            operation: "find_key_by_ref".to_string(),
+            message: format!("Failed to acquire read lock: {}", e),
+        })?;
+
+        // Find the owned key that matches the borrowed reference
+        let owned_key = entries
+            .iter()
+            .find(|(k, _)| k.borrow() == key)
+            .map(|(k, _)| k.clone());
+
+        Ok(owned_key)
+    }
 }
 
 impl<K, V, S> BoundedCache<K, V, S>
@@ -862,7 +914,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cache_config_builder() {
+    fn test_cache_config_builder() -> OwlResult<()> {
         let config = CacheConfigBuilder::new()
             .max_size(500)
             .enable_stats(true)
@@ -876,58 +928,65 @@ mod tests {
         assert!(config.enable_memory_pressure);
         assert_eq!(config.memory_pressure_threshold, 0.7);
         assert_eq!(config.cleanup_interval, Duration::from_secs(30));
+        Ok(())
     }
 
     #[test]
-    fn test_cache_basic_operations() {
+    fn test_cache_basic_operations() -> OwlResult<()> {
         let cache = BoundedCache::<String, usize>::new(10);
 
         // Insert and get
-        cache.insert("key1".to_string(), 100).unwrap();
-        assert_eq!(cache.get(&"key1".to_string()).unwrap(), Some(100));
+        cache.insert("key1".to_string(), 100)?;
+        assert_eq!(cache.get(&"key1".to_string())?, Some(100));
 
         // Remove
-        assert_eq!(cache.remove(&"key1".to_string()).unwrap(), Some(100));
-        assert_eq!(cache.get(&"key1".to_string()).unwrap(), None);
+        assert_eq!(cache.remove(&"key1".to_string())?, Some(100));
+        assert_eq!(cache.get(&"key1".to_string())?, None);
 
         // Empty cache
-        assert!(cache.is_empty().unwrap());
-        assert_eq!(cache.len().unwrap(), 0);
+        assert!(cache.is_empty()?);
+        assert_eq!(cache.len()?, 0);
+        Ok(())
     }
 
     #[test]
-    fn test_cache_eviction() {
+    fn test_cache_eviction() -> OwlResult<()> {
         let cache = BoundedCache::<String, usize>::new(3);
 
         // Insert 5 entries (should evict 2)
         for i in 0..5 {
-            cache.insert(format!("key{}", i), i).unwrap();
+            cache.insert(format!("key{}", i), i)?;
         }
 
         // Should have 3 entries
-        assert_eq!(cache.len().unwrap(), 3);
+        assert_eq!(cache.len()?, 3);
 
         // Check that some entries were evicted
         let present_entries: usize = (0..5)
-            .filter(|i| cache.get(&format!("key{}", i)).unwrap().is_some())
+            .filter(|i| {
+                cache
+                    .get(&format!("key{}", i))
+                    .map_or(false, |v| v.is_some())
+            })
             .count();
         assert_eq!(present_entries, 3);
+        Ok(())
     }
 
     #[test]
-    fn test_cache_stats() {
+    fn test_cache_stats() -> OwlResult<()> {
         let cache = BoundedCache::<String, usize>::from_builder(
             CacheConfigBuilder::new().max_size(10).enable_stats(true),
         );
 
         // Insert some entries
-        cache.insert("key1".to_string(), 1).unwrap();
-        cache.insert("key2".to_string(), 2).unwrap();
+        cache.insert("key1".to_string(), 1)?;
+        cache.insert("key2".to_string(), 2)?;
 
         // Get some entries
-        let _ = cache.get(&"key1".to_string()).unwrap();
-        let _ = cache.get(&"key1".to_string()).unwrap();
-        let _ = cache.get(&"key3".to_string()).unwrap(); // miss
+        let _ = cache.get(&"key1".to_string())?;
+        let _ = cache.get(&"key1".to_string())?;
+        let _ = cache.get(&"key3".to_string())?; // miss
 
         let stats = cache.stats();
         assert_eq!(stats.hits, 2);
@@ -938,10 +997,11 @@ mod tests {
         let stats = cache.stats();
         assert_eq!(stats.hits, 2);
         assert_eq!(stats.misses, 1);
+        Ok(())
     }
 
     #[test]
-    fn test_cache_strategies() {
+    fn test_cache_strategies() -> OwlResult<()> {
         // Test LRU strategy
         let lru_cache = BoundedCache::<String, usize>::with_strategy(
             CacheConfigBuilder::new().max_size(3).build(),
@@ -967,22 +1027,24 @@ mod tests {
         );
 
         // All should work
-        lru_cache.insert("key1".to_string(), 1).unwrap();
-        lfu_cache.insert("key1".to_string(), 1).unwrap();
-        fifo_cache.insert("key1".to_string(), 1).unwrap();
-        random_cache.insert("key1".to_string(), 1).unwrap();
+        lru_cache.insert("key1".to_string(), 1)?;
+        lfu_cache.insert("key1".to_string(), 1)?;
+        fifo_cache.insert("key1".to_string(), 1)?;
+        random_cache.insert("key1".to_string(), 1)?;
+        Ok(())
     }
 
     #[test]
-    fn test_cache_clone() {
+    fn test_cache_clone() -> OwlResult<()> {
         let cache = BoundedCache::<String, usize>::new(10);
-        cache.insert("key1".to_string(), 100).unwrap();
+        cache.insert("key1".to_string(), 100)?;
 
         let cloned_cache = cache.clone();
-        assert_eq!(cloned_cache.get(&"key1".to_string()).unwrap(), Some(100));
+        assert_eq!(cloned_cache.get(&"key1".to_string())?, Some(100));
 
         // Both share the same underlying data
-        cache.insert("key2".to_string(), 200).unwrap();
-        assert_eq!(cloned_cache.get(&"key2".to_string()).unwrap(), Some(200));
+        cache.insert("key2".to_string(), 200)?;
+        assert_eq!(cloned_cache.get(&"key2".to_string())?, Some(200));
+        Ok(())
     }
 }

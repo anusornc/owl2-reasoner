@@ -102,7 +102,7 @@ impl EmpiricalValidator {
 
         // Benchmark subclass reasoning
         let subclass_start = Instant::now();
-        let classes: Vec<_> = ontology.classes().iter().cloned().collect();
+        let classes: Vec<_> = ontology.classes().iter().collect();
         let subclass_count = if classes.len() > 1 {
             for i in 0..classes.len().min(10) {
                 for j in 0..classes.len().min(10) {
@@ -238,7 +238,7 @@ impl EmpiricalValidator {
         let reasoner = SimpleReasoner::new(ontology.clone());
 
         // Warm up cache
-        let classes: Vec<_> = ontology.classes().iter().cloned().collect();
+        let classes: Vec<_> = ontology.classes().iter().collect();
         for class in classes.iter().take(5) {
             let _ = reasoner.is_class_satisfiable(class.iri());
         }

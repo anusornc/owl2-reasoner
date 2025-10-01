@@ -43,7 +43,7 @@ impl ProfileOptimizedReasoner {
     /// Create a new profile-optimized reasoner
     pub fn new(ontology: Arc<Ontology>, profile: Owl2Profile) -> OwlResult<Self> {
         let base_reasoner = TableauxReasoner::from_arc(&ontology);
-        let profile_validator = Owl2ProfileValidator::new(ontology);
+        let profile_validator = Owl2ProfileValidator::new(ontology)?;
 
         Ok(Self {
             base_reasoner,
@@ -302,8 +302,8 @@ impl ProfileOptimizedReasoner {
         for subproperty_axiom in ontology.subobject_property_axioms() {
             // Extract property IRIs from the subproperty axiom
             // Note: This is a simplified approach - actual implementation would need proper property extraction
-            if let Some(sub_prop_iri) = self.extract_property_iri_from_axiom(subproperty_axiom) {
-                if let Some(super_prop_iri) =
+            if let Ok(sub_prop_iri) = self.extract_property_iri_from_axiom(subproperty_axiom) {
+                if let Ok(super_prop_iri) =
                     self.extract_super_property_iri_from_axiom(subproperty_axiom)
                 {
                     hierarchy.add_relationship(sub_prop_iri, super_prop_iri);
@@ -318,20 +318,20 @@ impl ProfileOptimizedReasoner {
     fn extract_property_iri_from_axiom(
         &self,
         _axiom: &crate::axioms::SubObjectPropertyAxiom,
-    ) -> Option<IRI> {
+    ) -> OwlResult<IRI> {
         // This is a placeholder - actual implementation would extract the property IRI
         // For now, return a dummy IRI to demonstrate the concept
-        Some(IRI::new("http://example.org/dummy-property").unwrap())
+        IRI::new("http://example.org/dummy-property")
     }
 
     /// Extract super property IRI from subproperty axiom (simplified)
     fn extract_super_property_iri_from_axiom(
         &self,
         _axiom: &crate::axioms::SubObjectPropertyAxiom,
-    ) -> Option<IRI> {
+    ) -> OwlResult<IRI> {
         // This is a placeholder - actual implementation would extract the super property IRI
         // For now, return a dummy IRI to demonstrate the concept
-        Some(IRI::new("http://example.org/dummy-super-property").unwrap())
+        IRI::new("http://example.org/dummy-super-property")
     }
 
     /// Check if a class has RL-compatible role relationships
@@ -441,28 +441,29 @@ mod tests {
     }
 
     #[test]
-    fn test_el_trivial_satisfiability() {
-        let mut ontology = Ontology::new();
-        let class = crate::entities::Class::new(IRI::new("http://example.org/TestClass").unwrap());
-        ontology.add_class(class).unwrap();
+    fn test_el_trivial_satisfiability() -> OwlResult<()> {
+        let mut temp_ontology = Ontology::new();
+        let test_class_iri = IRI::new("http://example.org/TestClass")?;
+        let class = crate::entities::Class::new(test_class_iri.clone());
+        temp_ontology.add_class(class)?;
 
-        let mut reasoner =
-            ProfileOptimizedReasoner::new(Arc::new(ontology), Owl2Profile::EL).unwrap();
-        let result =
-            reasoner.is_class_satisfiable(&IRI::new("http://example.org/TestClass").unwrap());
-        assert!(result.is_ok());
+        let mut reasoner = ProfileOptimizedReasoner::new(Arc::new(temp_ontology), Owl2Profile::EL)?;
+        let result = reasoner.is_class_satisfiable(&test_class_iri)?;
+        assert!(result.is_consistent);
+        Ok(())
     }
 
     #[test]
-    fn test_role_hierarchy() {
+    fn test_role_hierarchy() -> OwlResult<()> {
         let mut hierarchy = RoleHierarchy::new();
-        let prop1 = IRI::new("http://example.org/prop1").unwrap();
-        let prop2 = IRI::new("http://example.org/prop2").unwrap();
+        let prop1 = IRI::new("http://example.org/prop1")?;
+        let prop2 = IRI::new("http://example.org/prop2")?;
 
         hierarchy.add_relationship(prop1.clone(), prop2.clone());
         let equivalent = hierarchy.get_equivalent_properties(&prop1);
 
         assert!(equivalent.contains(&prop1));
         assert!(equivalent.contains(&prop2));
+        Ok(())
     }
 }

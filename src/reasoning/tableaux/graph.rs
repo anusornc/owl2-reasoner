@@ -67,6 +67,8 @@ pub struct EdgeStorage {
     pub edges: Vec<(NodeId, IRI, NodeId)>,
     /// Index for fast lookups: (from_node, property) -> Vec<to_node>
     pub index: HashMap<(NodeId, IRI), SmallVec<[NodeId; 4]>>,
+    /// Reverse index for predecessor lookups: (to_node, property) -> Vec<from_node>
+    pub reverse_index: HashMap<(NodeId, IRI), SmallVec<[NodeId; 4]>>,
 }
 
 impl EdgeStorage {
@@ -74,6 +76,7 @@ impl EdgeStorage {
         Self {
             edges: Vec::new(),
             index: HashMap::default(),
+            reverse_index: HashMap::default(),
         }
     }
 
@@ -81,14 +84,26 @@ impl EdgeStorage {
         // Add to flat storage
         self.edges.push((from, property.clone(), to));
 
-        // Update index
-        let key = (from, property.clone());
-        self.index.entry(key).or_default().push(to);
+        // Update forward index
+        let forward_key = (from, property.clone());
+        self.index.entry(forward_key).or_default().push(to);
+
+        // Update reverse index
+        let reverse_key = (to, property.clone());
+        self.reverse_index
+            .entry(reverse_key)
+            .or_default()
+            .push(from);
     }
 
     pub fn get_targets(&self, from: NodeId, property: &IRI) -> Option<&[NodeId]> {
         let key = (from, property.clone());
         self.index.get(&key).map(|vec| vec.as_slice())
+    }
+
+    pub fn get_sources(&self, to: NodeId, property: &IRI) -> Option<&[NodeId]> {
+        let key = (to, property.clone());
+        self.reverse_index.get(&key).map(|vec| vec.as_slice())
     }
 
     pub fn get_all_edges(&self) -> &[(NodeId, IRI, NodeId)] {
@@ -98,6 +113,7 @@ impl EdgeStorage {
     pub fn clear(&mut self) {
         self.edges.clear();
         self.index.clear();
+        self.reverse_index.clear();
     }
 
     pub fn len(&self) -> usize {
@@ -165,6 +181,13 @@ impl TableauxGraph {
 
     pub fn get_targets(&self, from: NodeId, property: &IRI) -> Option<&[NodeId]> {
         self.edges.get_targets(from, property)
+    }
+
+    pub fn get_predecessors(&self, to: NodeId, property: &IRI) -> Vec<NodeId> {
+        self.edges
+            .get_sources(to, property)
+            .map(|sources| sources.to_vec())
+            .unwrap_or_default()
     }
 
     pub fn clear(&mut self) {

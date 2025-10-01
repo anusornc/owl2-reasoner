@@ -34,12 +34,18 @@ static ERR_MALFORMED_PREFIX_DECL: &str = "Malformed @prefix declaration";
 /// Turtle format parser
 pub struct TurtleParser {
     config: ParserConfig,
-    prefixes: HashMap<String, String>,
+    prefixes: HashMap<String, String>, // TODO: Could be optimized to use Cow<str>
     /// Arena allocator for efficient string and object allocation
     arena: Option<Box<dyn ParserArenaTrait>>,
 }
 
 impl TurtleParser {
+    /// Helper function to convert Arc<IRI> to IRI with minimal overhead
+    #[inline(always)]
+    fn arc_to_iri(arc_iri: OwlResult<Arc<IRI>>) -> OwlResult<IRI> {
+        arc_iri.map(|arc| (*arc).clone())
+    }
+
     /// Create a new Turtle parser with default configuration
     pub fn new() -> Self {
         Self::with_config(ParserConfig::default())
@@ -351,9 +357,11 @@ impl TurtleParser {
         if let Some(stripped) = token.strip_prefix("_:") {
             // Blank node - generate temporary IRI for processing using arena allocation
             let blank_iri = self.alloc_string(stripped);
-            IRI::new_optimized(format!("http://blank.node/{}", blank_iri))
-                .map(|arc_iri| (*arc_iri).clone())
-                .ok()
+            Self::arc_to_iri(IRI::new_optimized(format!(
+                "http://blank.node/{}",
+                blank_iri
+            )))
+            .ok()
         } else {
             let arena_token = self.alloc_string(token);
             self.parse_curie_or_iri(arena_token).ok()
@@ -365,9 +373,7 @@ impl TurtleParser {
         if token == "a" {
             // Use arena allocation for the type IRI
             let type_iri = self.alloc_string("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            IRI::new_optimized(type_iri)
-                .map(|arc_iri| (*arc_iri).clone())
-                .ok()
+            Self::arc_to_iri(IRI::new_optimized(type_iri)).ok()
         } else {
             let arena_token = self.alloc_string(token);
             self.parse_curie_or_iri(arena_token).ok()
@@ -387,7 +393,7 @@ impl TurtleParser {
             let arena_stripped = self.alloc_string(stripped);
             Some((
                 ObjectValue::BlankNode(arena_stripped.to_string()),
-                tokens[1..].to_vec(),
+                Vec::from(&tokens[1..]),
             ))
         } else if first_token.starts_with('"') {
             // Literal
@@ -398,7 +404,7 @@ impl TurtleParser {
             let (nested_object, consumed) = self.parse_blank_node_structure(first_token)?;
             Some((
                 ObjectValue::Nested(Box::new(nested_object)),
-                tokens[consumed..].to_vec(),
+                Vec::from(&tokens[consumed..]),
             ))
         } else if first_token.starts_with('(') {
             // Collection (list)
@@ -410,7 +416,7 @@ impl TurtleParser {
             };
             Some((
                 ObjectValue::Nested(Box::new(nested_object)),
-                tokens[consumed..].to_vec(),
+                Vec::from(&tokens[consumed..]),
             ))
         } else {
             // Simple IRI
@@ -500,7 +506,7 @@ impl TurtleParser {
         if s.starts_with('<') && s.ends_with('>') {
             // Full IRI - use arena allocation for the content
             let iri_content = self.alloc_string(&s[1..s.len() - 1]);
-            IRI::new_optimized(iri_content).map(|arc_iri| (*arc_iri).clone())
+            Self::arc_to_iri(IRI::new_optimized(iri_content))
         } else if let Some(colon_pos) = s.find(':') {
             // CURIE
             let prefix = self.alloc_string(&s[..colon_pos]);
@@ -510,7 +516,7 @@ impl TurtleParser {
                 // Use arena allocation for the constructed IRI string
                 let iri_string = format!("{}{}", namespace, local);
                 let arena_iri_string = self.alloc_string(&iri_string);
-                IRI::new_optimized(arena_iri_string).map(|arc_iri| (*arc_iri).clone())
+                Self::arc_to_iri(IRI::new_optimized(arena_iri_string))
             } else if self.config.strict_validation {
                 Err(crate::error::OwlError::ParseError(format!(
                     "Undefined prefix: {}",
@@ -519,12 +525,12 @@ impl TurtleParser {
             } else {
                 // Treat as full IRI in non-strict mode
                 let arena_s = self.alloc_string(s);
-                IRI::new_optimized(arena_s).map(|arc_iri| (*arc_iri).clone())
+                Self::arc_to_iri(IRI::new_optimized(arena_s))
             }
         } else {
             // Treat as full IRI - use arena allocation
             let arena_s = self.alloc_string(s);
-            IRI::new_optimized(arena_s).map(|arc_iri| (*arc_iri).clone())
+            Self::arc_to_iri(IRI::new_optimized(arena_s))
         }
     }
 

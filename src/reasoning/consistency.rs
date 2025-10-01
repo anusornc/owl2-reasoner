@@ -441,60 +441,63 @@ mod tests {
     use crate::{Class, DisjointClassesAxiom};
 
     #[test]
-    fn test_consistency_checker_creation() {
+    fn test_consistency_checker_creation() -> OwlResult<()> {
         let ontology = Ontology::new();
         let mut checker = ConsistencyChecker::new(ontology);
 
         // Empty ontology should be consistent
-        assert!(checker.is_consistent().unwrap());
+        assert!(checker.is_consistent()?);
+        Ok(())
     }
 
     #[test]
-    fn test_consistency_check_result() {
+    fn test_consistency_check_result() -> OwlResult<()> {
         let ontology = Ontology::new();
         let mut checker = ConsistencyChecker::new(ontology);
 
-        let result = checker.check_consistency().unwrap();
+        let result = checker.check_consistency()?;
 
         assert!(result.is_consistent);
         assert!(result.explanations.is_empty());
         assert_eq!(result.stats.contradictions_found, 0);
         assert_eq!(result.stats.checks_performed, 1);
+        Ok(())
     }
 
     #[test]
-    fn test_inconsistent_ontology() {
+    fn test_inconsistent_ontology() -> OwlResult<()> {
         let mut ontology = Ontology::new();
 
         // Create a simple inconsistency: class is disjoint with itself
-        let person_iri =
-            IRI::new("http://example.org/Person").expect("Failed to create Person IRI for testing");
+        let person_iri = IRI::new("http://example.org/Person")?;
         let person_class = Class::new(person_iri.clone());
-        ontology.add_class(person_class).unwrap();
+        ontology.add_class(person_class)?;
 
         // Add disjoint classes axiom with the same class twice
         let disjoint_axiom = DisjointClassesAxiom::new(vec![
             Arc::new(person_iri.clone()),
             Arc::new(person_iri.clone()), // Same class - this should be detected as problematic
         ]);
-        ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
+        ontology.add_disjoint_classes_axiom(disjoint_axiom)?;
 
         let mut checker = ConsistencyChecker::new(ontology);
-        let result = checker.check_consistency().unwrap();
+        let result = checker.check_consistency()?;
 
         // The ontology should be detected as inconsistent
         // (though the exact detection depends on the implementation)
         println!("Consistency result: {:?}", result);
+        Ok(())
     }
 
     #[test]
-    fn test_minimal_explanations() {
+    fn test_minimal_explanations() -> OwlResult<()> {
         let ontology = Ontology::new();
         let mut checker = ConsistencyChecker::new(ontology);
 
-        let explanations = checker.get_minimal_explanations().unwrap();
+        let explanations = checker.get_minimal_explanations()?;
 
         // Empty ontology should have no explanations
         assert!(explanations.is_empty());
+        Ok(())
     }
 }

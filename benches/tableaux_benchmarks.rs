@@ -8,12 +8,12 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use owl2_reasoner::axioms::*;
 use owl2_reasoner::entities::*;
 use owl2_reasoner::iri::IRI;
-use std::sync::Arc;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::tableaux::dependency::{
     ChoiceType, DependencySource, DependencyType,
 };
 use owl2_reasoner::reasoning::tableaux::*;
+use std::sync::Arc;
 
 /// Benchmark core tableaux reasoner performance
 pub fn bench_tableaux_core(c: &mut Criterion) {
@@ -449,8 +449,7 @@ fn create_complex_ontology(complexity: usize) -> Ontology {
     for i in 0..(complexity / 5) {
         if i + 1 < complexity {
             let class1_iri = IRI::new(format!("http://example.org/ComplexClass{}", i)).unwrap();
-            let class2_iri =
-                IRI::new(format!("http://example.org/ComplexClass{}", i + 1)).unwrap();
+            let class2_iri = IRI::new(format!("http://example.org/ComplexClass{}", i + 1)).unwrap();
 
             let class1 = ClassExpression::Class(Class::new(class1_iri));
             let class2 = ClassExpression::Class(Class::new(class2_iri));
@@ -502,7 +501,8 @@ fn create_comprehensive_test_ontology(size: usize) -> Ontology {
             let _class1 = ClassExpression::Class(Class::new(class1_iri.clone()));
             let _class2 = ClassExpression::Class(Class::new(class2_iri.clone()));
 
-            let equiv_axiom = EquivalentClassesAxiom::new(vec![Arc::new(class1_iri), Arc::new(class2_iri)]);
+            let equiv_axiom =
+                EquivalentClassesAxiom::new(vec![Arc::new(class1_iri), Arc::new(class2_iri)]);
             ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
         }
     }

@@ -146,16 +146,19 @@ impl Class {
     }
 
     /// Check if this is a built-in OWL class
+    #[inline]
     pub fn is_builtin(&self) -> bool {
         self.iri.is_owl() && matches!(self.iri.local_name(), "Thing" | "Nothing" | "Class")
     }
 
     /// Check if this is owl:Thing (the top class)
+    #[inline(always)]
     pub fn is_thing(&self) -> bool {
         self.iri.as_str() == "http://www.w3.org/2002/07/owl#Thing"
     }
 
     /// Check if this is owl:Nothing (the bottom class)
+    #[inline(always)]
     pub fn is_nothing(&self) -> bool {
         self.iri.as_str() == "http://www.w3.org/2002/07/owl#Nothing"
     }
@@ -244,16 +247,19 @@ impl ObjectProperty {
     }
 
     /// Check if this property is functional
+    #[inline]
     pub fn is_functional(&self) -> bool {
         self.has_characteristic(ObjectPropertyCharacteristic::Functional)
     }
 
     /// Check if this property is inverse functional
+    #[inline]
     pub fn is_inverse_functional(&self) -> bool {
         self.has_characteristic(ObjectPropertyCharacteristic::InverseFunctional)
     }
 
     /// Check if this property is transitive
+    #[inline]
     pub fn is_transitive(&self) -> bool {
         self.has_characteristic(ObjectPropertyCharacteristic::Transitive)
     }

@@ -253,11 +253,13 @@ fn validate_gs1_epcis_2_0(events: &[EPCISEvent]) -> OwlResult<f64> {
         let has_epcs = !event.epc_list.is_empty();
         let has_action = matches!(event.action, EPCISAction::Observe | EPCISAction::Add);
 
-        let event_checks = [has_event_id,
+        let event_checks = [
+            has_event_id,
             has_event_time,
             has_event_type,
             has_epcs,
-            has_action];
+            has_action,
+        ];
         compliant_events += event_checks.iter().filter(|&&x| x).count();
         total_checks += event_checks.len();
     }

@@ -58,13 +58,46 @@
 //! // Cleanup happens automatically when arena is dropped
 //! ```
 
-use super::core::{MemoryStats, TableauxNode};
+use super::core::{MemoryStats, NodeId, TableauxNode};
 use crate::axioms::*;
+use crate::error::{OwlError, OwlResult};
+use crate::iri::IRI;
 use bumpalo::Bump;
 use hashbrown::HashMap;
+use smallvec::SmallVec;
+use std::cell::RefCell;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::Mutex;
+
+/// Helper function to safely lock mutexes with proper error handling
+fn safe_lock<'a, T>(
+    mutex: &'a Mutex<T>,
+    lock_type: &str,
+) -> OwlResult<std::sync::MutexGuard<'a, T>> {
+    mutex.lock().map_err(|_| OwlError::LockError {
+        lock_type: lock_type.to_string(),
+        timeout_ms: 0,
+        message: format!("Failed to acquire {} lock", lock_type),
+    })
+}
+
+/// Memory optimization statistics for tracking arena allocation benefits
+#[derive(Debug, Clone, Default)]
+pub struct MemoryOptimizationStats {
+    /// Number of nodes allocated in arena
+    pub arena_allocated_nodes: usize,
+    /// Number of expressions allocated in arena
+    pub arena_allocated_expressions: usize,
+    /// Number of constraints allocated in arena
+    pub arena_allocated_constraints: usize,
+    /// Number of strings interned
+    pub interned_strings: usize,
+    /// Memory saved through string interning (bytes)
+    pub string_intern_savings: usize,
+    /// Memory saved through arena allocation (bytes)
+    pub arena_allocation_savings: usize,
+}
 
 /// Arena allocation statistics
 #[derive(Debug, Clone, Default)]
@@ -81,6 +114,52 @@ pub struct ArenaStats {
     pub string_intern_savings: usize,
     /// Memory saved through arena allocation (bytes)
     pub arena_allocation_savings: usize,
+}
+
+/// Arena-optimized edge storage for memory efficiency
+#[derive(Debug, Default)]
+pub struct ArenaEdgeStorage {
+    /// Arena-allocated edge storage
+    pub edges: Vec<(NodeId, IRI, NodeId)>,
+    /// Fast lookup index
+    pub index: HashMap<(NodeId, IRI), SmallVec<[NodeId; 4]>>,
+}
+
+impl ArenaEdgeStorage {
+    /// Create new arena-optimized edge storage
+    pub fn new() -> Self {
+        Self {
+            edges: Vec::new(),
+            index: HashMap::default(),
+        }
+    }
+
+    /// Add an edge with arena allocation
+    pub fn add_edge(&mut self, from: NodeId, property: &IRI, to: NodeId) {
+        let edge = (from, property.clone(), to);
+        self.edges.push(edge);
+
+        let key = (from, property.clone());
+        self.index.entry(key).or_default().push(to);
+    }
+
+    /// Get successors of a node
+    pub fn get_successors(&self, node: NodeId, property: &IRI) -> Option<&[NodeId]> {
+        self.index
+            .get(&(node, property.clone()))
+            .map(|vec| vec.as_slice())
+    }
+
+    /// Get all edges
+    pub fn edges(&self) -> &[(NodeId, IRI, NodeId)] {
+        &self.edges
+    }
+
+    /// Clear all edges
+    pub fn clear(&mut self) {
+        self.edges.clear();
+        self.index.clear();
+    }
 }
 
 /// Arena manager for efficient memory allocation
@@ -108,56 +187,63 @@ impl ArenaManager {
     }
 
     /// Allocate a TableauxNode in the node arena
-    pub fn allocate_node(&mut self, node: TableauxNode) -> NonNull<TableauxNode> {
+    pub fn allocate_node(&mut self, node: TableauxNode) -> OwlResult<NonNull<TableauxNode>> {
         self.stats.arena_allocated_nodes += 1;
-        let node_arena = self.node_arena.lock().unwrap();
+        let node_arena = safe_lock(&self.node_arena, "node_arena")?;
         let allocated = node_arena.alloc(node);
-        NonNull::from(allocated)
+        Ok(NonNull::from(allocated))
     }
 
     /// Allocate a ClassExpression in the expression arena
-    pub fn allocate_expression(&mut self, expr: ClassExpression) -> NonNull<ClassExpression> {
+    pub fn allocate_expression(
+        &mut self,
+        expr: ClassExpression,
+    ) -> OwlResult<NonNull<ClassExpression>> {
         self.stats.arena_allocated_expressions += 1;
-        let expression_arena = self.expression_arena.lock().unwrap();
+        let expression_arena = safe_lock(&self.expression_arena, "expression_arena")?;
         let allocated = expression_arena.alloc(expr);
-        NonNull::from(allocated)
+        Ok(NonNull::from(allocated))
     }
 
     /// Allocate a blocking constraint in the constraint arena
-    pub fn allocate_constraint<T>(&mut self, constraint: T) -> NonNull<T> {
+    pub fn allocate_constraint<T>(&mut self, constraint: T) -> OwlResult<NonNull<T>> {
         self.stats.arena_allocated_constraints += 1;
-        let constraint_arena = self.constraint_arena.lock().unwrap();
+        let constraint_arena = safe_lock(&self.constraint_arena, "constraint_arena")?;
         let allocated = constraint_arena.alloc(constraint);
-        NonNull::from(allocated)
+        Ok(NonNull::from(allocated))
     }
 
     /// Intern a string in the string arena
-    pub fn intern_string(&mut self, s: &str) -> NonNull<str> {
-        let mut string_interner = self.string_interner.lock().unwrap();
+    pub fn intern_string(&mut self, s: &str) -> OwlResult<NonNull<str>> {
+        let mut string_interner = safe_lock(&self.string_interner, "string_interner")?;
         if let Some(&ptr) = string_interner.get(s) {
-            // SAFETY: The pointer was originally allocated from the string arena
-            // and we ensure the arena stays alive for the lifetime of this manager
-            let interned_str = unsafe {
-                std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len()))
-            };
-            return NonNull::from(interned_str);
+            // SAFETY: String interning lookup reconstruction
+            // 1. The pointer `ptr` was allocated from string_arena which is still alive
+            // 2. We hold a lock on string_interner, preventing pointer invalidation
+            // 3. The pointer points to valid UTF-8 data (validated when first stored)
+            // 4. The slice length `s.len()` exactly matches the original string length
+            // 5. The memory range [ptr, ptr + s.len()) is within the arena bounds
+            // 6. No mutable references exist to this string due to string interning semantics
+            let interned_str =
+                unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len())) };
+            return Ok(NonNull::from(interned_str));
         }
 
-        let string_arena = self.string_arena.lock().unwrap();
+        let string_arena = safe_lock(&self.string_arena, "string_arena")?;
         let allocated = string_arena.alloc_str(s);
         let ptr = allocated.as_ptr();
         string_interner.insert(s.to_string(), ptr);
         self.stats.string_intern_savings += s.len() * 2; // Estimate savings from interning
-        NonNull::from(allocated)
+        Ok(NonNull::from(allocated))
     }
 
     /// Reset all arenas (for tableaux restart)
-    pub fn reset(&mut self) {
-        let mut node_arena = self.node_arena.lock().unwrap();
-        let mut expression_arena = self.expression_arena.lock().unwrap();
-        let mut constraint_arena = self.constraint_arena.lock().unwrap();
-        let mut string_arena = self.string_arena.lock().unwrap();
-        let mut string_interner = self.string_interner.lock().unwrap();
+    pub fn reset(&mut self) -> OwlResult<()> {
+        let mut node_arena = safe_lock(&self.node_arena, "node_arena")?;
+        let mut expression_arena = safe_lock(&self.expression_arena, "expression_arena")?;
+        let mut constraint_arena = safe_lock(&self.constraint_arena, "constraint_arena")?;
+        let mut string_arena = safe_lock(&self.string_arena, "string_arena")?;
+        let mut string_interner = safe_lock(&self.string_interner, "string_interner")?;
 
         node_arena.reset();
         expression_arena.reset();
@@ -165,19 +251,20 @@ impl ArenaManager {
         string_arena.reset();
         string_interner.clear();
         self.stats = ArenaStats::default();
+        Ok(())
     }
 
     /// Get total memory usage across all arenas
-    pub fn total_allocated_bytes(&self) -> usize {
-        let node_arena = self.node_arena.lock().unwrap();
-        let expression_arena = self.expression_arena.lock().unwrap();
-        let constraint_arena = self.constraint_arena.lock().unwrap();
-        let string_arena = self.string_arena.lock().unwrap();
+    pub fn total_allocated_bytes(&self) -> OwlResult<usize> {
+        let node_arena = safe_lock(&self.node_arena, "node_arena")?;
+        let expression_arena = safe_lock(&self.expression_arena, "expression_arena")?;
+        let constraint_arena = safe_lock(&self.constraint_arena, "constraint_arena")?;
+        let string_arena = safe_lock(&self.string_arena, "string_arena")?;
 
-        node_arena.allocated_bytes()
+        Ok(node_arena.allocated_bytes()
             + expression_arena.allocated_bytes()
             + constraint_arena.allocated_bytes()
-            + string_arena.allocated_bytes()
+            + string_arena.allocated_bytes())
     }
 
     /// Get current statistics
@@ -218,19 +305,23 @@ impl ArenaTableauxNode {
 
     /// Get mutable reference to the node
     pub fn get_mut(&mut self) -> &mut TableauxNode {
-        // SAFETY: The node_ptr is guaranteed to be valid because:
-        // 1. It was allocated from an arena that outlives this struct
-        // 2. The _arena field ensures the arena stays alive
-        // 3. We have exclusive access via &mut self
+        // SAFETY: Arena node mutable access
+        // 1. node_ptr was allocated from an arena referenced by _arena field
+        // 2. _arena field's lifetime ensures arena outlives this struct
+        // 3. &mut self guarantees exclusive access to the node
+        // 4. No other references can exist due to Rust's borrowing rules
+        // 5. The memory pointed to is properly aligned and valid for TableauxNode
         unsafe { self.node_ptr.as_mut() }
     }
 
     /// Get immutable reference to the node
     pub fn get(&self) -> &TableauxNode {
-        // SAFETY: The node_ptr is guaranteed to be valid because:
-        // 1. It was allocated from an arena that outlives this struct
-        // 2. The _arena field ensures the arena stays alive
-        // 3. We have shared access via &self
+        // SAFETY: Arena node immutable access
+        // 1. node_ptr was allocated from an arena referenced by _arena field
+        // 2. _arena field's lifetime ensures arena outlives this struct
+        // 3. &self provides shared access, which is safe for immutable references
+        // 4. Arena allocation guarantees memory remains valid and unchanged
+        // 5. The pointer is properly aligned and points to valid TableauxNode data
         unsafe { self.node_ptr.as_ref() }
     }
 }
@@ -250,72 +341,230 @@ impl MemoryManager {
         }
     }
 
-    pub fn allocate_node(&self, node: TableauxNode) -> ArenaTableauxNode {
+    pub fn allocate_node(&self, node: TableauxNode) -> OwlResult<ArenaTableauxNode> {
         let node_size = mem::size_of::<TableauxNode>();
-        let arena_manager = self.arena_manager.lock().unwrap();
-        let mut memory_stats = self.memory_stats.lock().unwrap();
-        let mut node_arena = arena_manager.node_arena.lock().unwrap();
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        let mut node_arena = safe_lock(&arena_manager.node_arena, "node_arena")?;
         let arena_node = ArenaTableauxNode::new(node, &mut node_arena);
         memory_stats.add_node_allocation(node_size);
-        arena_node
+        Ok(arena_node)
     }
 
-    pub fn allocate_expression(&self, expr: ClassExpression) -> NonNull<ClassExpression> {
+    pub fn allocate_expression(
+        &self,
+        expr: ClassExpression,
+    ) -> OwlResult<NonNull<ClassExpression>> {
         let expr_size = mem::size_of::<ClassExpression>();
-        let mut arena_manager = self.arena_manager.lock().unwrap();
-        let mut memory_stats = self.memory_stats.lock().unwrap();
-        let allocated = arena_manager.allocate_expression(expr);
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        let allocated = arena_manager.allocate_expression(expr)?;
         memory_stats.add_expression_allocation(expr_size);
-        allocated
+        Ok(allocated)
     }
 
-    pub fn intern_string(&self, s: &str) -> NonNull<str> {
-        let mut arena_manager = self.arena_manager.lock().unwrap();
+    pub fn intern_string(&self, s: &str) -> OwlResult<NonNull<str>> {
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
         arena_manager.intern_string(s)
     }
 
-    pub fn get_memory_efficiency_ratio(&self) -> f64 {
-        let arena_manager = self.arena_manager.lock().unwrap();
+    pub fn get_memory_efficiency_ratio(&self) -> OwlResult<f64> {
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
         let stats = &arena_manager.stats;
         let total_traditional_allocations = stats.arena_allocated_nodes * 64 + // Traditional node allocation overhead
                                            stats.arena_allocated_expressions * 48 + // Traditional expression overhead
                                            stats.arena_allocated_constraints * 32; // Traditional constraint overhead
 
         if total_traditional_allocations == 0 {
-            1.0
+            Ok(1.0)
         } else {
             let total_arena_allocations = stats.arena_allocated_nodes
                 + stats.arena_allocated_expressions
                 + stats.arena_allocated_constraints;
-            total_traditional_allocations as f64 / total_arena_allocations.max(1) as f64
+            Ok(total_traditional_allocations as f64 / total_arena_allocations.max(1) as f64)
         }
     }
 
-    pub fn get_total_memory_savings(&self) -> usize {
-        let arena_manager = self.arena_manager.lock().unwrap();
+    pub fn get_total_memory_savings(&self) -> OwlResult<usize> {
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
         let stats = &arena_manager.stats;
-        stats.string_intern_savings + stats.arena_allocation_savings
+        Ok(stats.string_intern_savings + stats.arena_allocation_savings)
     }
 
-    pub fn reset(&self) {
-        let mut arena_manager = self.arena_manager.lock().unwrap();
-        let mut memory_stats = self.memory_stats.lock().unwrap();
-        arena_manager.reset();
+    pub fn reset(&self) -> OwlResult<()> {
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        arena_manager.reset()?;
         *memory_stats = MemoryStats::new();
+        Ok(())
     }
 
-    pub fn get_arena_stats(&self) -> ArenaStats {
-        let arena_manager = self.arena_manager.lock().unwrap();
-        arena_manager.stats.clone()
+    pub fn get_arena_stats(&self) -> OwlResult<ArenaStats> {
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        Ok(arena_manager.stats.clone())
     }
 
-    pub fn get_memory_stats(&self) -> MemoryStats {
-        let memory_stats = self.memory_stats.lock().unwrap();
-        memory_stats.clone()
+    pub fn get_memory_stats(&self) -> OwlResult<MemoryStats> {
+        let memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        Ok(memory_stats.clone())
     }
 }
 
 impl Default for MemoryManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Arena-optimized tableaux graph for maximum memory efficiency
+#[derive(Debug)]
+pub struct ArenaTableauxGraph {
+    /// Arena-allocated nodes
+    nodes: HashMap<NodeId, NonNull<TableauxNode>>,
+    /// Arena-optimized edge storage
+    edges: ArenaEdgeStorage,
+    /// Arena manager for all allocations
+    arena_manager: ArenaManager,
+    root: NodeId,
+    next_id: usize,
+    /// Memory optimization statistics
+    memory_stats: RefCell<MemoryOptimizationStats>,
+}
+
+impl ArenaTableauxGraph {
+    /// Create a new arena-optimized tableaux graph
+    pub fn new() -> Self {
+        let mut graph = Self {
+            nodes: HashMap::new(),
+            edges: ArenaEdgeStorage::new(),
+            arena_manager: ArenaManager::new(),
+            root: NodeId::new(0),
+            next_id: 1,
+            memory_stats: RefCell::new(MemoryOptimizationStats::default()),
+        };
+
+        // Create root node
+        let root_node = graph
+            .arena_manager
+            .allocate_node(TableauxNode::new(graph.root))
+            .expect("Failed to allocate root node");
+        graph.nodes.insert(graph.root, root_node);
+
+        graph
+    }
+
+    /// Add a node to the arena-optimized graph
+    pub fn add_node(&mut self) -> NodeId {
+        let node_id = NodeId::new(self.next_id);
+        self.next_id += 1;
+
+        // Allocate node in arena
+        let node = self
+            .arena_manager
+            .allocate_node(TableauxNode::new(node_id))
+            .expect("Failed to allocate node");
+        self.nodes.insert(node_id, node);
+
+        // Update memory statistics
+        self.memory_stats.borrow_mut().arena_allocated_nodes += 1;
+
+        node_id
+    }
+
+    /// Add a concept to a node in arena memory
+    pub fn add_concept(&mut self, node_id: NodeId, concept: ClassExpression) {
+        if let Some(node_ptr) = self.nodes.get_mut(&node_id) {
+            // SAFETY: Graph node mutable access
+            // 1. node_ptr was allocated from self.arena_manager which is still alive
+            // 2. &mut self ensures exclusive access to entire graph structure
+            // 3. No other references exist to this specific node due to borrow rules
+            // 4. Arena allocation guarantees memory stability and validity
+            // 5. The TableauxNode is properly initialized and safe to modify
+            unsafe {
+                let node = node_ptr.as_mut();
+                node.add_concept(concept);
+            }
+
+            // Update memory statistics
+            self.memory_stats.borrow_mut().arena_allocated_expressions += 1;
+        }
+    }
+
+    /// Add an edge to the arena-optimized graph
+    pub fn add_edge(&mut self, from: NodeId, property: &IRI, to: NodeId) {
+        self.edges.add_edge(from, property, to);
+    }
+
+    /// Get a node from the arena-optimized graph
+    pub fn get_node(&self, node_id: NodeId) -> Option<&TableauxNode> {
+        self.nodes.get(&node_id).map(|node_ptr| {
+            // SAFETY: Graph node immutable access
+            // 1. node_ptr was allocated from self.arena_manager which outlives &self
+            // 2. Arena allocation ensures memory remains valid and stable
+            // 3. &self provides shared access, safe for immutable references
+            // 4. The returned reference lifetime is correctly bound to &self
+            // 5. No mutation can occur during this reference's lifetime
+            unsafe { node_ptr.as_ref() }
+        })
+    }
+
+    /// Get a mutable node from the arena-optimized graph
+    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut TableauxNode> {
+        self.nodes.get_mut(&node_id).map(|node_ptr| {
+            // SAFETY: Graph node mutable access
+            // 1. node_ptr was allocated from self.arena_manager which outlives &mut self
+            // 2. &mut self guarantees exclusive access to entire graph
+            // 3. No other references exist to this node due to Rust's borrow checker
+            // 4. Arena allocation guarantees memory stability during mutation
+            // 5. The pointer is properly aligned and valid for TableauxNode access
+            unsafe { node_ptr.as_mut() }
+        })
+    }
+
+    /// Get successors of a node
+    pub fn get_successors(&self, node_id: NodeId, property: &IRI) -> Option<&[NodeId]> {
+        self.edges.get_successors(node_id, property)
+    }
+
+    /// Get memory optimization statistics
+    pub fn get_memory_stats(&self) -> MemoryOptimizationStats {
+        self.memory_stats.borrow().clone()
+    }
+
+    /// Get all nodes in the graph
+    pub fn get_nodes(&self) -> impl Iterator<Item = &TableauxNode> {
+        self.nodes.values().map(|node_ptr| {
+            // SAFETY: Iterator over all graph nodes
+            // 1. All node pointers were allocated from self.arena_manager
+            // 2. Arena lifetime is tied to &self, ensuring memory validity
+            // 3. &self provides shared access, safe for immutable references
+            // 4. Each node_ptr is properly aligned and points to valid TableauxNode
+            // 5. No mutation occurs during iterator lifetime
+            unsafe { node_ptr.as_ref() }
+        })
+    }
+
+    /// Clear the graph and reset all arenas
+    pub fn clear(&mut self) -> OwlResult<()> {
+        self.nodes.clear();
+        self.edges.clear();
+        self.arena_manager.reset()?;
+        *self.memory_stats.borrow_mut() = MemoryOptimizationStats::default();
+        self.root = NodeId::new(0);
+        self.next_id = 1;
+
+        // Recreate root node
+        let root_node = self
+            .arena_manager
+            .allocate_node(TableauxNode::new(self.root))
+            .expect("Failed to allocate root node");
+        self.nodes.insert(self.root, root_node);
+
+        Ok(())
+    }
+}
+
+impl Default for ArenaTableauxGraph {
     fn default() -> Self {
         Self::new()
     }

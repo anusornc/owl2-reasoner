@@ -302,7 +302,7 @@ pub fn force_global_iri_cache_eviction(count: usize) -> OwlResult<usize> {
 ///
 /// # Ok::<(), owl2_reasoner::OwlError>(())
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, bincode::Encode, bincode::Decode)]
 pub struct IRI {
     /// The full IRI string
     iri: Arc<str>,
@@ -412,7 +412,8 @@ impl IRI {
         prefix: P,
     ) -> OwlResult<Arc<IRI>> {
         let iri = Self::new_optimized(iri_str)?;
-        let mut iri_mut = Arc::try_unwrap(iri).unwrap_or_else(|iri| (*iri).clone());
+        let mut iri_mut = Arc::try_unwrap(iri)
+            .expect("IRI should have been freshly created with single reference");
         iri_mut.prefix = Some(Arc::from(prefix.as_ref()));
         Ok(Arc::new(iri_mut))
     }
@@ -425,21 +426,31 @@ impl IRI {
     }
 
     /// Get the IRI as a string slice
+    #[inline(always)]
     pub fn as_str(&self) -> &str {
         &self.iri
     }
 
+    /// Get the IRI as an Arc<str> reference - avoids cloning when sharing is needed
+    #[inline(always)]
+    pub fn as_arc_str(&self) -> &Arc<str> {
+        &self.iri
+    }
+
     /// Get the pre-computed hash value
+    #[inline(always)]
     pub fn hash_value(&self) -> u64 {
         self.hash
     }
 
     /// Get the namespace prefix if available
+    #[inline]
     pub fn prefix(&self) -> Option<&str> {
         self.prefix.as_deref()
     }
 
     /// Get the local name part (after last # or /)
+    #[inline]
     pub fn local_name(&self) -> &str {
         let iri = self.as_str();
 
@@ -454,6 +465,7 @@ impl IRI {
     }
 
     /// Get the namespace part (before last # or /)
+    #[inline]
     pub fn namespace(&self) -> &str {
         let iri = self.as_str();
 
@@ -467,23 +479,27 @@ impl IRI {
     }
 
     /// Check if this IRI is in the OWL namespace
+    #[inline(always)]
     pub fn is_owl(&self) -> bool {
         self.as_str().starts_with("http://www.w3.org/2002/07/owl#")
     }
 
     /// Check if this IRI is in the RDF namespace
+    #[inline(always)]
     pub fn is_rdf(&self) -> bool {
         self.as_str()
             .starts_with("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
     }
 
     /// Check if this IRI is in the RDFS namespace
+    #[inline(always)]
     pub fn is_rdfs(&self) -> bool {
         self.as_str()
             .starts_with("http://www.w3.org/2000/01/rdf-schema#")
     }
 
     /// Check if this IRI is in the XSD namespace
+    #[inline(always)]
     pub fn is_xsd(&self) -> bool {
         self.as_str()
             .starts_with("http://www.w3.org/2001/XMLSchema#")
@@ -684,13 +700,14 @@ impl IRI {
 
             // Check for obviously problematic sequences
             if i > 0 {
-                let prev_char = iri.chars().nth(i - 1).unwrap();
-                if prev_char == '%' && !c.is_ascii_hexdigit() {
-                    return Err(OwlError::InvalidIRI(format!(
-                        "Invalid percent encoding at position {}: '%{}'",
-                        i - 1,
-                        c
-                    )));
+                if let Some(prev_char) = iri.chars().nth(i - 1) {
+                    if prev_char == '%' && !c.is_ascii_hexdigit() {
+                        return Err(OwlError::InvalidIRI(format!(
+                            "Invalid percent encoding at position {}: '%{}'",
+                            i - 1,
+                            c
+                        )));
+                    }
                 }
             }
         }
@@ -702,7 +719,9 @@ impl IRI {
     #[allow(dead_code)]
     fn validate_iri_structure(iri: &str) -> OwlResult<()> {
         // Check for double slashes in scheme part
-        let colon_pos = iri.find(':').unwrap();
+        let colon_pos = iri
+            .find(':')
+            .ok_or_else(|| OwlError::InvalidIRI("IRI missing scheme separator ':'".to_string()))?;
         if iri[..colon_pos].contains("//") {
             return Err(OwlError::InvalidIRI(
                 "IRI scheme cannot contain '//'".to_string(),

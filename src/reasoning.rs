@@ -19,7 +19,7 @@ pub use rules::*;
 pub use simple::*;
 pub use tableaux::*;
 
-use crate::error::OwlResult;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use std::sync::Arc;
@@ -129,7 +129,9 @@ impl Reasoner for OwlReasoner {
             if let Some(tableaux) = &mut self.tableaux {
                 // Use tableaux reasoning for proper consistency checking
                 // Check if owl:Thing is satisfiable - if not, ontology is inconsistent
-                let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
+                let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").map_err(|e| {
+                    OwlError::ReasoningError(format!("Failed to create owl:Thing IRI: {}", e))
+                })?;
                 return tableaux.is_class_satisfiable(&thing_iri);
             }
         }

@@ -245,13 +245,19 @@ pub struct HttpImportSource {
 impl HttpImportSource {
     /// Create a new HTTP import source
     pub fn new() -> OwlResult<Self> {
+        let dummy_iri = IRI::new("http://dummy").unwrap_or_else(|_| {
+            IRI::new("http://localhost/dummy").unwrap_or_else(|_| {
+                IRI::new("urn:dummy").expect("Fallback IRI creation should never fail")
+            })
+        });
+
         let client = reqwest::Client::builder()
             .user_agent("OWL2-Reasoner/0.1.0")
             .timeout(Duration::from_secs(30))
             .redirect(reqwest::redirect::Policy::limited(5))
             .build()
             .map_err(|e| OwlError::ImportResolutionError {
-                iri: IRI::new("http://dummy").unwrap(),
+                iri: dummy_iri,
                 message: format!("Failed to create HTTP client: {}", e),
             })?;
 
@@ -270,8 +276,14 @@ impl HttpImportSource {
 
 impl Default for HttpImportSource {
     fn default() -> Self {
-        Self::new().unwrap_or_else(|_| Self {
-            client: reqwest::Client::new(),
+        Self::new().unwrap_or_else(|_| {
+            // Fallback to basic client if configured client fails
+            let client = reqwest::Client::builder()
+                .user_agent("OWL2-Reasoner/0.1.0")
+                .timeout(Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new());
+            Self { client }
         })
     }
 }
@@ -514,11 +526,15 @@ impl ImportResolver {
         depth: usize,
     ) -> OwlResult<()> {
         if depth > self.config.max_depth {
+            let fallback_iri = IRI::new("unknown").unwrap_or_else(|_| {
+                IRI::new("urn:unknown").unwrap_or_else(|_| {
+                    IRI::new("http://localhost/unknown")
+                        .expect("Fallback IRI creation should never fail")
+                })
+            });
+
             return Err(OwlError::ImportResolutionError {
-                iri: ontology
-                    .iri()
-                    .cloned()
-                    .unwrap_or_else(|| IRI::new("unknown").unwrap()),
+                iri: ontology.iri().cloned().unwrap_or(fallback_iri),
                 message: format!("Maximum import depth {} exceeded", self.config.max_depth),
             });
         }
@@ -759,17 +775,17 @@ mod tests {
     fn test_file_system_source() {
         let source = FileSystemImportSource::new();
 
-        let file_iri = IRI::new("file://test.owl").unwrap();
+        let file_iri = IRI::new("file://test.owl").expect("Failed to create file IRI");
         assert!(source.can_resolve(&file_iri));
 
-        let http_iri = IRI::new("http://example.org/test.owl").unwrap();
+        let http_iri = IRI::new("http://example.org/test.owl").expect("Failed to create HTTP IRI");
         assert!(!source.can_resolve(&http_iri));
     }
 
     #[test]
     fn test_cached_ontology() {
         let ontology = Ontology::new();
-        let iri = IRI::new("http://example.org/test.owl").unwrap();
+        let iri = IRI::new("http://example.org/test.owl").expect("Failed to create test IRI");
 
         let cached = CachedOntology::new(ontology.clone(), iri.clone(), Duration::from_secs(3600));
         assert!(cached.is_valid());
@@ -783,7 +799,7 @@ mod tests {
     #[test]
     fn test_import_cache() {
         let mut cache = ImportCache::new(1000);
-        let iri = IRI::new("http://example.org/test.owl").unwrap();
+        let iri = IRI::new("http://example.org/test.owl").expect("Failed to create test IRI");
         let ontology = Ontology::new();
 
         let cached = CachedOntology::new(ontology, iri.clone(), Duration::from_secs(3600));
@@ -792,7 +808,12 @@ mod tests {
         cache.put(iri.clone(), cached.clone());
         let retrieved = cache.get(&iri);
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().source_iri, iri);
+        assert_eq!(
+            retrieved
+                .expect("Failed to retrieve cached ontology")
+                .source_iri,
+            iri
+        );
 
         // Test stats
         let stats = cache.stats();
@@ -829,8 +850,8 @@ mod import_resolver_tests {
     fn test_import_cache_eviction() {
         let mut cache = ImportCache::new(100); // Small cache size
 
-        let iri1 = IRI::new("http://example.org/test1.owl").unwrap();
-        let iri2 = IRI::new("http://example.org/test2.owl").unwrap();
+        let iri1 = IRI::new("http://example.org/test1.owl").expect("Failed to create test IRI 1");
+        let iri2 = IRI::new("http://example.org/test2.owl").expect("Failed to create test IRI 2");
 
         let ontology1 = Ontology::new();
         let ontology2 = Ontology::new();
@@ -863,7 +884,8 @@ mod import_resolver_tests {
             ..Default::default()
         };
 
-        let resolver = ImportResolver::with_config(config).unwrap();
+        let resolver = ImportResolver::with_config(config)
+            .expect("Failed to create import resolver with custom config");
         assert_eq!(resolver.config().max_depth, 5);
         assert_eq!(resolver.config().max_cache_size, 50);
     }
@@ -877,26 +899,32 @@ mod import_resolver_tests {
 
     #[test]
     fn test_ontology_merge_functionality() {
-        let resolver = ImportResolver::new().unwrap();
+        let resolver = ImportResolver::new().expect("Failed to create import resolver");
 
         // Create source ontology with some entities
         let mut source = Ontology::new();
         let person_class = Class::new("http://example.org/Person");
-        source.add_class(person_class.clone()).unwrap();
+        source
+            .add_class(person_class.clone())
+            .expect("Failed to add class to source ontology");
 
         let has_parent_prop = ObjectProperty::new("http://example.org/hasParent");
-        source.add_object_property(has_parent_prop.clone()).unwrap();
+        source
+            .add_object_property(has_parent_prop.clone())
+            .expect("Failed to add object property to source ontology");
 
         let john_individual = NamedIndividual::new("http://example.org/John");
         source
             .add_named_individual(john_individual.clone())
-            .unwrap();
+            .expect("Failed to add named individual to source ontology");
 
         // Create target ontology
         let mut target = Ontology::new();
 
         // Merge source into target
-        resolver.merge_ontology(&mut target, &source).unwrap();
+        resolver
+            .merge_ontology(&mut target, &source)
+            .expect("Failed to merge ontologies");
 
         // Check that entities were merged
         assert_eq!(target.classes().len(), 1);
@@ -930,7 +958,7 @@ ex:Person a owl:Class .
         // Should succeed without any import resolution
         assert!(result.is_ok());
 
-        let ontology = result.unwrap();
+        let ontology = result.expect("Failed to parse turtle content");
         assert_eq!(ontology.imports().len(), 1);
         assert_eq!(ontology.classes().len(), 1);
     }
@@ -944,7 +972,7 @@ ex:Person a owl:Class .
 
     #[test]
     fn test_file_resolution_with_temp_directory() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
         let test_file = temp_dir.path().join("test_ontology.ttl");
 
         // Create a test ontology file
@@ -958,14 +986,14 @@ ex:Person a owl:Class .
     rdfs:label "Test Class" .
 "#;
 
-        std::fs::write(&test_file, test_content).unwrap();
+        std::fs::write(&test_file, test_content).expect("Failed to write test file");
 
         // Create a file system source with the temp directory
         let mut source = FileSystemImportSource::new();
         source.add_base_directory(temp_dir.path());
 
         // Test if it can resolve the file
-        let iri = IRI::new("file://test_ontology.ttl").unwrap();
+        let iri = IRI::new("file://test_ontology.ttl").expect("Failed to create file IRI");
         assert!(source.can_resolve(&iri));
 
         // Note: Actually resolving would require the parser dependencies to be available
@@ -975,7 +1003,7 @@ ex:Person a owl:Class .
     #[test]
     fn test_import_cache_ttl_behavior() {
         let mut cache = ImportCache::new(1000);
-        let iri = IRI::new("http://example.org/test.owl").unwrap();
+        let iri = IRI::new("http://example.org/test.owl").expect("Failed to create test IRI");
         let ontology = Ontology::new();
 
         // Create a cached entry with reasonable TTL (100ms instead of 1ms)

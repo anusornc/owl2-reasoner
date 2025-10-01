@@ -39,7 +39,10 @@ fn test_reification_axiom_creation() -> OwlResult<()> {
             reification.reification_resource(),
             &Arc::new(IRI::new("http://example.org/statement1")?)
         );
-        assert_eq!(reification.subject(), &Arc::new(IRI::new("http://example.org/john")?));
+        assert_eq!(
+            reification.subject(),
+            &Arc::new(IRI::new("http://example.org/john")?)
+        );
         assert_eq!(
             reification.predicate(),
             &Arc::new(IRI::new("http://example.org/hasParent")?)
@@ -335,7 +338,10 @@ fn test_reification_rdf_statement_type() -> OwlResult<()> {
     if let Some(object_iri) = type_assertion.object_iri() {
         assert_eq!(
             **object_iri,
-            Arc::new(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement")?).into()
+            Arc::new(IRI::new(
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement"
+            )?)
+            .into()
         );
     } else {
         panic!("Expected IRI object for rdf:type");

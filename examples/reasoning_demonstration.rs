@@ -128,9 +128,7 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
         }
         Err(e) => {
             println!("❌ **FAILED:** Ontology parsing failed: {}", e);
-            return Err(std::io::Error::other(
-                e.to_string(),
-            ));
+            return Err(std::io::Error::other(e.to_string()));
         }
     };
 
@@ -228,7 +226,7 @@ DifferentIndividuals(:JohnDoe :JaneSmith)
     println!("   Checking compliance with OWL2 profiles...\n");
 
     use std::sync::Arc;
-    let mut profile_validator = Owl2ProfileValidator::new(Arc::new(ontology.clone()));
+    let mut profile_validator = Owl2ProfileValidator::new(Arc::new(ontology.clone())).unwrap();
     let profiles = vec![Owl2Profile::EL, Owl2Profile::QL, Owl2Profile::RL];
 
     for profile in profiles {

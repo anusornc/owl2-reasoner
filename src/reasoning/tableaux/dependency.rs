@@ -63,14 +63,84 @@
 //! ```
 
 use super::core::NodeId;
-use std::collections::{HashMap, HashSet};
+use crate::axioms::class_expressions::ClassExpression;
+use crate::axioms::property_expressions::ObjectPropertyExpression;
+use crate::entities::{Class, Individual};
+use crate::error::OwlResult;
+use hashbrown::HashMap;
+use std::collections::HashSet;
 
 /// Dependency between tableaux nodes and choices
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dependency {
-    pub dependent_node: NodeId,
-    pub dependency_source: DependencySource,
-    pub dependency_type: DependencyType,
+    /// The node that created this dependency
+    pub source_node: NodeId,
+    /// The reasoning choice that led to this dependency
+    pub choice: ReasoningChoice,
+    /// Nodes that depend on this choice
+    pub dependent_nodes: Vec<NodeId>,
+    /// The level at which this dependency was created
+    pub level: usize,
+    /// Whether this dependency has been resolved
+    pub resolved: bool,
+}
+
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+pub enum ReasoningChoice {
+    /// Choice rule application: which rule to apply
+    RuleApplication {
+        concept: ClassExpression,
+        node_id: NodeId,
+        rule_applied: String,
+    },
+    /// Non-deterministic choice: which branch to explore
+    BranchChoice {
+        node_id: NodeId,
+        branch_options: Vec<ClassExpression>,
+        chosen_branch: usize,
+    },
+    /// Individual selection for nominal reasoning
+    IndividualSelection {
+        nominal_node: NodeId,
+        selected_individual: Individual,
+        available_individuals: Vec<Individual>,
+    },
+    /// Cardinality constraint handling
+    CardinalityHandling {
+        node_id: NodeId,
+        property: ObjectPropertyExpression,
+        min_cardinality: Option<usize>,
+        max_cardinality: Option<usize>,
+        created_fillers: Vec<NodeId>,
+    },
+}
+
+/// Backtracking decision point
+#[derive(Debug, Clone)]
+pub struct BacktrackPoint {
+    /// The node where the decision was made
+    pub node_id: NodeId,
+    /// The choice that was made
+    pub choice: ReasoningChoice,
+    /// Dependencies created by this choice
+    pub dependencies: Vec<Dependency>,
+    /// Alternative choices that could have been made
+    pub alternatives: Vec<ReasoningChoice>,
+    /// The reasoning level/depth
+    pub level: usize,
+    /// Whether this point has been fully explored
+    pub exhausted: bool,
+}
+
+/// Backtracking statistics
+#[derive(Debug, Default)]
+pub struct BacktrackStats {
+    pub total_backtracks: usize,
+    pub dependency_directed_backtracks: usize,
+    pub naive_backtracks: usize,
+    pub choices_explored: usize,
+    pub contradictions_detected: usize,
+    pub _average_backtrack_depth: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,6 +151,8 @@ pub enum DependencySource {
     Node(NodeId),
     /// Global constraint
     GlobalConstraint,
+    /// Advanced reasoning choice
+    ReasoningChoice(ReasoningChoice),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,18 +165,61 @@ pub enum DependencyType {
     Individual,
     /// Concept dependency
     Concept,
+    /// Rule application dependency
+    RuleApplication,
+    /// Branch choice dependency
+    BranchChoice,
+    /// Cardinality dependency
+    Cardinality,
 }
 
 impl Dependency {
     pub fn new(
         dependent_node: NodeId,
         dependency_source: DependencySource,
-        dependency_type: DependencyType,
+        _dependency_type: DependencyType,
     ) -> Self {
         Self {
-            dependent_node,
-            dependency_source,
-            dependency_type,
+            source_node: match dependency_source {
+                DependencySource::Node(node_id) => node_id,
+                DependencySource::ChoicePoint(_) => NodeId::new(0), // Placeholder
+                DependencySource::GlobalConstraint => NodeId::new(0), // Placeholder
+                DependencySource::ReasoningChoice(ref choice) => match choice {
+                    ReasoningChoice::RuleApplication { node_id, .. } => *node_id,
+                    ReasoningChoice::BranchChoice { node_id, .. } => *node_id,
+                    ReasoningChoice::IndividualSelection { nominal_node, .. } => *nominal_node,
+                    ReasoningChoice::CardinalityHandling { node_id, .. } => *node_id,
+                },
+            },
+            choice: match dependency_source {
+                DependencySource::ReasoningChoice(choice) => choice,
+                _ => ReasoningChoice::RuleApplication {
+                    concept: ClassExpression::Class(Class::new(
+                        "http://www.w3.org/2002/07/owl#Thing",
+                    )),
+                    node_id: dependent_node,
+                    rule_applied: "unknown".to_string(),
+                },
+            },
+            dependent_nodes: vec![dependent_node],
+            level: 0,
+            resolved: false,
+        }
+    }
+
+    /// Create a dependency from a reasoning choice
+    pub fn from_reasoning_choice(
+        source_node: NodeId,
+        choice: ReasoningChoice,
+        dependent_nodes: Vec<NodeId>,
+        level: usize,
+    ) -> Self {
+        Self {
+            source_node,
+            choice,
+            dependent_nodes,
+            level,
+            resolved: false,
         }
     }
 }
@@ -152,6 +267,12 @@ pub struct DependencyManager {
     pub choice_points: Vec<ChoicePoint>,
     pub next_choice_id: usize,
     pub dependency_graph: HashMap<NodeId, HashSet<NodeId>>,
+    /// Advanced backtracking features
+    pub backtrack_stack: Vec<BacktrackPoint>,
+    pub node_dependencies: HashMap<NodeId, Vec<Dependency>>,
+    pub contradictory_choices: HashSet<ReasoningChoice>,
+    pub current_level: usize,
+    pub stats: BacktrackStats,
 }
 
 impl DependencyManager {
@@ -161,31 +282,174 @@ impl DependencyManager {
             choice_points: Vec::new(),
             next_choice_id: 0,
             dependency_graph: HashMap::new(),
+            backtrack_stack: Vec::new(),
+            node_dependencies: HashMap::new(),
+            contradictory_choices: HashSet::new(),
+            current_level: 0,
+            stats: BacktrackStats::default(),
         }
     }
 
     pub fn add_dependency(&mut self, dependency: Dependency) {
-        let dependent_node = dependency.dependent_node;
+        let dependent_node = dependency
+            .dependent_nodes
+            .first()
+            .copied()
+            .unwrap_or(NodeId::new(0));
         self.dependencies
             .entry(dependent_node)
             .or_default()
             .push(dependency.clone());
 
+        // Also add to node dependencies for advanced backtracking
+        self.node_dependencies
+            .entry(dependent_node)
+            .or_default()
+            .push(dependency.clone());
+
         // Update dependency graph
-        match dependency.dependency_source {
-            DependencySource::Node(source_node) => {
-                self.dependency_graph
-                    .entry(source_node)
-                    .or_default()
-                    .insert(dependent_node);
-            }
-            DependencySource::ChoicePoint(_) => {
-                // Choice points will be handled separately
-            }
-            DependencySource::GlobalConstraint => {
-                // Global constraints affect all nodes
+        match dependency.source_node {
+            source_node => {
+                for &dep_node in &dependency.dependent_nodes {
+                    self.dependency_graph
+                        .entry(source_node)
+                        .or_default()
+                        .insert(dep_node);
+                }
             }
         }
+    }
+
+    /// Add a dependency created by the current choice
+    pub fn add_dependency_from_choice(
+        &mut self,
+        dependent_node: NodeId,
+        source_node: NodeId,
+        choice: &ReasoningChoice,
+    ) {
+        if let Some(current_point) = self.backtrack_stack.last_mut() {
+            let dependency = Dependency {
+                source_node,
+                choice: choice.clone(),
+                dependent_nodes: vec![dependent_node],
+                level: self.current_level - 1,
+                resolved: false,
+            };
+
+            current_point.dependencies.push(dependency.clone());
+
+            // Add to node dependency index
+            self.node_dependencies
+                .entry(dependent_node)
+                .or_default()
+                .push(dependency);
+        }
+    }
+
+    /// Push a new reasoning choice onto the stack
+    pub fn push_choice(
+        &mut self,
+        node_id: NodeId,
+        choice: ReasoningChoice,
+        alternatives: Vec<ReasoningChoice>,
+    ) {
+        let backtrack_point = BacktrackPoint {
+            node_id,
+            choice: choice.clone(),
+            dependencies: Vec::new(),
+            alternatives,
+            level: self.current_level,
+            exhausted: false,
+        };
+
+        self.backtrack_stack.push(backtrack_point);
+        self.current_level += 1;
+        self.stats.choices_explored += 1;
+    }
+
+    /// Mark a choice as contradictory
+    pub fn mark_contradictory(&mut self, choice: &ReasoningChoice) {
+        self.contradictory_choices.insert(choice.clone());
+        self.stats.contradictions_detected += 1;
+    }
+
+    /// Find the best backtrack point based on dependencies
+    pub fn find_backtrack_point(&mut self, contradiction_node: NodeId) -> Option<usize> {
+        // First, try dependency-directed backtracking
+        if let Some(dependencies) = self.node_dependencies.get(&contradiction_node) {
+            for dependency in dependencies {
+                // Find the backtrack point that created this dependency
+                for (i, point) in self.backtrack_stack.iter().enumerate().rev() {
+                    if point.choice == dependency.choice && !point.exhausted {
+                        // Check if there are unexplored alternatives
+                        if !point.alternatives.is_empty() {
+                            self.stats.dependency_directed_backtracks += 1;
+                            return Some(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fall back to naive backtracking (most recent choice with alternatives)
+        for (i, point) in self.backtrack_stack.iter().enumerate().rev() {
+            if !point.exhausted && !point.alternatives.is_empty() {
+                self.stats.naive_backtracks += 1;
+                return Some(i);
+            }
+        }
+
+        None
+    }
+
+    /// Execute backtracking to a specific point
+    pub fn backtrack_to_level(&mut self, target_level: usize) -> OwlResult<()> {
+        // Remove all choice points after the specified level
+        self.backtrack_stack
+            .retain(|point| point.level <= target_level);
+
+        // Remove dependencies after target level
+        self.node_dependencies
+            .retain(|_, dependencies| dependencies.iter().any(|dep| dep.level <= target_level));
+
+        // Mark backtrack points as exhausted up to target level
+        for point in &mut self.backtrack_stack {
+            if point.level > target_level {
+                point.exhausted = true;
+            }
+        }
+
+        self.current_level = target_level;
+        self.stats.total_backtracks += 1;
+
+        Ok(())
+    }
+
+    /// Check if a choice is known to be contradictory
+    pub fn is_contradictory_choice(&self, choice: &ReasoningChoice) -> bool {
+        self.contradictory_choices.contains(choice)
+    }
+
+    /// Get backtracking statistics
+    pub fn get_backtrack_stats(&self) -> &BacktrackStats {
+        &self.stats
+    }
+
+    /// Get current reasoning level
+    pub fn current_level(&self) -> usize {
+        self.current_level
+    }
+
+    /// Get the latest backtrack point
+    pub fn latest_backtrack_point(&self) -> Option<&BacktrackPoint> {
+        self.backtrack_stack.last()
+    }
+
+    /// Check if there are pending backtrack points
+    pub fn has_pending_choices(&self) -> bool {
+        self.backtrack_stack
+            .iter()
+            .any(|point| !point.exhausted && !point.alternatives.is_empty())
     }
 
     pub fn create_choice_point(
@@ -229,6 +493,11 @@ impl DependencyManager {
         self.choice_points.clear();
         self.next_choice_id = 0;
         self.dependency_graph.clear();
+        self.backtrack_stack.clear();
+        self.node_dependencies.clear();
+        self.contradictory_choices.clear();
+        self.current_level = 0;
+        self.stats = BacktrackStats::default();
     }
 
     fn rebuild_dependencies(&mut self) {
@@ -236,6 +505,18 @@ impl DependencyManager {
         // properly rebuild the dependency graph from remaining choice points
         self.dependencies.clear();
         self.dependency_graph.clear();
+
+        // Rebuild from remaining backtrack points
+        for point in &self.backtrack_stack {
+            for dependency in &point.dependencies {
+                for &dependent_node in &dependency.dependent_nodes {
+                    self.dependencies
+                        .entry(dependent_node)
+                        .or_default()
+                        .push(dependency.clone());
+                }
+            }
+        }
     }
 
     pub fn get_latest_choice_point(&self) -> Option<&ChoicePoint> {

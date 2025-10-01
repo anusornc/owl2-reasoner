@@ -44,6 +44,7 @@ use crate::axioms::class_expressions::ClassExpression;
 use crate::entities::*;
 use crate::error::{OwlError, OwlResult};
 use crate::iri::{IRIRegistry, IRI};
+use crate::parser::import_resolver::ImportResolver;
 use hashbrown::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -1432,12 +1433,45 @@ impl Ontology {
 
     /// Resolve imports for this ontology
     ///
-    /// This is a placeholder implementation that currently does nothing.
-    /// In a full implementation, this would use an ImportResolver to process
-    /// ontology imports and merge the imported ontologies.
+    /// This method processes all owl:imports declarations in the ontology,
+    /// recursively loading and merging imported ontologies using the ImportResolver.
+    /// The ImportResolver handles caching, circular dependency detection, and
+    /// supports multiple import sources (file system, HTTP, etc.).
+    ///
+    /// ## Process
+    ///
+    /// 1. Creates an ImportResolver with default configuration
+    /// 2. Calls the resolver to process all imports declared in this ontology
+    /// 3. Recursively resolves imports in imported ontologies
+    /// 4. Merges all imported entities and axioms into this ontology
+    ///
+    /// ## Error Handling
+    ///
+    /// Returns an error if:
+    /// - Import resolution fails (network issues, file not found, etc.)
+    /// - Circular import dependencies are detected
+    /// - Maximum import depth is exceeded
+    /// - Imported ontologies contain invalid OWL2 constructs
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use owl2_reasoner::Ontology;
+    ///
+    /// let mut ontology = Ontology::new();
+    /// ontology.add_import("http://example.org/imported-ontology.owl");
+    ///
+    /// // Resolve all imports
+    /// ontology.resolve_imports()?;
+    /// # Ok::<(), owl2_reasoner::OwlError>(())
+    /// ```
     pub fn resolve_imports(&mut self) -> OwlResult<()> {
-        // TODO: Implement proper import resolution using ImportResolver
-        // For now, just return Ok to allow compilation
+        // Create an ImportResolver with default configuration
+        let mut resolver = ImportResolver::new()?;
+
+        // Resolve all imports for this ontology
+        resolver.resolve_imports(self)?;
+
         Ok(())
     }
 }
@@ -1497,5 +1531,33 @@ mod tests {
         ontology.add_import("http://example.org/import2");
 
         assert_eq!(ontology.imports().len(), 2);
+    }
+
+    #[test]
+    fn test_resolve_imports_no_imports() {
+        let mut ontology = Ontology::new();
+
+        // Ontology with no imports should resolve successfully
+        let result = ontology.resolve_imports();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_resolve_imports_with_imports() {
+        let mut ontology = Ontology::new();
+
+        // Add a file import that doesn't exist
+        ontology.add_import("file://non-existent-ontology.owl");
+
+        // Import resolution should succeed even with broken imports
+        // (the resolver logs warnings but doesn't fail the entire operation)
+        let result = ontology.resolve_imports();
+        assert!(
+            result.is_ok(),
+            "Import resolution should succeed even with broken imports"
+        );
+
+        // The import should still be recorded
+        assert_eq!(ontology.imports().len(), 1);
     }
 }

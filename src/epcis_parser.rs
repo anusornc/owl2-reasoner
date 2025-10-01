@@ -251,7 +251,6 @@ impl EPCISDocumentParser {
 
 /// Helper functions for EPCIS parsing
 impl EPCISDocumentParser {
-
     /// Extract all EPCs from events
     pub fn extract_all_epcs(&self, events: &[EPCISSimpleEvent]) -> Vec<String> {
         let mut epcs = Vec::new();

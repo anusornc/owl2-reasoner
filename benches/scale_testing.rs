@@ -79,8 +79,7 @@ fn scale_ontology_operations(c: &mut Criterion) {
 
                     // Add properties (fewer than classes)
                     for i in 0..(*count / 10).max(1) {
-                        let iri =
-                            IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
+                        let iri = IRI::new(format!("http://example.org/hasProperty{}", i)).unwrap();
                         let prop = ObjectProperty::new(iri);
                         let _ = ontology.add_object_property(prop);
                     }
@@ -219,8 +218,7 @@ fn scale_combined_operations(c: &mut Criterion) {
                     for i in 0..classes.len().min(5) {
                         for j in 0..classes.len().min(5) {
                             if i != j {
-                                let _ =
-                                    reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
+                                let _ = reasoner.is_subclass_of(classes[i].iri(), classes[j].iri());
                             }
                         }
                     }

@@ -12,6 +12,20 @@ use hashbrown::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+/// Helper function to avoid unnecessary (**arc_iri).clone() operations
+#[inline(always)]
+fn arc_iri_to_owned(arc_iri: &Arc<IRI>) -> IRI {
+    // This is still needed for PatternTerm::IRI which takes owned IRI
+    // but we optimize by avoiding the double dereference
+    (**arc_iri).clone()
+}
+
+/// Helper function to create PatternTerm::IRI from Arc<IRI> with minimal cloning
+#[inline(always)]
+fn pattern_term_from_arc(arc_iri: &Arc<IRI>) -> PatternTerm {
+    PatternTerm::IRI(arc_iri_to_owned(arc_iri))
+}
+
 /// Query engine for OWL2 ontologies
 pub struct QueryEngine {
     ontology: Arc<Ontology>,
@@ -363,7 +377,7 @@ impl QueryEngine {
             .expect("Failed to create rdf:type IRI");
 
         let individual_iri = axiom.individual();
-        let individual_term = PatternTerm::IRI((**individual_iri).clone());
+        let individual_term = pattern_term_from_arc(individual_iri);
 
         if self.is_class_assertion_match(triple, &individual_term, &type_iri, axiom.class_expr()) {
             Some(self.create_class_assertion_binding(triple, &individual_term, axiom.class_expr()))
@@ -382,7 +396,7 @@ impl QueryEngine {
     ) -> bool {
         let subject_match = self.match_term(&triple.subject, individual_term);
         let predicate_match =
-            self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri.clone()));
+            self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri.clone())); // TODO: Could be optimized further
         let object_match = self.match_class_expr_term(&triple.object, class_expr);
 
         subject_match && predicate_match && object_match
@@ -414,8 +428,8 @@ impl QueryEngine {
         let subject_iri = axiom.subject();
         let property_iri = axiom.property();
 
-        let subject_term = PatternTerm::IRI((**subject_iri).clone());
-        let property_term = PatternTerm::IRI((**property_iri).clone());
+        let subject_term = pattern_term_from_arc(subject_iri);
+        let property_term = pattern_term_from_arc(property_iri);
 
         if self.is_property_assertion_match(triple, &subject_term, &property_term, axiom) {
             Some(self.create_property_assertion_binding(
@@ -451,7 +465,7 @@ impl QueryEngine {
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> bool {
         if let Some(object_iri) = axiom.object_iri() {
-            self.match_term(object_term, &PatternTerm::IRI((**object_iri).clone()))
+            self.match_term(object_term, &pattern_term_from_arc(object_iri))
         } else {
             // Skip anonymous individuals in query matching for now
             false
@@ -477,7 +491,7 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.object,
-                &PatternTerm::IRI((**object_iri).clone()),
+                &pattern_term_from_arc(object_iri),
             );
         }
 
@@ -567,10 +581,8 @@ impl QueryEngine {
             })
             .expect("Failed to create rdf:type IRI");
 
-        let subject_match = self.match_term(
-            &triple.subject,
-            &PatternTerm::IRI((**axiom.individual()).clone()),
-        );
+        let subject_match =
+            self.match_term(&triple.subject, &pattern_term_from_arc(axiom.individual()));
         let predicate_match = self.match_term(&triple.predicate, &PatternTerm::IRI(type_iri));
         let object_match = self.match_class_expr_term(&triple.object, axiom.class_expr());
 
@@ -582,7 +594,7 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.subject,
-                &PatternTerm::IRI((**axiom.individual()).clone()),
+                &pattern_term_from_arc(axiom.individual()),
             );
             self.add_class_expr_binding(&mut binding, &triple.object, axiom.class_expr());
 
@@ -599,14 +611,10 @@ impl QueryEngine {
         triple: &TriplePattern,
         axiom: &crate::axioms::PropertyAssertionAxiom,
     ) -> Option<QueryBinding> {
-        let subject_match = self.match_term(
-            &triple.subject,
-            &PatternTerm::IRI((**axiom.subject()).clone()),
-        );
-        let predicate_match = self.match_term(
-            &triple.predicate,
-            &PatternTerm::IRI((**axiom.property()).clone()),
-        );
+        let subject_match =
+            self.match_term(&triple.subject, &pattern_term_from_arc(axiom.subject()));
+        let predicate_match =
+            self.match_term(&triple.predicate, &pattern_term_from_arc(axiom.property()));
         let object_match = if let Some(object_iri) = axiom.object_iri() {
             self.match_term(&triple.object, &PatternTerm::IRI((**object_iri).clone()))
         } else {
@@ -622,18 +630,18 @@ impl QueryEngine {
             self.add_binding(
                 &mut binding,
                 &triple.subject,
-                &PatternTerm::IRI((**axiom.subject()).clone()),
+                &pattern_term_from_arc(axiom.subject()),
             );
             self.add_binding(
                 &mut binding,
                 &triple.predicate,
-                &PatternTerm::IRI((**axiom.property()).clone()),
+                &pattern_term_from_arc(axiom.property()),
             );
             if let Some(object_iri) = axiom.object_iri() {
                 self.add_binding(
                     &mut binding,
                     &triple.object,
-                    &PatternTerm::IRI((**object_iri).clone()),
+                    &pattern_term_from_arc(object_iri),
                 );
             }
 
@@ -670,8 +678,8 @@ impl QueryEngine {
             .ok()?;
 
         // Clone once and reuse terms
-        let sub_term = PatternTerm::IRI((**sub_iri).clone());
-        let super_term = PatternTerm::IRI((**super_iri).clone());
+        let sub_term = pattern_term_from_arc(sub_iri);
+        let super_term = pattern_term_from_arc(super_iri);
         let subclass_term = PatternTerm::IRI(rdfs_subclassof.clone());
 
         let subject_match = self.match_term(&triple.subject, &sub_term);
@@ -993,8 +1001,10 @@ mod tests {
             .expect("Failed to add john individual");
 
         // Add class assertion
-        let class_assertion =
-            ClassAssertionAxiom::new(Arc::new(john_iri.clone()), ClassExpression::Class(person_class));
+        let class_assertion = ClassAssertionAxiom::new(
+            Arc::new(john_iri.clone()),
+            ClassExpression::Class(person_class),
+        );
         ontology
             .add_class_assertion(class_assertion)
             .expect("Failed to add class assertion");

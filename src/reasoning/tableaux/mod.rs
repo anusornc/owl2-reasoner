@@ -103,8 +103,11 @@ pub use core::{
 pub use parallel::{ParallelReasoningCache, ParallelTableauxReasoner, WorkerConfig};
 
 // Re-export other essential types
-pub use blocking::{BlockingConstraint, BlockingManager, BlockingStrategy};
+pub use blocking::{BlockingConstraint, BlockingManager, BlockingStats, BlockingStrategy};
 pub use dependency::{ChoicePoint, Dependency, DependencyManager};
 pub use expansion::{ExpansionEngine, ExpansionRules};
 pub use graph::{EdgeStorage, TableauxGraph};
-pub use memory::{ArenaManager, ArenaStats, MemoryManager};
+pub use memory::{
+    ArenaEdgeStorage, ArenaManager, ArenaStats, ArenaTableauxGraph, MemoryManager,
+    MemoryOptimizationStats,
+};

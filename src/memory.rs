@@ -111,26 +111,47 @@ impl MemoryMonitor {
 
     /// Get current memory statistics
     pub fn get_stats(&self) -> MemoryStats {
-        let mut stats = self
-            .stats
-            .lock()
-            .expect("Failed to acquire lock for memory statistics");
+        // Attempt to get stats with graceful fallback on lock failure
+        let mut stats = match self.stats.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                eprintln!("Memory stats lock poisoned: {}", e);
+                // Create temporary fallback stats
+                return MemoryStats {
+                    total_usage: self.get_current_memory_usage(),
+                    peak_usage: self.get_current_memory_usage(),
+                    iri_cache_size: 0,
+                    entity_cache_size: 0,
+                    cleanup_count: self.cleanup_count.load(Ordering::Relaxed),
+                    pressure_level: 0.0,
+                };
+            }
+        };
 
         // Update current usage
         stats.total_usage = self.get_current_memory_usage();
         stats.peak_usage = stats.peak_usage.max(stats.total_usage);
 
-        // Update cache sizes (now using unified cache)
-        if let Ok(cache_size) = cache_manager::global_cache_manager().get_iri_cache_size() {
-            stats.iri_cache_size = cache_size;
-            stats.entity_cache_size = cache_size; // Same cache now
+        // Update cache sizes (now using unified cache) with graceful fallback
+        match cache_manager::global_cache_manager().get_iri_cache_size() {
+            Ok(cache_size) => {
+                stats.iri_cache_size = cache_size;
+                stats.entity_cache_size = cache_size; // Same cache now
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to get cache size: {}", e);
+                // Use conservative estimates as fallback
+                stats.iri_cache_size = 0;
+                stats.entity_cache_size = 0;
+            }
         }
 
-        // Calculate pressure level
-        stats.pressure_level = if self.config.max_memory > 0 && stats.total_usage > 0 {
-            (stats.total_usage as f64 / self.config.max_memory as f64).min(1.0)
-        } else {
-            0.0
+        // Calculate pressure level with bounds checking
+        stats.pressure_level = match (self.config.max_memory, stats.total_usage) {
+            (max_mem, total_usage) if max_mem > 0 && total_usage > 0 => {
+                (total_usage as f64 / max_mem as f64).min(1.0)
+            }
+            _ => 0.0, // Conservative fallback for edge cases
         };
 
         stats.cleanup_count = self.cleanup_count.load(Ordering::Relaxed);
@@ -165,18 +186,24 @@ impl MemoryMonitor {
                     mach_msg_type_number_t, mach_task_basic_info, mach_task_self, task_info,
                 };
 
-                // SAFETY: These macOS APIs are system calls and are safe to use
-                // The zeroed() call is safe for mach_task_basic_info
+                // SAFETY:
+                // 1. mach_task_basic_info is a plain data structure with no padding
+                // 2. std::mem::zeroed() is safe for plain data structs
+                // 3. task_info is a system call that only writes to the provided buffer
+                // 4. We provide the correct struct size via count parameter
+                // 5. MACH_TASK_BASIC_INFO (4) is a valid system-defined constant
+                // 6. mach_task_self() returns a valid task handle for the current process
+                // 7. The pointer cast is safe because both structs have compatible layout
                 let mut info: mach_task_basic_info = std::mem::zeroed();
                 let mut count = (std::mem::size_of::<mach_task_basic_info>()
                     / std::mem::size_of::<i32>())
                     as mach_msg_type_number_t;
 
-                // SAFETY: task_info is a system call that writes to the info struct
-                // The pointer conversions are safe because:
-                // 1. mach_task_basic_info is a plain data structure
-                // 2. We're passing the correct size via count
-                // 3. The constants (4 for MACH_TASK_BASIC_INFO) are system-defined
+                // SAFETY: task_info kernel call
+                // - Writes at most 'count' integers to info buffer
+                // - Returns 0 on success, error code on failure
+                // - Only accesses memory within the info struct bounds
+                // - No undefined behavior as we provide valid, properly aligned memory
                 if task_info(
                     mach_task_self(),
                     4, // MACH_TASK_BASIC_INFO
@@ -198,19 +225,28 @@ impl MemoryMonitor {
                     GetCurrentProcess, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
                 };
 
-                // SAFETY: These Windows APIs are system calls that are safe to use
-                // GetCurrentProcess and OpenProcess return valid process handles
-                // GetProcessMemoryInfo writes to the counters struct safely
+                // SAFETY: Windows API calls for process memory information
+                // 1. GetCurrentProcess() returns a pseudo-handle that's always valid
+                // 2. OpenProcess() returns a valid handle when successful, checked below
+                // 3. PROCESS_MEMORY_COUNTERS is a plain data struct safe to zero
+                // 4. GetProcessMemoryInfo only writes within the provided buffer size
+                // 5. The size parameter correctly matches the struct size
                 use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 
                 let process = OpenProcess(PROCESS_QUERY_INFORMATION, 0, GetCurrentProcess());
                 if !process.is_null() {
+                    // SAFETY: PROCESS_MEMORY_COUNTERS is a POD struct safe to zero
                     let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+
+                    // SAFETY: GetProcessMemoryInfo kernel call
+                    // - Third parameter is size, correctly calculated
+                    // - Only writes within pmc buffer bounds
+                    // - Returns BOOL: TRUE on success, FALSE on failure
                     if GetProcessMemoryInfo(
                         process,
                         &mut pmc,
-                        std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() != 0,
-                    ) {
+                        std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+                    ) != 0 {
                         return pmc.WorkingSetSize as usize;
                     }
                 }
@@ -232,7 +268,7 @@ impl MemoryMonitor {
         let mut last_cleanup = self
             .last_cleanup
             .lock()
-            .expect("Failed to acquire lock for cleanup timing");
+            .map_err(|e| format!("Cleanup timing lock poisoned: {}", e))?;
 
         // Check if we're above pressure threshold
         if stats.pressure_level > self.config.pressure_threshold {

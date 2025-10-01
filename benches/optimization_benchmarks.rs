@@ -14,10 +14,9 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::{
     iri::IRI,
-    OntologyParser,
     parser::{OwlFunctionalSyntaxParser, ParserConfig, TurtleParser},
     reasoning::tableaux::{ParallelTableauxReasoner, ReasoningConfig, TableauxReasoner},
-    Class, ClassExpression, ObjectProperty, Ontology, SubClassOfAxiom,
+    Class, ClassExpression, ObjectProperty, Ontology, OntologyParser, SubClassOfAxiom,
 };
 
 /// Generate test ontologies of different sizes for benchmarking

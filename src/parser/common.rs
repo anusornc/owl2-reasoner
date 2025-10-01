@@ -269,36 +269,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_literal() {
-        let simple = parse_literal("hello", None, None).unwrap();
+    fn test_parse_literal() -> OwlResult<()> {
+        let simple = parse_literal("hello", None, None)?;
         assert!(simple.is_plain());
 
-        let typed =
-            parse_literal("42", Some("http://www.w3.org/2001/XMLSchema#integer"), None).unwrap();
+        let typed = parse_literal("42", Some("http://www.w3.org/2001/XMLSchema#integer"), None)?;
         assert!(typed.is_typed());
 
-        let lang = parse_literal("bonjour", None, Some("fr")).unwrap();
+        let lang = parse_literal("bonjour", None, Some("fr"))?;
         assert!(lang.is_lang_tagged());
+        Ok(())
     }
 
     #[test]
-    fn test_parse_curie() {
+    fn test_parse_curie() -> OwlResult<()> {
         let mut prefixes = HashMap::new();
         prefixes.insert(
             "owl".to_string(),
             "http://www.w3.org/2002/07/owl#".to_string(),
         );
 
-        let iri = parse_curie("owl:Class", &prefixes).unwrap();
+        let iri = parse_curie("owl:Class", &prefixes)?;
         assert_eq!(iri.as_str(), "http://www.w3.org/2002/07/owl#Class");
+        Ok(())
     }
 
     #[test]
-    fn test_parse_bool() {
-        assert!(parse_bool("true").unwrap());
-        assert!(!parse_bool("false").unwrap());
-        assert!(parse_bool("1").unwrap());
-        assert!(parse_bool("yes").unwrap());
+    fn test_parse_bool() -> OwlResult<()> {
+        assert!(parse_bool("true")?);
+        assert!(!parse_bool("false")?);
+        assert!(parse_bool("1")?);
+        assert!(parse_bool("yes")?);
+        Ok(())
     }
 
     #[test]

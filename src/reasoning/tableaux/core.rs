@@ -158,7 +158,7 @@ impl Default for ReasoningConfig {
     }
 }
 
-/// Tableaux node with optimized concept storage
+/// Tableaux node with optimized concept storage and blocking support
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableauxNode {
     pub id: NodeId,
@@ -166,6 +166,10 @@ pub struct TableauxNode {
     pub concepts: SmallVec<[ClassExpression; 8]>,
     /// Lazy hashset for large concept sets
     pub concepts_hashset: Option<HashSet<ClassExpression>>,
+    /// Node labels for debugging and identification
+    pub labels: SmallVec<[String; 4]>,
+    /// Optional blocking reference for optimization
+    pub blocked_by: Option<NodeId>,
 }
 
 impl TableauxNode {
@@ -174,20 +178,27 @@ impl TableauxNode {
             id,
             concepts: SmallVec::new(),
             concepts_hashset: None,
+            labels: SmallVec::new(),
+            blocked_by: None,
         }
     }
 
     pub fn add_concept(&mut self, concept: ClassExpression) {
-        if self.concepts.len() < 8 {
-            self.concepts.push(concept);
+        if self.concepts_hashset.is_some() {
+            // Use hashset for large collections
+            self.concepts_hashset.as_mut().unwrap().insert(concept);
         } else {
-            if self.concepts_hashset.is_none() {
+            // Use SmallVec for small collections
+            if self.concepts.len() < 8 {
+                if !self.concepts.contains(&concept) {
+                    self.concepts.push(concept);
+                }
+            } else {
+                // Convert to hashset when exceeding SmallVec capacity
                 let mut hashset = HashSet::new();
-                hashset.extend(self.concepts.iter().cloned());
-                self.concepts_hashset = Some(hashset);
-            }
-            if let Some(ref mut hashset) = self.concepts_hashset {
+                hashset.extend(self.concepts.drain(..));
                 hashset.insert(concept);
+                self.concepts_hashset = Some(hashset);
             }
         }
     }
@@ -206,6 +217,47 @@ impl TableauxNode {
         } else {
             Either::Right(self.concepts.iter())
         }
+    }
+
+    /// Get the number of concepts in this node
+    pub fn concepts_len(&self) -> usize {
+        if let Some(ref hashset) = self.concepts_hashset {
+            hashset.len()
+        } else {
+            self.concepts.len()
+        }
+    }
+
+    /// Add a label to this node
+    pub fn add_label(&mut self, label: String) {
+        if !self.labels.contains(&label) {
+            self.labels.push(label);
+        }
+    }
+
+    /// Get all labels for this node
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+
+    /// Check if this node is blocked by another node
+    pub fn is_blocked(&self) -> bool {
+        self.blocked_by.is_some()
+    }
+
+    /// Set the blocking node for this node
+    pub fn set_blocked_by(&mut self, blocking_node: NodeId) {
+        self.blocked_by = Some(blocking_node);
+    }
+
+    /// Clear blocking for this node
+    pub fn clear_blocking(&mut self) {
+        self.blocked_by = None;
+    }
+
+    /// Get the node that blocks this node, if any
+    pub fn blocked_by(&self) -> Option<NodeId> {
+        self.blocked_by
     }
 }
 

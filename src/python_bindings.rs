@@ -66,16 +66,16 @@ impl PyEPCISEvent {
         )
     }
 
-    pub fn to_dict(&self, py: Python) -> PyObject {
+    pub fn to_dict(&self, py: Python) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
-        dict.set_item("event_id", &self.event_id).unwrap();
-        dict.set_item("event_type", &self.event_type).unwrap();
-        dict.set_item("event_time", &self.event_time).unwrap();
-        dict.set_item("epcs", &self.epcs).unwrap();
-        dict.set_item("biz_step", &self.biz_step).unwrap();
-        dict.set_item("disposition", &self.disposition).unwrap();
-        dict.set_item("action", &self.action).unwrap();
-        dict.into()
+        dict.set_item("event_id", &self.event_id)?;
+        dict.set_item("event_type", &self.event_type)?;
+        dict.set_item("event_time", &self.event_time)?;
+        dict.set_item("epcs", &self.epcs)?;
+        dict.set_item("biz_step", &self.biz_step)?;
+        dict.set_item("disposition", &self.disposition)?;
+        dict.set_item("action", &self.action)?;
+        Ok(dict.into())
     }
 }
 

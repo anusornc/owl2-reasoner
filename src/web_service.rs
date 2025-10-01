@@ -22,6 +22,8 @@ mod web_service_impl {
     pub struct WebServiceState {
         pub reasoner: Arc<RwLock<Option<SimpleReasoner>>>,
         pub parser: EPCISDocumentParser,
+        pub start_time: std::time::Instant,
+        pub loaded_events: Arc<std::sync::atomic::AtomicUsize>,
     }
 
     impl WebServiceState {
@@ -29,7 +31,21 @@ mod web_service_impl {
             Self {
                 reasoner: Arc::new(RwLock::new(None)),
                 parser: EPCISDocumentParser::default(),
+                start_time: std::time::Instant::now(),
+                loaded_events: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             }
+        }
+
+        /// Update the count of loaded events
+        pub fn update_event_count(&self, count: usize) {
+            self.loaded_events
+                .store(count, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        /// Get the current count of loaded events
+        pub fn get_event_count(&self) -> usize {
+            self.loaded_events
+                .load(std::sync::atomic::Ordering::Relaxed)
         }
     }
 
@@ -177,7 +193,7 @@ mod web_service_impl {
             service: "OWL2 Reasoner Web Service".to_string(),
             version: "1.0.0".to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            uptime_seconds: 0, // TODO: Track actual uptime
+            uptime_seconds: state.start_time.elapsed().as_secs(),
         };
 
         Ok(warp::reply::with_status(
@@ -238,6 +254,9 @@ mod web_service_impl {
         let mut reasoner_guard = state.reasoner.write().await;
         *reasoner_guard = Some(SimpleReasoner::new(ontology));
         drop(reasoner_guard);
+
+        // Track the number of loaded events
+        state.update_event_count(events.len());
 
         let execution_time = start_time.elapsed().as_millis() as u64;
 
@@ -372,7 +391,7 @@ mod web_service_impl {
         let mut response = EPCISAnalysisResponse {
             request_id: Uuid::new_v4().to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            total_events: 0, // TODO: Track loaded events
+            total_events: state.get_event_count(),
             unique_epcs: None,
             event_type_counts: None,
             business_steps: None,

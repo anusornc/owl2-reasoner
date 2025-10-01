@@ -39,12 +39,10 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
 
     // Verify that the ontology contains the expected individuals
     let john_iri = Arc::new(IRI::new("http://example.org/john")?);
-    assert!(
-        ontology
-            .named_individuals()
-            .iter()
-            .any(|ni| ni.iri() == &john_iri)
-    );
+    assert!(ontology
+        .named_individuals()
+        .iter()
+        .any(|ni| ni.iri() == &john_iri));
 
     // Check that we have anonymous individuals
     let anonymous_individuals = ontology.anonymous_individuals();

@@ -178,7 +178,7 @@ fn bench_el_profile_validation(c: &mut Criterion) {
             let ontology_str = benchmark_data::generate_el_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
             let ontology = parser.parse_str(&ontology_str).unwrap();
-            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
             b.iter(|| {
                 let result = validator.validate_profile(black_box(Owl2Profile::EL));
@@ -199,7 +199,7 @@ fn bench_ql_profile_validation(c: &mut Criterion) {
             let ontology_str = benchmark_data::generate_ql_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
             let ontology = parser.parse_str(&ontology_str).unwrap();
-            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
             b.iter(|| {
                 let result = validator.validate_profile(black_box(Owl2Profile::QL));
@@ -220,7 +220,7 @@ fn bench_rl_profile_validation(c: &mut Criterion) {
             let ontology_str = benchmark_data::generate_rl_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
             let ontology = parser.parse_str(&ontology_str).unwrap();
-            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
             b.iter(|| {
                 let result = validator.validate_profile(black_box(Owl2Profile::RL));
@@ -239,14 +239,14 @@ fn bench_caching_performance(c: &mut Criterion) {
     let ontology_str = benchmark_data::generate_el_ontology(100);
     let parser = OwlFunctionalSyntaxParser::new();
     let ontology = parser.parse_str(&ontology_str).unwrap();
-    let _validator = Owl2ProfileValidator::new(Arc::new(ontology));
+    let _validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
     // Benchmark cache hits
     group.bench_function("cache_hit", |b| {
         let ontology_str = benchmark_data::generate_el_ontology(100);
         let parser = OwlFunctionalSyntaxParser::new();
         let ontology = parser.parse_str(&ontology_str).unwrap();
-        let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+        let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
         // Warm up cache
         let _ = validator.validate_profile(Owl2Profile::EL);
@@ -262,7 +262,7 @@ fn bench_caching_performance(c: &mut Criterion) {
         let ontology_str2 = benchmark_data::generate_el_ontology(101); // Different size
         let parser2 = OwlFunctionalSyntaxParser::new();
         let ontology2 = parser2.parse_str(&ontology_str2).unwrap();
-        let mut validator2 = Owl2ProfileValidator::new(Arc::new(ontology2));
+        let mut validator2 = Owl2ProfileValidator::new(Arc::new(ontology2)).unwrap();
 
         b.iter(|| {
             let result = validator2.validate_profile(black_box(Owl2Profile::EL));
@@ -286,7 +286,7 @@ fn bench_precomputation_performance(c: &mut Criterion) {
                     let ontology_str = benchmark_data::generate_mixed_ontology(size);
                     let parser = OwlFunctionalSyntaxParser::new();
                     let _ontology = parser.parse_str(&ontology_str).unwrap();
-                    let validator = Owl2ProfileValidator::new(Arc::new(_ontology));
+                    let validator = Owl2ProfileValidator::new(Arc::new(_ontology)).unwrap();
                     let _ = validator.get_validation_stats(); // Forces index recomputation
                     black_box(())
                 });
@@ -307,7 +307,8 @@ fn bench_memory_efficiency(c: &mut Criterion) {
 
     group.bench_function("validation_memory_usage", |b| {
         b.iter(|| {
-            let mut validator = Owl2ProfileValidator::new(Arc::new(black_box(ontology.clone())));
+            let mut validator =
+                Owl2ProfileValidator::new(Arc::new(black_box(ontology.clone()))).unwrap();
             let result = validator.validate_profile(Owl2Profile::EL);
             let stats = validator.get_validation_stats();
             // Convert to owned data to avoid borrowing issues
@@ -328,7 +329,7 @@ fn bench_profile_analysis(c: &mut Criterion) {
             let ontology_str = benchmark_data::generate_mixed_ontology(size);
             let parser = OwlFunctionalSyntaxParser::new();
             let ontology = parser.parse_str(&ontology_str).unwrap();
-            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+            let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
             b.iter(|| {
                 let report = validator.validate_all_profiles();
@@ -355,7 +356,7 @@ fn bench_validation_throughput(c: &mut Criterion) {
     for (name, ontology_str) in test_cases {
         let parser = OwlFunctionalSyntaxParser::new();
         let ontology = parser.parse_str(&ontology_str).unwrap();
-        let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+        let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
         group.bench_function(name, |b| {
             b.iter(|| {
@@ -379,7 +380,7 @@ fn bench_performance_regression(c: &mut Criterion) {
     let large_ontology = benchmark_data::generate_mixed_ontology(1000);
     let parser = OwlFunctionalSyntaxParser::new();
     let ontology = parser.parse_str(&large_ontology).unwrap();
-    let mut validator = Owl2ProfileValidator::new(Arc::new(ontology));
+    let mut validator = Owl2ProfileValidator::new(Arc::new(ontology)).unwrap();
 
     group.bench_function("large_ontology_validation", |b| {
         b.iter(|| {

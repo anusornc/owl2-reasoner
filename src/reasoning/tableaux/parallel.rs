@@ -24,13 +24,17 @@
 //! ## Usage Example
 //!
 //! ```rust
-//! use owl2_reasoner::{Ontology, ParallelTableauxReasoner, ReasoningConfig};
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! use owl2_reasoner::{Ontology, ParallelTableauxReasoner};
+//! use owl2_reasoner::reasoning::tableaux::ReasoningConfig;
 //!
 //! // Create ontology and configure parallel reasoner
 //! let ontology = Ontology::new();
 //! let config = ReasoningConfig {
-//!     max_depth: 1000,
+//!     enable_parallel: true,
 //!     parallel_workers: Some(8), // Use 8 worker threads
+//!     parallel_chunk_size: 64,
 //!     ..Default::default()
 //! };
 //! let reasoner = ParallelTableauxReasoner::with_config(ontology, config);
@@ -38,6 +42,8 @@
 //! // Perform parallel reasoning
 //! let is_consistent = reasoner.is_consistent_parallel()?;
 //! let classification = reasoner.classify_parallel()?;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::axioms::*;
@@ -220,17 +226,21 @@ impl ParallelTableauxReasoner {
         }
 
         // Create parallel tableaux graph
-        let graph = Arc::new(TableauxGraph::new());
+        let mut graph = TableauxGraph::new();
 
         // Initialize root nodes in parallel
-        let root_nodes = self.initialize_root_nodes_parallel(&graph)?;
+        let root_nodes = self.initialize_root_nodes_parallel(&mut graph)?;
 
         // Process nodes in parallel
-        let result = self.process_nodes_parallel(root_nodes, &graph)?;
+        let graph_arc = Arc::new(graph);
+        let result = self.process_nodes_parallel(root_nodes, &graph_arc)?;
 
         // Update statistics
         let _elapsed = start_time.elapsed();
-        let _stats = self.stats.lock().unwrap();
+        let _stats = self
+            .stats
+            .lock()
+            .map_err(|e| crate::error::OwlError::Other(format!("Stats mutex poisoned: {}", e)))?;
         // Note: reasoning_time_ms field not available in current ReasoningStats
 
         // Cache result
@@ -262,20 +272,58 @@ impl ParallelTableauxReasoner {
 
         // Update statistics
         let _elapsed = start_time.elapsed();
-        let _stats = self.stats.lock().unwrap();
+        let _stats = self
+            .stats
+            .lock()
+            .map_err(|e| crate::error::OwlError::Other(format!("Stats mutex poisoned: {}", e)))?;
         // Note: reasoning_time_ms field not available in current ReasoningStats
 
         Ok(results)
     }
 
     /// Initialize root nodes in parallel
-    fn initialize_root_nodes_parallel(
-        &self,
-        _graph: &Arc<TableauxGraph>,
-    ) -> OwlResult<Vec<NodeId>> {
-        // TODO: Implement parallel root node initialization
-        // For now, return empty Vec to get compilation working
-        Ok(Vec::new())
+    fn initialize_root_nodes_parallel(&self, graph: &mut TableauxGraph) -> OwlResult<Vec<NodeId>> {
+        use rayon::iter::ParallelIterator;
+        use std::sync::Mutex;
+
+        // Create root nodes for each top-level class in the ontology
+        let classes: Vec<_> = self.ontology.classes().iter().collect();
+
+        if classes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Use Mutex for thread-safe graph modification during parallel node creation
+        let graph_mutex = Mutex::new(graph);
+
+        // Use rayon for parallel root node creation
+        let root_nodes: Result<Vec<NodeId>, crate::error::OwlError> = classes
+            .par_iter()
+            .map(|class_iri| {
+                // Create the class expression first (this is thread-safe)
+                let class_expr = crate::axioms::ClassExpression::Class(
+                    crate::entities::Class::new_shared(class_iri.iri().as_str())?,
+                );
+
+                // Lock the graph for node creation
+                let mut graph_guard = graph_mutex.lock().map_err(|e| {
+                    crate::error::OwlError::Other(format!("Graph mutex poisoned: {}", e))
+                })?;
+
+                // Create a new tableaux node
+                let node_id = graph_guard.add_node();
+
+                // Initialize the node with the class concept
+                if let Some(node) = graph_guard.get_node_mut(node_id) {
+                    node.add_concept(class_expr);
+                }
+
+                drop(graph_guard); // Release lock as soon as possible
+                Ok(node_id)
+            })
+            .collect();
+
+        root_nodes
     }
 
     /// Process nodes in parallel using work stealing
@@ -287,10 +335,7 @@ impl ParallelTableauxReasoner {
         use rayon::iter::ParallelIterator;
 
         // Configure thread pool
-        let num_workers = self
-            .worker_config
-            .num_workers
-            .unwrap_or_else(num_cpus::get);
+        let num_workers = self.worker_config.num_workers.unwrap_or_else(num_cpus::get);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(num_workers)
@@ -367,7 +412,10 @@ impl ParallelTableauxReasoner {
             .collect();
 
         // Update statistics
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self
+            .stats
+            .lock()
+            .map_err(|e| crate::error::OwlError::Other(format!("Stats mutex poisoned: {}", e)))?;
         stats.total_rules +=
             subclass_results.len() + equivalence_results.len() + disjointness_results.len();
 
@@ -559,8 +607,12 @@ impl ParallelTableauxReasoner {
     }
 
     /// Get performance statistics
-    pub fn get_stats(&self) -> ReasoningStats {
-        self.stats.lock().unwrap().clone()
+    pub fn get_stats(&self) -> OwlResult<ReasoningStats> {
+        Ok(self
+            .stats
+            .lock()
+            .map_err(|e| crate::error::OwlError::Other(format!("Stats mutex poisoned: {}", e)))?
+            .clone())
     }
 
     /// Get cache statistics
@@ -572,7 +624,6 @@ impl ParallelTableauxReasoner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_parallel_reasoner_creation() {
@@ -593,8 +644,10 @@ mod tests {
         assert_eq!(cache.get_consistency("nonexistent"), None);
 
         // Test classification cache
-        let iri = IRI::new("http://example.org/test").unwrap();
-        let superclasses = vec![IRI::new("http://example.org/super").unwrap()];
+        let iri = IRI::new("http://example.org/test")
+            .unwrap_or_else(|_| IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap());
+        let superclasses = vec![IRI::new("http://example.org/super")
+            .unwrap_or_else(|_| IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap())];
         cache.set_classification(iri.clone(), superclasses.clone());
         assert_eq!(cache.get_classification(&iri), Some(superclasses));
 

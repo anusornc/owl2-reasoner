@@ -177,7 +177,6 @@ impl RuleEngine {
                 },
                 priority: 100,
             },
-
             // Subclass transitivity rule
             ReasoningRule {
                 name: "SubClassTransitivity".to_string(),
@@ -202,7 +201,6 @@ impl RuleEngine {
                 },
                 priority: 90,
             },
-
             // Inheritance rule: if C ⊑ D and a ∈ C, then a ∈ D
             ReasoningRule {
                 name: "ClassInheritance".to_string(),
@@ -227,7 +225,6 @@ impl RuleEngine {
                 },
                 priority: 80,
             },
-
             // Symmetric property rule
             ReasoningRule {
                 name: "SymmetricProperty".to_string(),
