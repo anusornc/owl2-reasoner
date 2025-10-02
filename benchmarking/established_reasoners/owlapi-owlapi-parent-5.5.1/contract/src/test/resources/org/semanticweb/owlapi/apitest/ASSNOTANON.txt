@@ -1,1 +1,0 @@
-ClassAssertion(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) ObjectComplementOf(<http://www.semanticweb.org/owlapi/test#C>) _:id)

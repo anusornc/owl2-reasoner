@@ -1,1 +1,0 @@
-EquivalentObjectProperties(<http://example.com/objectProperty> <http://www.semanticweb.org/owlapi/test#iri>)

@@ -2,14 +2,14 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://rust-lang.org)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
-[![Tests](https://img.shields.io/badge/tests-274%20passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
+[![Tests](https://img.shields.io/badge/tests-314%20passing-brightgreen.svg)](https://github.com/anusornc/owl2-reasoner)
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/anusornc/owl2-reasoner)
 
 **A comprehensive OWL2 reasoning engine implemented in Rust with multi-format parsing support and advanced tableaux algorithms.**
 
 ## 🎯 Current Status
 
-- ✅ **274/274 tests passing** (comprehensive test suite)
+- ✅ **314/314 tests passing** (comprehensive test suite)
 - ✅ **Multi-format parser support** (Turtle, RDF/XML, OWL/XML, N-Triples)
 - ✅ **Advanced reasoning engine** with tableaux-based SROIQ(D) algorithm
 - ✅ **EPCIS integration** for supply chain ontology processing
@@ -34,11 +34,11 @@
 - **Blank node support**: Comprehensive anonymous individual handling across all formats
 
 ### **Performance Optimizations**
-- **Memory-efficient design**: Arena allocation and smart caching
-- **Multi-threaded processing**: Rayon-based parallel operations
-- **Three-tier caching system**: LRU, hot data, and compressed caches
+- **Memory-efficient design**: Arena-based allocation with automatic cleanup
+- **Multi-threaded processing**: Rayon-based parallel tableaux reasoning
+- **Multi-layered caching**: LRU eviction, hot data caching, and compressed storage
 - **Profile-optimized reasoning**: Specialized algorithms for EL, QL, and RL profiles
-- **Lock-free concurrent access**: DashMap-based thread-safe operations
+- **Concurrent access**: DashMap-based thread-safe operations for caching and IRI management
 
 ## 🚀 Getting Started
 
@@ -57,6 +57,9 @@ cargo test
 
 # Generate documentation
 cargo doc --no-deps
+
+# Build with optional features (if needed)
+cargo build --features web-service
 ```
 
 ### Basic Usage
@@ -135,8 +138,8 @@ owl2-reasoner/
 │   ├── reasoning/          # Reasoning algorithms (tableaux, rules, query)
 │   ├── parser/             # Multi-format OWL2 parsers
 │   ├── epcis_parser.rs     # EPCIS document processing
-│   ├── python_bindings.rs  # Python interface (PyO3)
-│   └── web_service.rs      # REST API interface
+│   ├── python_bindings.rs  # Python interface (PyO3 - add to dependencies for Python support)
+│   └── web_service.rs      # REST API interface (optional feature)
 ├── examples/               # Usage examples and demonstrations
 ├── benches/               # Performance benchmarks
 ├── tests/                 # Comprehensive test suite
@@ -161,7 +164,7 @@ cargo test --release
 ```
 
 ### Test Coverage
-- **274 comprehensive tests** covering all major functionality
+- **314 comprehensive tests** covering all major functionality
 - **Parser validation** across all supported formats
 - **Reasoning correctness** with known ontologies
 - **Error handling** and edge cases
@@ -227,24 +230,21 @@ cargo doc --no-deps
 
 ### Project Scripts
 
+- `./scripts/update_docs.sh` - Update documentation (builds Rustdoc, tests examples, builds mdbook)
 - `./scripts/validate_system.sh` - Comprehensive system validation
 - `./scripts/run_benchmarks.sh` - Execute benchmark suite
-- `./scripts/update_docs.sh` - Update documentation
+- `./scripts/run_validation.sh` - Run validation tests
+- `./scripts/build-technical-docs.sh` - Build technical documentation (requires Typst)
+- `./scripts/analyze_tableaux_performance.rs` - Analyze tableaux reasoning performance
 
 ## 📚 Documentation
 
 ### Available Documentation
-- **API Reference**: Generated Rustdoc (`cargo doc --open`)
-- **User Guides**: Step-by-step tutorials and examples
-- **Technical Documentation**: Architecture and algorithms
-- **Performance Analysis**: Benchmarking results and optimization
-- **EPCIS Integration**: Supply chain ontology processing
-
-### Key Documentation Files
-- `docs/API_REFERENCE.md` - Complete API documentation
-- `docs/BENCHMARKING.md` - Performance analysis
-- `docs/EPCIS_ECOSYSTEM_INTEGRATION.md` - EPCIS usage guide
-- `docs/technical/` - Detailed technical specifications
+- **API Reference**: Generated Rustdoc (`cargo doc --open`) and `docs/API_REFERENCE.md`
+- **User Guides**: Step-by-step tutorials and examples (see examples/ directory and docs/guides/)
+- **Technical Documentation**: Architecture and algorithms (see src/lib.rs and docs/technical/)
+- **Performance Analysis**: Benchmarking results and optimization (see benches/ and docs/BENCHMARKING.md)
+- **EPCIS Integration**: Supply chain ontology processing (see epcis_parser.rs and docs/EPCIS_ECOSYSTEM_INTEGRATION.md`)
 
 ## 🤝 Contributing
 

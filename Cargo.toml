@@ -77,6 +77,18 @@ clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.0", features = ["rt", "macros", "rt-multi-thread"] }
 reqwest = { version = "0.11", features = ["json"] }
+
+# Benchmarking and performance testing
+criterion = { version = "0.5", features = ["html_reports", "cargo_bench_support"] }
+iai-callgrind = "0.10"
+
+# Memory profiling
+memmap2 = "0.9"
+sysinfo = "0.30"
+
+# Test data generation
+rand = "0.8"
+fake = { version = "2.9", features = ["derive"] }
  
 [features]
 # Default to streaming RDF/XML backend in non-strict mode
@@ -115,6 +127,28 @@ harness = false
 
 [[bench]]
 name = "standalone_performance_validation"
+harness = false
+
+# Load Testing Benchmarks
+[[bench]]
+name = "reasoning_load_test"
+harness = false
+
+
+[[bench]]
+name = "concurrent_reasoning"
+harness = false
+
+[[bench]]
+name = "cache_performance"
+harness = false
+
+[[bench]]
+name = "algorithmic_complexity"
+harness = false
+
+[[bench]]
+name = "iai_callgrind_bench"
 harness = false
 
 [lib]

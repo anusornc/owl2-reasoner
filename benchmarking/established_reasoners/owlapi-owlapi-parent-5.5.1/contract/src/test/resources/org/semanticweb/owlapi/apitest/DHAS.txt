@@ -1,1 +1,0 @@
-DataHasValue(<http://www.semanticweb.org/owlapi/test#p> "false"^^xsd:boolean)

@@ -1,3 +1,0 @@
-><test>xxx</test></protege:code>
-    </Class>
-</rdf:RDF>

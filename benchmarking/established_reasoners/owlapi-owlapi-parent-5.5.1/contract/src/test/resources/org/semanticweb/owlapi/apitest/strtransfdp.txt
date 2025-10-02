@@ -1,1 +1,0 @@
-SubClassOf(owl:Thing DataMaxCardinality(1 <http://www.semanticweb.org/owlapi/test#p> rdfs:Literal))

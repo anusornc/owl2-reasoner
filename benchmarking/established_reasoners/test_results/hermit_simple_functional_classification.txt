@@ -1,3 +1,0 @@
-SubClassOf( <http://example.org/test#Professor> <http://example.org/test#Person> )
-SubClassOf( <http://example.org/test#Student> <http://example.org/test#Person> )
-

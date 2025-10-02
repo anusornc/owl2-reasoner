@@ -1,1 +1,0 @@
-SameIndividual(Annotation(<http://www.semanticweb.org/owlapi/test#ann> "test"^^xsd:string) <http://www.semanticweb.org/owlapi/test#i> <http://www.semanticweb.org/owlapi/test#iri>)

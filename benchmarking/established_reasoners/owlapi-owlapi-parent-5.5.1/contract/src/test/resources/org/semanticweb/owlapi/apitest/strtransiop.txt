@@ -1,1 +1,0 @@
-SubObjectPropertyOf(<http://example.com/objectProperty> ObjectInverseOf(<http://example.com/objectProperty>))

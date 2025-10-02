@@ -1,3 +1,0 @@
-SubClassOf(<http://www.semanticweb.org/ontology#X0> <http://www.semanticweb.org/owlapi/test#C>)
-SubClassOf(<http://www.semanticweb.org/ontology#X1> ObjectAllValuesFrom(<http://example.com/objectProperty> owl:Nothing))
-SubClassOf(owl:Thing ObjectUnionOf(<http://www.semanticweb.org/ontology#X0> <http://www.semanticweb.org/ontology#X1>))

@@ -326,6 +326,7 @@ build/
 scratch/
 tmp/
 temp/
+benchmarking/
 
 # Debug and test files
 debug_*.rs

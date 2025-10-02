@@ -1,5 +1,0 @@
-SubClassOf( <http://example.org/benchmark#Person> <http://example.org/benchmark#Entity> )
-SubClassOf( <http://example.org/benchmark#University> <http://example.org/benchmark#Entity> )
-SubClassOf( <http://example.org/benchmark#Professor> <http://example.org/benchmark#Person> )
-SubClassOf( <http://example.org/benchmark#Student> <http://example.org/benchmark#Person> )
-

@@ -1,5 +1,0 @@
-Prefix: o: <http://www.semanticweb.org/owlapi/test#>
-Ontology: <urn:test>
- AnnotationProperty: o:bob
- Annotations:
- rdfs:label "bob-label"@en

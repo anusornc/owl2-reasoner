@@ -1,2 +1,0 @@
-@base <http://test.org/path#> .
- <a1> <b1> <c1> .

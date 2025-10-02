@@ -1,1 +1,0 @@
-DataMinCardinality(1 <http://www.semanticweb.org/owlapi/test#p> <http://www.semanticweb.org/owlapi/test#DT>)
