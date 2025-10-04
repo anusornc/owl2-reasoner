@@ -71,6 +71,7 @@ impl SmallVecUtils {
     }
 
     /// Create a SmallVec from an iterator with size hint
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter<T, I, const N: usize>(iter: I) -> SmallVec<[T; N]>
     where
         I: IntoIterator<Item = T>,

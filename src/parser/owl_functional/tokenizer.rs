@@ -227,6 +227,7 @@ impl Token {
 /// Tokenizer for OWL Functional Syntax
 pub struct Tokenizer<'a> {
     /// The input text
+    #[allow(dead_code)]
     input: &'a str,
     /// Iterator over character indices
     chars: CharIndices<'a>,
@@ -479,10 +480,13 @@ impl<'a> Tokenizer<'a> {
         while let Some((pos, ch)) = self.chars.clone().next() {
             if ch.is_ascii_digit() || ch == '.' || ch == 'e' || ch == 'E' || ch == '+' || ch == '-'
             {
-                let (_, ch) = self.chars.next().unwrap();
-                self.position = pos;
-                self.column += 1;
-                number.push(ch);
+                if let Some((_, ch)) = self.chars.next() {
+                    self.position = pos;
+                    self.column += 1;
+                    number.push(ch);
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
@@ -507,10 +511,13 @@ impl<'a> Tokenizer<'a> {
 
         while let Some((pos, ch)) = self.chars.clone().next() {
             if ch.is_alphanumeric() || ch == '_' || ch == '-' {
-                let (_, ch) = self.chars.next().unwrap();
-                self.position = pos;
-                self.column += 1;
-                identifier.push(ch);
+                if let Some((_, ch)) = self.chars.next() {
+                    self.position = pos;
+                    self.column += 1;
+                    identifier.push(ch);
+                } else {
+                    break;
+                }
             } else {
                 break;
             }

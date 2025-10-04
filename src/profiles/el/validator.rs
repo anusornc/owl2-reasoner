@@ -8,6 +8,8 @@
 //! - Data property restrictions
 //! - Intersection of class expressions
 //!
+
+#![allow(clippy::only_used_in_recursion)]
 //! But disallows:
 //! - Disjoint classes axioms
 //! - Complex equivalent classes axioms
@@ -344,6 +346,7 @@ impl ElValidator {
     }
 
     /// Optimized helper to collect IRIs from entities without intermediate cloning
+    #[allow(dead_code)]
     fn collect_iris_from_entities<'a, I>(&self, entities: I) -> Vec<Arc<IRI>>
     where
         I: IntoIterator<Item = &'a Arc<IRI>>,

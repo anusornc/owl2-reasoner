@@ -32,6 +32,7 @@ pub struct PrefixDeclaration {
 
 /// Content items within an ontology
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum OntologyContent {
     /// Entity declaration
     Declaration(EntityDeclaration),

@@ -263,14 +263,14 @@ impl ManchesterParser {
 
         Ok(ManchesterAST::ObjectPropertyDeclaration {
             name,
-            domain,
-            range,
-            characteristics,
-            sub_property_of,
-            equivalent_to,
-            disjoint_with,
-            inverse_of,
-            annotations,
+            domain: Box::new(domain),
+            range: Box::new(range),
+            characteristics: Box::new(characteristics),
+            sub_property_of: Box::new(sub_property_of),
+            equivalent_to: Box::new(equivalent_to),
+            disjoint_with: Box::new(disjoint_with),
+            inverse_of: Box::new(inverse_of),
+            annotations: Box::new(annotations),
         })
     }
 
@@ -332,13 +332,13 @@ impl ManchesterParser {
 
         Ok(ManchesterAST::DataPropertyDeclaration {
             name,
-            domain,
-            range,
-            characteristics,
-            sub_property_of,
-            equivalent_to,
-            disjoint_with,
-            annotations,
+            domain: Box::new(domain),
+            range: Box::new(range),
+            characteristics: Box::new(characteristics),
+            sub_property_of: Box::new(sub_property_of),
+            equivalent_to: Box::new(equivalent_to),
+            disjoint_with: Box::new(disjoint_with),
+            annotations: Box::new(annotations),
         })
     }
 
@@ -390,11 +390,11 @@ impl ManchesterParser {
 
         Ok(ManchesterAST::IndividualDeclaration {
             name,
-            types,
-            facts,
-            same_as,
-            different_from,
-            annotations,
+            types: Box::new(types),
+            facts: Box::new(facts),
+            same_as: Box::new(same_as),
+            different_from: Box::new(different_from),
+            annotations: Box::new(annotations),
         })
     }
 

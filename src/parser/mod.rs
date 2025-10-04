@@ -5,10 +5,12 @@
 //! - RDF/XML
 //! - OWL/XML
 //! - N-Triples
+//! - JSON-LD
 
 pub mod arena;
 pub mod common;
 pub mod import_resolver;
+pub mod json_ld;
 pub mod manchester;
 pub mod owl_functional;
 pub mod owl_xml;
@@ -21,6 +23,7 @@ pub mod turtle;
 pub use arena::*;
 pub use common::*;
 pub use import_resolver::*;
+pub use json_ld::JsonLdParser;
 pub use manchester::{ManchesterAST, ManchesterParser};
 pub use owl_functional::OwlFunctionalSyntaxParser;
 pub use owl_xml::*;
@@ -57,6 +60,7 @@ impl ParserFactory {
             "owl" | "ofn" => Some(Box::new(OwlFunctionalSyntaxParser::new())), // OWL Functional Syntax files
             "owx" | "xml" => Some(Box::new(OwlXmlParser::new())),
             "nt" => Some(Box::new(NtriplesParser::new())),
+            "jsonld" | "json-ld" | "json" => Some(Box::new(JsonLdParser::new())),
             "man" | "mn" | "manchester" => Some(Box::new(ManchesterParser::new())),
             _ => None,
         }
@@ -69,6 +73,7 @@ impl ParserFactory {
             "application/rdf+xml" => Some(Box::new(RdfXmlParser::new())),
             "application/owl+xml" => Some(Box::new(OwlXmlParser::new())),
             "application/n-triples" | "text/plain" => Some(Box::new(NtriplesParser::new())),
+            "application/ld+json" | "application/json" => Some(Box::new(JsonLdParser::new())),
             "text/manchester" | "application/manchester" => Some(Box::new(ManchesterParser::new())),
             _ => None,
         }
@@ -78,8 +83,16 @@ impl ParserFactory {
     pub fn auto_detect(content: &str) -> Option<Box<dyn OntologyParser>> {
         let content_trimmed = content.trim();
 
-        // Check for Manchester Syntax (highest priority for readability)
-        if content_trimmed.starts_with("Prefix:")
+        // Check for JSON-LD (highest priority due to distinct format)
+        if (content_trimmed.starts_with('{') && content_trimmed.ends_with('}'))
+            || content_trimmed.contains("@context")
+            || content_trimmed.contains("@graph")
+            || (content_trimmed.starts_with('{') && content_trimmed.contains("\"@id\""))
+        {
+            Some(Box::new(JsonLdParser::new()))
+        }
+        // Check for Manchester Syntax (high priority for readability)
+        else if content_trimmed.starts_with("Prefix:")
             || content_trimmed.contains("Class:")
             || content_trimmed.contains("ObjectProperty:")
             || content_trimmed.contains("Individual:")
@@ -585,6 +598,9 @@ mod tests {
         assert!(ParserFactory::for_file_extension("owl").is_some());
         assert!(ParserFactory::for_file_extension("owx").is_some());
         assert!(ParserFactory::for_file_extension("nt").is_some());
+        assert!(ParserFactory::for_file_extension("jsonld").is_some());
+        assert!(ParserFactory::for_file_extension("json-ld").is_some());
+        assert!(ParserFactory::for_file_extension("json").is_some());
         assert!(ParserFactory::for_file_extension("unknown").is_none());
     }
 
@@ -594,6 +610,8 @@ mod tests {
         assert!(ParserFactory::for_content_type("application/rdf+xml").is_some());
         assert!(ParserFactory::for_content_type("application/owl+xml").is_some());
         assert!(ParserFactory::for_content_type("application/n-triples").is_some());
+        assert!(ParserFactory::for_content_type("application/ld+json").is_some());
+        assert!(ParserFactory::for_content_type("application/json").is_some());
         assert!(ParserFactory::for_content_type("unknown/type").is_none());
     }
 
@@ -607,6 +625,43 @@ mod tests {
         let parser = ParserFactory::auto_detect(turtle_content);
         assert!(parser.is_some());
         assert_eq!(parser.unwrap().format_name(), "Turtle");
+    }
+
+    #[test]
+    fn test_auto_detect_json_ld() {
+        let json_ld_content = r#"
+        {
+            "@context": {
+                "@vocab": "http://example.org/",
+                "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+            },
+            "@graph": [
+                {
+                    "@id": "Person",
+                    "@type": "owl:Class"
+                }
+            ]
+        }
+        "#;
+
+        let parser = ParserFactory::auto_detect(json_ld_content);
+        assert!(parser.is_some());
+        assert_eq!(parser.unwrap().format_name(), "JSON-LD");
+    }
+
+    #[test]
+    fn test_auto_detect_json_ld_simple() {
+        let json_ld_content = r#"
+        {
+            "@context": "http://schema.org",
+            "@type": "Person",
+            "name": "John Doe"
+        }
+        "#;
+
+        let parser = ParserFactory::auto_detect(json_ld_content);
+        assert!(parser.is_some());
+        assert_eq!(parser.unwrap().format_name(), "JSON-LD");
     }
 
     #[test]

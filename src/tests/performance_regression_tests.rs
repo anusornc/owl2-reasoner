@@ -4,12 +4,13 @@ use std::sync::Arc;
 ///
 /// This test suite ensures that performance improvements don't break existing functionality
 /// and provides baseline measurements for detecting performance regressions.
+/// All tests are now memory-safe and will fail gracefully before causing OOM.
 use crate::*;
+use crate::test_helpers::{memory_safe_test, memory_safe_bench_test, MemorySafeTestConfig};
 use std::time::Instant;
 
 /// Test basic functionality with regression timing
-#[test]
-fn test_basic_functionality_regression() -> OwlResult<()> {
+memory_safe_test!(test_basic_functionality_regression, MemorySafeTestConfig::small(), {
     let start_time = Instant::now();
 
     let mut ontology = Ontology::new();
@@ -50,11 +51,10 @@ fn test_basic_functionality_regression() -> OwlResult<()> {
     );
 
     Ok(())
-}
+});
 
 /// Test ontology scalability with regression tracking
-#[test]
-fn test_ontology_scalability_regression() -> OwlResult<()> {
+memory_safe_test!(test_ontology_scalability_regression, MemorySafeTestConfig::medium(), {
     let start_time = Instant::now();
 
     let mut ontology = Ontology::new();
@@ -123,11 +123,10 @@ fn test_ontology_scalability_regression() -> OwlResult<()> {
     );
 
     Ok(())
-}
+});
 
 /// Test memory usage regression
-#[test]
-fn test_memory_usage_regression() -> OwlResult<()> {
+memory_safe_test!(test_memory_usage_regression, MemorySafeTestConfig::large(), {
     let start_time = Instant::now();
 
     let mut ontology = Ontology::new();
@@ -185,11 +184,10 @@ fn test_memory_usage_regression() -> OwlResult<()> {
     );
 
     Ok(())
-}
+});
 
 /// Test complex reasoning scenarios for regression
-#[test]
-fn test_complex_reasoning_regression() -> OwlResult<()> {
+memory_safe_test!(test_complex_reasoning_regression, MemorySafeTestConfig::small(), {
     let start_time = Instant::now();
 
     let mut ontology = Ontology::new();
@@ -265,11 +263,10 @@ fn test_complex_reasoning_regression() -> OwlResult<()> {
     );
 
     Ok(())
-}
+});
 
 /// Test error handling performance regression
-#[test]
-fn test_error_handling_regression() -> OwlResult<()> {
+memory_safe_test!(test_error_handling_regression, MemorySafeTestConfig::small(), {
     let start_time = Instant::now();
 
     // Test error creation performance
@@ -318,11 +315,10 @@ fn test_error_handling_regression() -> OwlResult<()> {
     );
 
     Ok(())
-}
+});
 
 /// Performance regression test summary
-#[test]
-fn test_performance_regression_summary() -> OwlResult<()> {
+memory_safe_test!(test_performance_regression_summary, MemorySafeTestConfig::medium(), {
     println!("📊 Performance Regression Test Summary");
     println!("=====================================");
 
@@ -340,4 +336,4 @@ fn test_performance_regression_summary() -> OwlResult<()> {
     println!("   - Memory usage within expected bounds");
 
     Ok(())
-}
+});

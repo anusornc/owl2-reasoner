@@ -23,6 +23,7 @@ pub struct OwlFunctionalSyntaxParser {
     /// Prefix mappings
     prefixes: HashMap<String, String>,
     /// Arena allocator for efficient string and object allocation
+    #[allow(dead_code)]
     arena: Option<Box<dyn ParserArenaTrait>>,
     /// Semantic validator
     validator: FunctionalSyntaxValidator,

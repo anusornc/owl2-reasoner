@@ -30,6 +30,7 @@
 - **RDF/XML parser**: Dual-mode with streaming (rio-xml) and legacy parsing
 - **OWL/XML parser**: Support for OWL2 XML serialization
 - **N-Triples parser**: Basic RDF triple format
+- **JSON-LD parser**: JavaScript Object Notation for Linked Data format with context expansion
 - **EPCIS parser**: GS1 EPCIS 2.0 standard support for supply chain ontologies
 - **Blank node support**: Comprehensive anonymous individual handling across all formats
 
@@ -109,6 +110,41 @@ let consistency_result = tableaux_reasoner.is_consistent()?;
 let classification_result = tableaux_reasoner.classify()?;
 ```
 
+### JSON-LD Integration
+
+```rust
+use owl2_reasoner::parser::JsonLdParser;
+
+// Parse JSON-LD data
+let parser = JsonLdParser::new();
+let json_ld_content = r#"
+{
+    "@context": {
+        "@vocab": "http://example.org/",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "owl": "http://www.w3.org/2002/07/owl#"
+    },
+    "@graph": [
+        {
+            "@id": "Person",
+            "@type": "owl:Class"
+        },
+        {
+            "@id": "John",
+            "@type": ["http://example.org/Person"],
+            "http://example.org/name": "John Doe"
+        }
+    ]
+}
+"#;
+
+let ontology = parser.parse_str(json_ld_content)?;
+
+// Perform reasoning on JSON-LD data
+let mut reasoner = SimpleReasoner::new(ontology);
+let is_consistent = reasoner.is_consistent()?;
+```
+
 ### EPCIS Integration
 
 ```rust
@@ -136,7 +172,7 @@ owl2-reasoner/
 │   ├── axioms/             # OWL2 axioms and logical statements
 │   ├── ontology.rs         # Ontology structure and management
 │   ├── reasoning/          # Reasoning algorithms (tableaux, rules, query)
-│   ├── parser/             # Multi-format OWL2 parsers
+│   ├── parser/             # Multi-format OWL2 parsers (Turtle, RDF/XML, OWL/XML, N-Triples, JSON-LD)
 │   ├── epcis_parser.rs     # EPCIS document processing
 │   ├── python_bindings.rs  # Python interface (PyO3 - add to dependencies for Python support)
 │   └── web_service.rs      # REST API interface (optional feature)
@@ -157,6 +193,7 @@ cargo test
 # Run specific test modules
 cargo test reasoning
 cargo test parser
+cargo test json_ld
 cargo test epcis
 
 # Run tests with release mode
@@ -239,12 +276,26 @@ cargo doc --no-deps
 
 ## 📚 Documentation
 
-### Available Documentation
-- **API Reference**: Generated Rustdoc (`cargo doc --open`) and `docs/API_REFERENCE.md`
-- **User Guides**: Step-by-step tutorials and examples (see examples/ directory and docs/guides/)
-- **Technical Documentation**: Architecture and algorithms (see src/lib.rs and docs/technical/)
-- **Performance Analysis**: Benchmarking results and optimization (see benches/ and docs/BENCHMARKING.md)
-- **EPCIS Integration**: Supply chain ontology processing (see epcis_parser.rs and docs/EPCIS_ECOSYSTEM_INTEGRATION.md`)
+### Documentation Structure
+
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
+- **[Reports](docs/reports/)** - Analysis reports and status summaries
+  - [Code Analysis Report](docs/reports/CODE_ANALYSIS_REPORT.md)
+  - [Production Readiness](docs/reports/PRODUCTION_READINESS_SUMMARY.md)
+  - [Memory Safety Implementation](docs/reports/MEMORY_SAFETY_IMPLEMENTATION_SUMMARY.md)
+- **[Plans](docs/plans/)** - Strategic planning documents
+  - [Modularization Strategy](docs/plans/MODULARIZATION_STRATEGY.md)
+- **[Project Management](docs/project/)** - Project-related documentation
+  - [Agents Configuration](docs/project/AGENTS.md)
+  - [Development TODOs](docs/project/TODOS.md)
+- **[User Guides](examples/)** - Step-by-step tutorials and examples
+- **[Technical Documentation](docs/technical-documentation/)** - Architecture and algorithms
+- **[Performance Analysis](docs/BENCHMARKING.md)** - Benchmarking results and optimization
+- **[EPCIS Integration](docs/EPCIS_ECOSYSTEM_INTEGRATION.md)** - Supply chain ontology processing
+
+### Generated Documentation
+- **API Reference**: Generated Rustdoc (`cargo doc --open`)
+- **Memory Safe Testing**: [Testing Guidelines](docs/MEMORY_SAFE_TESTING.md)
 
 ## 🤝 Contributing
 

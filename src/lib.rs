@@ -129,6 +129,12 @@ pub mod cache_manager;
 /// Memory leak prevention and monitoring system
 pub mod memory;
 
+/// Test memory guard for preventing OOM issues during testing
+pub mod test_memory_guard;
+
+/// Test helpers for memory-safe testing patterns
+pub mod test_helpers;
+
 /// Performance utilities and optimizations
 pub mod utils;
 

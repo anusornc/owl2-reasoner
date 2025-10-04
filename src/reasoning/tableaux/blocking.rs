@@ -3,6 +3,8 @@
 //! Implements blocking strategies for the tableaux reasoning algorithm to prevent infinite
 //! expansion and detect clashes (contradictions) in the model being constructed.
 //!
+
+#![allow(clippy::only_used_in_recursion)]
 //! ## Key Components
 //!
 //! - **[`BlockingStrategy`]** - Configurable blocking approaches (Equality, Subset, Optimized)

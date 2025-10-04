@@ -8,6 +8,8 @@
 //! - Simple class expressions
 //!
 //! But disallows:
+
+#![allow(clippy::only_used_in_recursion)]
 //! - Complex data range constructs (DataComplementOf, DataOneOf)
 //! - Complex object expressions (ObjectComplementOf, ObjectOneOf in certain contexts)
 //! - ObjectHasSelf restrictions
@@ -470,9 +472,9 @@ impl RlValidator {
     /// Extract IRI from ObjectPropertyExpression
     fn extract_iri_from_object_property_expression(
         &self,
-        prop: &Box<crate::axioms::property_expressions::ObjectPropertyExpression>,
+        prop: &crate::axioms::property_expressions::ObjectPropertyExpression,
     ) -> OwlResult<Arc<IRI>> {
-        match prop.as_ref() {
+        match prop {
             crate::axioms::property_expressions::ObjectPropertyExpression::ObjectProperty(
                 obj_prop,
             ) => Ok(obj_prop.iri().clone()),

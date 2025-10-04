@@ -1,16 +1,17 @@
 //! Stress testing for large ontologies
 //!
 //! This module tests the parser's performance and stability with large datasets.
+//! All tests are now memory-safe and will fail gracefully before causing OOM.
 
 use crate::parser::*;
+use crate::test_helpers::{memory_safe_test, memory_safe_stress_test, memory_safe_bench_test, MemorySafeTestConfig};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Instant;
 
-    #[test]
-    fn test_large_turtle_ontology_parsing() {
+    memory_safe_test!(test_large_turtle_ontology_parsing, MemorySafeTestConfig::medium(), {
         // Generate a large Turtle ontology with many classes
         let mut turtle_content = String::new();
         turtle_content.push_str("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
@@ -57,10 +58,9 @@ mod tests {
             ontology.classes().len(),
             ontology.object_properties().len()
         );
-    }
+    });
 
-    #[test]
-    fn test_parser_memory_usage() {
+    memory_safe_test!(test_parser_memory_usage, MemorySafeTestConfig::small(), {
         // Test with moderate-sized ontology to check memory management
         let mut turtle_content = String::new();
         turtle_content.push_str("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
@@ -95,10 +95,9 @@ mod tests {
 
         // The parser should handle this without excessive memory usage
         // (this is more of a smoke test than a precise memory measurement)
-    }
+    });
 
-    #[test]
-    fn test_parser_factory_auto_detect_large_content() {
+    memory_safe_test!(test_parser_factory_auto_detect_large_content, MemorySafeTestConfig::small(), {
         // Test auto-detection with large content
         let mut content = String::new();
         content.push_str("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
@@ -133,10 +132,9 @@ mod tests {
             result.is_ok(),
             "Auto-detected parser should handle large content"
         );
-    }
+    });
 
-    #[test]
-    fn test_parser_with_deep_hierarchy() {
+    memory_safe_test!(test_parser_with_deep_hierarchy, MemorySafeTestConfig::small(), {
         // Test parsing ontologies with deep class hierarchies
         let mut turtle_content = String::new();
         turtle_content.push_str("@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n");
@@ -165,10 +163,9 @@ mod tests {
             100,
             "Should have 100 classes in deep hierarchy"
         );
-    }
+    });
 
-    #[test]
-    fn test_multiple_large_imports() {
+    memory_safe_test!(test_multiple_large_imports, MemorySafeTestConfig::small(), {
         // Test handling of multiple import statements
         let turtle_content = r#"
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
@@ -195,10 +192,9 @@ ex:MainClass a owl:Class .
             !ontology.classes().is_empty(),
             "Should have at least the main class"
         );
-    }
+    });
 
-    #[test]
-    fn test_large_number_of_properties() {
+    memory_safe_test!(test_large_number_of_properties, MemorySafeTestConfig::small(), {
         // Test with many object and data properties
         let mut turtle_content = String::new();
         turtle_content.push_str("@prefix owl: <http://www.w3.org/2002/07/owl#> .\n");
@@ -228,10 +224,9 @@ ex:MainClass a owl:Class .
             ontology.data_properties().len() >= 200,
             "Should have many data properties"
         );
-    }
+    });
 
-    #[test]
-    fn test_stress_test_mixed_content() {
+    memory_safe_stress_test!(test_stress_test_mixed_content, {
         // Test with mixed and complex content
         let mut turtle_content = String::new();
         turtle_content.push_str("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
@@ -273,10 +268,9 @@ ex:MainClass a owl:Class .
             ontology.data_properties().len(),
             ontology.named_individuals().len()
         );
-    }
+    });
 
-    #[test]
-    fn test_parser_performance_scaling() {
+    memory_safe_bench_test!(test_parser_performance_scaling, 4, {
         // Test how parser performance scales with input size
         let sizes = vec![100, 500, 1000, 2000];
 
@@ -320,5 +314,5 @@ ex:MainClass a owl:Class .
                 size
             );
         }
-    }
+    });
 }

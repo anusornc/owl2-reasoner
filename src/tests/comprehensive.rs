@@ -2,12 +2,14 @@
 //!
 //! This module provides extensive test cases for OWL2 reasoning capabilities
 //! including family relationships, biomedical ontologies, and complex property characteristics.
+//! All tests are now memory-safe and will fail gracefully before causing OOM.
 
 use crate::axioms::*;
 use crate::entities::*;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::*;
+use crate::test_helpers::{memory_safe_test, memory_safe_stress_test, MemorySafeTestConfig};
 
 /// Test family relationship ontology with complex property characteristics
 pub mod family {
@@ -214,8 +216,7 @@ pub mod family {
     }
 
     /// Test family relationship reasoning
-    #[test]
-    fn test_family_relationship_reasoning() {
+    memory_safe_test!(test_family_relationship_reasoning, MemorySafeTestConfig::small(), {
         let ontology = create_family_ontology();
         let mut reasoner = OwlReasoner::new(ontology);
 
@@ -231,11 +232,10 @@ pub mod family {
 
         // Test consistency
         assert!(reasoner.is_consistent().unwrap());
-    }
+    });
 
     /// Test query functionality with family ontology
-    #[test]
-    fn test_family_query() {
+    memory_safe_test!(test_family_query, MemorySafeTestConfig::small(), {
         let ontology = create_family_ontology();
         let mut engine = QueryEngine::new(ontology);
 
@@ -251,7 +251,7 @@ pub mod family {
 
         let result = engine.execute_query(&pattern).unwrap();
         assert_eq!(result.bindings.len(), 2); // Should find John and Bob
-    }
+    });
 }
 
 /// Test biomedical ontology scenarios
@@ -389,8 +389,7 @@ pub mod biomedical {
     }
 
     /// Test biomedical ontology reasoning
-    #[test]
-    fn test_biomedical_reasoning() {
+    memory_safe_test!(test_biomedical_reasoning, MemorySafeTestConfig::small(), {
         let ontology = create_biomedical_ontology();
         let mut reasoner = OwlReasoner::new(ontology);
 
@@ -409,7 +408,7 @@ pub mod biomedical {
 
         // Test consistency
         assert!(reasoner.is_consistent().unwrap());
-    }
+    });
 }
 
 /// Test complex property characteristics
@@ -527,8 +526,7 @@ pub mod property_characteristics {
     }
 
     /// Test property characteristic reasoning
-    #[test]
-    fn test_property_characteristics() {
+    memory_safe_test!(test_property_characteristics, MemorySafeTestConfig::small(), {
         let ontology = create_property_test_ontology();
         let mut reasoner = OwlReasoner::new(ontology);
 
@@ -539,7 +537,7 @@ pub mod property_characteristics {
         let person_iri = IRI::new("http://example.org/test/Person").unwrap();
         let people = reasoner.get_instances(&person_iri).unwrap();
         assert_eq!(people.len(), 2); // Alice and Bob
-    }
+    });
 }
 
 /// Test consistency checking scenarios
@@ -592,8 +590,7 @@ pub mod consistency {
     }
 
     /// Test consistency detection
-    #[test]
-    fn test_consistency_detection() {
+    memory_safe_test!(test_consistency_detection, MemorySafeTestConfig::small(), {
         let ontology = create_inconsistent_ontology();
         let mut reasoner = OwlReasoner::new(ontology);
 
@@ -603,7 +600,7 @@ pub mod consistency {
         // For now, we just test that it runs without error
         // The actual consistency checking will be enhanced in future iterations
         println!("Consistency check result: {}", _is_consistent);
-    }
+    });
 }
 
 /// Performance benchmark tests
@@ -679,8 +676,7 @@ pub mod performance {
     }
 
     /// Test performance with large ontology
-    #[test]
-    fn test_large_ontology_performance() {
+    memory_safe_stress_test!(test_large_ontology_performance, {
         let size = 1000; // Adjust based on performance needs
         let ontology = create_large_ontology(size);
         let mut reasoner = OwlReasoner::new(ontology);
@@ -708,5 +704,5 @@ pub mod performance {
         );
         assert_eq!(people.len(), size);
         assert!(duration.as_secs() < 5); // Should complete in under 5 seconds
-    }
+    });
 }

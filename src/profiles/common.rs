@@ -3,6 +3,8 @@
 //! This module contains shared data structures, traits, and utilities
 //! used across all OWL2 profile implementations.
 
+#![allow(dead_code)]
+
 use crate::axioms::class_expressions::ClassExpression;
 use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
@@ -641,14 +643,12 @@ pub struct ProfileIndexes {
 
 impl ProfileIndexes {
     fn analyze_ontology(ontology: &Arc<Ontology>) -> Self {
-        let mut indexes = Self::default();
-
-        // Analyze ontology structure
-        // Count entities directly from ontology
-        indexes.class_count = ontology.classes().len();
-        indexes.property_count =
-            ontology.object_properties().len() + ontology.data_properties().len();
-        indexes.individual_count = ontology.named_individuals().len();
+        let indexes = ProfileIndexes {
+            class_count: ontology.classes().len(),
+            property_count: ontology.object_properties().len() + ontology.data_properties().len(),
+            individual_count: ontology.named_individuals().len(),
+            ..Default::default()
+        };
 
         // Additional analysis can be added here
 

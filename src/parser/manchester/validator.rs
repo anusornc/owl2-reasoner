@@ -571,12 +571,8 @@ impl SyntaxValidator {
     }
 
     /// Validate class expression
-    fn validate_class_expression(
-        &self,
-        expr: &Box<ClassExpression>,
-        result: &mut ValidationResult,
-    ) {
-        match &**expr {
+    fn validate_class_expression(&self, expr: &ClassExpression, result: &mut ValidationResult) {
+        match expr {
             ClassExpression::NamedClass(class_name) => {
                 self.validate_iri_reference(class_name, result);
             }
@@ -1024,8 +1020,8 @@ impl SyntaxValidator {
                 | PropertyCharacteristic::Irreflexive => {
                     result.errors.push(ValidationError {
                         message: format!(
-                            "Data properties cannot have {} characteristic",
-                            format!("{:?}", characteristic)
+                            "Data properties cannot have {:?} characteristic",
+                            characteristic
                         ),
                         location: None,
                         code: ErrorCode::InvalidPropertyCharacteristic,

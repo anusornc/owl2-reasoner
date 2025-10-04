@@ -246,7 +246,8 @@ impl MemoryMonitor {
                         process,
                         &mut pmc,
                         std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-                    ) != 0 {
+                    ) != 0
+                    {
                         return pmc.WorkingSetSize as usize;
                     }
                 }

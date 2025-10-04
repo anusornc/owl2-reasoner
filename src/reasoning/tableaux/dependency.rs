@@ -144,6 +144,7 @@ pub struct BacktrackStats {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 pub enum DependencySource {
     /// Choice point in the reasoning process
     ChoicePoint(usize),
@@ -308,15 +309,12 @@ impl DependencyManager {
             .push(dependency.clone());
 
         // Update dependency graph
-        match dependency.source_node {
-            source_node => {
-                for &dep_node in &dependency.dependent_nodes {
-                    self.dependency_graph
-                        .entry(source_node)
-                        .or_default()
-                        .insert(dep_node);
-                }
-            }
+        let source_node = dependency.source_node;
+        for &dep_node in &dependency.dependent_nodes {
+            self.dependency_graph
+                .entry(source_node)
+                .or_default()
+                .insert(dep_node);
         }
     }
 

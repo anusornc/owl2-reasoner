@@ -8,6 +8,8 @@
 //! - Role inclusion axioms
 //! - Role hierarchies
 //! - Transitive roles (with restrictions)
+
+#![allow(clippy::only_used_in_recursion)]
 //!
 //! But disallows:
 //! - Property characteristics beyond basic ones
@@ -112,6 +114,7 @@ impl QlValidator {
     }
 
     /// Check irreflexive properties for QL profile compliance
+    #[allow(dead_code)]
     fn check_irreflexive_properties_for_ql(&self) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = SmallVecUtils::violations();
 
@@ -328,8 +331,10 @@ impl QlValidator {
                 );
             }
             ClassExpression::ObjectSomeValuesFrom(prop, class_expr) => {
-                let prop_iri = prop.as_ref().as_named()
-                    .ok_or_else(|| crate::error::OwlError::ExpectedNamedObjectProperty)?
+                let prop_iri = prop
+                    .as_ref()
+                    .as_named()
+                    .ok_or(crate::error::OwlError::ExpectedNamedObjectProperty)?
                     .iri();
                 entities.push(
                     Arc::into_inner(Arc::clone(prop_iri))
@@ -338,8 +343,10 @@ impl QlValidator {
                 entities.extend(self.extract_entities_from_class_expression(class_expr)?);
             }
             ClassExpression::ObjectAllValuesFrom(prop, class_expr) => {
-                let prop_iri = prop.as_ref().as_named()
-                    .ok_or_else(|| crate::error::OwlError::ExpectedNamedObjectProperty)?
+                let prop_iri = prop
+                    .as_ref()
+                    .as_named()
+                    .ok_or(crate::error::OwlError::ExpectedNamedObjectProperty)?
                     .iri();
                 entities.push(
                     Arc::into_inner(Arc::clone(prop_iri))
@@ -389,6 +396,7 @@ impl QlValidator {
     }
 
     /// Helper to extract IRI from property expression
+    #[allow(dead_code)]
     fn iri_from_property_expression(
         &self,
         prop: &crate::axioms::property_expressions::ObjectPropertyExpression,

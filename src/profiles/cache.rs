@@ -3,6 +3,8 @@
 //! This module implements advanced caching strategies for profile validation results,
 //! including multi-level caching, compression, and intelligent eviction policies.
 
+#![allow(dead_code)]
+
 use crate::error::OwlResult;
 use crate::profiles::common::Owl2Profile;
 use crate::profiles::common::ProfileValidationResult;

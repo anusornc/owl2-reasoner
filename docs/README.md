@@ -20,14 +20,21 @@ Welcome to the comprehensive documentation for the OWL2 Reasoner project.
 - [Web Services](src/api/web-services.md) - REST API documentation
 
 ### **Development & Planning**
-- [Project Plans](plans/CLAUDE.md) - Development roadmap and plans
-- [Git Workflow](plans/GIT_WORKFLOW.md) - Development workflow guide
-- [Testing Guidelines](project/TESTING_IMPROVEMENT_PLAN.md) - Testing strategies
+- [Development Plans](plans/) - Strategic planning documents
+  - [Modularization Strategy](plans/MODULARIZATION_STRATEGY.md)
+  - [Git Workflow](plans/GIT_WORKFLOW.md) - Development workflow guide
+- [Project Management](project/) - Project-related documentation
+  - [Agents Configuration](project/AGENTS.md)
+  - [Development TODOs](project/TODOS.md)
+  - [Testing Guidelines](project/TESTING_IMPROVEMENT_PLAN.md)
 
 ### **Reports & Analysis**
-- [Performance Reports](reports/) - Benchmarking and validation reports
-- [System Validation](reports/SYSTEM_VALIDATION_REPORT.md) - Comprehensive validation
-- [Industry Analysis](performance/INDUSTRY_REASONER_ANALYSIS.md) - Industry comparison
+- [Analysis Reports](reports/) - Comprehensive analysis and status reports
+  - [Code Analysis Report](reports/CODE_ANALYSIS_REPORT.md)
+  - [Production Readiness](reports/PRODUCTION_READINESS_SUMMARY.md)
+  - [Memory Safety Implementation](reports/MEMORY_SAFETY_IMPLEMENTATION_SUMMARY.md)
+- [Performance Analysis](BENCHMARKING.md) - Benchmarking and optimization
+- [Memory Safe Testing](MEMORY_SAFE_TESTING.md) - Testing guidelines and patterns
 
 ### **Advanced Topics**
 - [Neurosymbolic Reasoning](src/neurosymbolic-reasoning.md) - Advanced reasoning techniques
