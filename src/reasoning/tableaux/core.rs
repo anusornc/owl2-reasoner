@@ -53,7 +53,8 @@
 //! ```
 
 use crate::axioms::*;
-use crate::error::OwlResult;
+use crate::entities::Class;
+use crate::error::{OwlError, OwlResult};
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 
@@ -185,8 +186,10 @@ impl TableauxNode {
 
     pub fn add_concept(&mut self, concept: ClassExpression) {
         if self.concepts_hashset.is_some() {
-            // Use hashset for large collections
-            self.concepts_hashset.as_mut().unwrap().insert(concept);
+            // Use hashset for large collections with safe access
+            if let Some(hashset) = &mut self.concepts_hashset {
+                hashset.insert(concept);
+            }
         } else {
             // Use SmallVec for small collections
             if self.concepts.len() < 8 {
@@ -365,9 +368,72 @@ impl TableauxReasoner {
         Self::with_config(Ontology::clone(ontology), ReasoningConfig::default())
     }
 
-    pub fn check_consistency(&self) -> OwlResult<bool> {
-        // Core consistency checking logic will be implemented here
-        // For now, return true as a placeholder
+    pub fn check_consistency(&mut self) -> OwlResult<bool> {
+        // Create a new tableaux graph for consistency checking
+        let mut graph = super::graph::TableauxGraph::new();
+        let mut expansion_engine = super::expansion::ExpansionEngine::new();
+        let blocking_manager = super::blocking::BlockingManager::new(super::blocking::BlockingStrategy::Optimized);
+        let mut memory_manager = super::memory::MemoryManager::new();
+        
+        // Initialize the root node with all classes from the ontology
+        self.initialize_root_node(&mut graph)?;
+        
+        // Track reasoning state
+        let mut nodes_to_expand = std::collections::VecDeque::new();
+        nodes_to_expand.push_back(graph.get_root());
+        
+        let mut expanded_nodes = std::collections::HashSet::new();
+        expanded_nodes.insert(graph.get_root());
+        
+        // Main reasoning loop
+        while let Some(current_node) = nodes_to_expand.pop_front() {
+            // Check if current node should be blocked
+            if blocking_manager.should_block_node(current_node, &graph) {
+                continue;
+            }
+            
+            // Apply tableaux expansion rules
+            expansion_engine.context.current_node = current_node;
+            let _expansion_result = expansion_engine.expand(&mut graph, &mut memory_manager, self.config.max_depth)
+                .map_err(|e| OwlError::ReasoningError(format!("Expansion failed: {}", e)))?;
+            
+            // Check for clashes after expansion
+            if self.has_clash(current_node, &graph)? {
+                return Ok(false); // Ontology is inconsistent
+            }
+            
+            // Get newly created nodes from expansion
+            let new_nodes = self.get_new_successors(current_node, &graph, &expanded_nodes);
+            
+            // Add new nodes to expansion queue
+            for new_node in new_nodes {
+                if !expanded_nodes.contains(&new_node) {
+                    nodes_to_expand.push_back(new_node);
+                    expanded_nodes.insert(new_node);
+                }
+            }
+            
+            // Handle backtracking if needed
+            if let Some(backtrack_point) = self.dependency_manager.latest_backtrack_point() {
+                if backtrack_point.exhausted {
+                    // Backtrack to previous choice point
+                    self.dependency_manager.backtrack_to_level(backtrack_point.level - 1)?;
+                }
+            }
+            
+            // Check timeout
+            if let Some(timeout_ms) = self.config.timeout {
+                let start_time = std::time::Instant::now();
+                if start_time.elapsed().as_millis() >= timeout_ms as u128 {
+                    return Err(OwlError::TimeoutError {
+                        operation: "consistency_checking".to_string(),
+                        timeout_ms,
+                    });
+                }
+            }
+        }
+        
+        // If we completed without finding a clash, the ontology is consistent
         Ok(true)
     }
 
@@ -391,7 +457,7 @@ impl TableauxReasoner {
         *self.memory_stats.borrow_mut() = MemoryStats::new();
     }
 
-    pub fn is_consistent(&self) -> OwlResult<bool> {
+    pub fn is_consistent(&mut self) -> OwlResult<bool> {
         // Placeholder implementation
         self.check_consistency()
     }
@@ -421,6 +487,37 @@ impl TableauxReasoner {
         Ok(false)
     }
 
+    /// Check if two class expressions represent disjoint classes
+    fn are_disjoint_class_expressions(&self, concept1: &ClassExpression, concept2: &ClassExpression) -> OwlResult<bool> {
+        // Extract class names from concepts
+        let class1 = self.extract_class_name(concept1)?;
+        let class2 = self.extract_class_name(concept2)?;
+        
+        if let (Some(iri1), Some(iri2)) = (class1, class2) {
+            // Check if these IRIs are declared disjoint
+            for disjoint_axiom in &self.rules.disjointness_rules {
+                let mut found_iri1 = false;
+                let mut found_iri2 = false;
+                
+                // For disjoint classes axioms, we need to check the actual classes
+                for class_iri in disjoint_axiom.classes() {
+                    if **class_iri == iri1 {
+                        found_iri1 = true;
+                    }
+                    if **class_iri == iri2 {
+                        found_iri2 = true;
+                    }
+                }
+                
+                if found_iri1 && found_iri2 {
+                    return Ok(true);
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+
     pub fn is_class_satisfiable(&self, _class: &IRI) -> OwlResult<bool> {
         // Placeholder implementation - check if the class can be instantiated
         Ok(true)
@@ -434,5 +531,136 @@ impl TableauxReasoner {
     pub fn is_subclass_of(&self, _subclass: &IRI, _superclass: &IRI) -> OwlResult<bool> {
         // Placeholder implementation
         Ok(false)
+    }
+
+    /// Initialize the root node with all classes from the ontology
+    fn initialize_root_node(&self, graph: &mut super::graph::TableauxGraph) -> OwlResult<()> {
+        let root_id = graph.get_root();
+        
+        // Add all named classes from the ontology to the root node
+        for class in self.ontology.classes() {
+            let class_expr = ClassExpression::Class(Class::new(class.iri().as_str()));
+            graph.add_concept(root_id, class_expr);
+        }
+        
+        // Add all subclass axioms as concepts
+        for subclass_axiom in &self.rules.subclass_rules {
+            graph.add_concept(root_id, subclass_axiom.sub_class().clone());
+            graph.add_concept(root_id, subclass_axiom.super_class().clone());
+        }
+        
+        // Add all equivalence axioms
+        for equiv_axiom in &self.rules.equivalence_rules {
+            // For equivalent classes, add each class as a concept
+            for class_iri in equiv_axiom.classes() {
+                let class_expr = ClassExpression::Class(Class::new(class_iri.as_str()));
+                graph.add_concept(root_id, class_expr);
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Check if a node contains contradictory concepts (clash detection)
+    fn has_clash(&self, node_id: NodeId, graph: &super::graph::TableauxGraph) -> OwlResult<bool> {
+        if let Some(node) = graph.get_node(node_id) {
+            let concepts: Vec<_> = node.concepts_iter().collect();
+            
+            // Check for direct contradictions
+            for (i, concept1) in concepts.iter().enumerate() {
+                for concept2 in concepts.iter().skip(i + 1) {
+                    if self.are_contradictory(concept1, concept2)? {
+                        return Ok(true);
+                    }
+                }
+            }
+            
+            // Check for disjoint class axioms
+            for (i, concept1) in concepts.iter().enumerate() {
+                for concept2 in concepts.iter().skip(i + 1) {
+                    if self.are_disjoint_class_expressions(concept1, concept2)? {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+
+    /// Check if two concepts are contradictory
+    fn are_contradictory(&self, concept1: &ClassExpression, concept2: &ClassExpression) -> OwlResult<bool> {
+        match (concept1, concept2) {
+            (ClassExpression::Class(class1), ClassExpression::Class(class2)) => {
+                // Check if classes are declared disjoint
+                for disjoint_axiom in &self.rules.disjointness_rules {
+                    let mut found_class1 = false;
+                    let mut found_class2 = false;
+                    
+                    for class_iri in disjoint_axiom.classes() {
+                        if **class_iri == **class1.iri() {
+                            found_class1 = true;
+                        }
+                        if **class_iri == **class2.iri() {
+                            found_class2 = true;
+                        }
+                    }
+                    
+                    if found_class1 && found_class2 {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            (ClassExpression::ObjectComplementOf(comp1), ClassExpression::Class(class2)) => {
+                // Check if complement contradicts the class
+                Ok(comp1.as_ref() == &ClassExpression::Class(Class::new(class2.iri().as_str())))
+            }
+            (ClassExpression::Class(class1), ClassExpression::ObjectComplementOf(comp2)) => {
+                // Check if complement contradicts the class
+                Ok(&ClassExpression::Class(Class::new(class1.iri().as_str())) == comp2.as_ref())
+            }
+            (ClassExpression::ObjectComplementOf(comp1), ClassExpression::ObjectComplementOf(comp2)) => {
+                // Check if complements are of the same class
+                Ok(comp1.as_ref() == comp2.as_ref())
+            }
+            // Check for bottom (Nothing) and top (Thing) contradictions
+            (ClassExpression::Class(class), _) if class.iri().as_str() == "http://www.w3.org/2002/07/owl#Nothing" => {
+                Ok(true) // Nothing contradicts everything except itself
+            }
+            (_, ClassExpression::Class(class)) if class.iri().as_str() == "http://www.w3.org/2002/07/owl#Nothing" => {
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+
+
+    /// Extract the class name from a class expression
+    fn extract_class_name(&self, concept: &ClassExpression) -> OwlResult<Option<IRI>> {
+        match concept {
+            ClassExpression::Class(class) => Ok(Some((**class.iri()).clone())),
+            ClassExpression::ObjectComplementOf(comp) => self.extract_class_name(comp.as_ref()),
+            _ => Ok(None),
+        }
+    }
+
+    /// Get new successor nodes that haven't been processed yet
+    fn get_new_successors(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+        expanded_nodes: &std::collections::HashSet<NodeId>,
+    ) -> Vec<NodeId> {
+        let mut new_nodes = Vec::new();
+        
+        // Check all edges from the current node
+        for edge in graph.edges.get_all_edges() {
+            if edge.0 == node_id && !expanded_nodes.contains(&edge.2) {
+                new_nodes.push(edge.2);
+            }
+        }
+        
+        new_nodes
     }
 }

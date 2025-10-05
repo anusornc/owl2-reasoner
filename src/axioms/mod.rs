@@ -1980,17 +1980,17 @@ mod tests {
         // Test that axioms can be created and matched
         match functional_axiom {
             Axiom::FunctionalProperty(_) => {}
-            _ => panic!("Expected FunctionalProperty axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedFunctionalPropertyAxiom),
         }
 
         match reflexive_axiom {
             Axiom::ReflexiveProperty(_) => {}
-            _ => panic!("Expected ReflexiveProperty axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedReflexivePropertyAxiom),
         }
 
         match transitive_axiom {
             Axiom::TransitiveProperty(_) => {}
-            _ => panic!("Expected TransitiveProperty axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedTransitivePropertyAxiom),
         }
         Ok(())
     }
@@ -2072,22 +2072,22 @@ mod tests {
         // Test that axioms can be created and matched
         match sub_data_axiom {
             Axiom::SubDataProperty(_) => {}
-            _ => panic!("Expected SubDataProperty axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedSubDataPropertyAxiom),
         }
 
         match functional_data_axiom {
             Axiom::FunctionalDataProperty(_) => {}
-            _ => panic!("Expected FunctionalDataProperty axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedFunctionalDataPropertyAxiom),
         }
 
         match equivalent_data_axiom {
             Axiom::EquivalentDataProperties(_) => {}
-            _ => panic!("Expected EquivalentDataProperties axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedEquivalentDataPropertiesAxiom),
         }
 
         match disjoint_data_axiom {
             Axiom::DisjointDataProperties(_) => {}
-            _ => panic!("Expected DisjointDataProperties axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedDisjointDataPropertiesAxiom),
         }
         Ok(())
     }
@@ -2141,12 +2141,12 @@ mod tests {
 
         match same_axiom {
             Axiom::SameIndividual(_) => {}
-            _ => panic!("Expected SameIndividual axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedSameIndividualAxiom),
         }
 
         match different_axiom {
             Axiom::DifferentIndividuals(_) => {}
-            _ => panic!("Expected DifferentIndividuals axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedDifferentIndividualsAxiom),
         }
         Ok(())
     }
@@ -2236,7 +2236,7 @@ mod tests {
 
         match chain_axiom {
             Axiom::SubPropertyChainOf(_) => {}
-            _ => panic!("Expected SubPropertyChainOf axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedSubPropertyChainOfAxiom),
         }
         Ok(())
     }
@@ -2259,7 +2259,7 @@ mod tests {
 
         match inverse_axiom {
             Axiom::InverseObjectProperties(_) => {}
-            _ => panic!("Expected InverseObjectProperties axiom"),
+            _ => return Err(crate::error::OwlError::ExpectedInverseObjectPropertiesAxiom),
         }
         Ok(())
     }

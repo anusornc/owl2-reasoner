@@ -159,6 +159,24 @@ pub enum OwlError {
     #[error("Expected FunctionalDataProperty axiom")]
     ExpectedFunctionalDataPropertyAxiom,
 
+    #[error("Expected EquivalentDataProperties axiom")]
+    ExpectedEquivalentDataPropertiesAxiom,
+
+    #[error("Expected DisjointDataProperties axiom")]
+    ExpectedDisjointDataPropertiesAxiom,
+
+    #[error("Expected SameIndividual axiom")]
+    ExpectedSameIndividualAxiom,
+
+    #[error("Expected DifferentIndividuals axiom")]
+    ExpectedDifferentIndividualsAxiom,
+
+    #[error("Expected SubPropertyChainOf axiom")]
+    ExpectedSubPropertyChainOfAxiom,
+
+    #[error("Expected InverseObjectProperties axiom")]
+    ExpectedInverseObjectPropertiesAxiom,
+
     /// Other errors
     #[error("Other error: {0}")]
     Other(String),

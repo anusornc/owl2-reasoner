@@ -192,7 +192,7 @@ fn bench_parallel_reasoning_performance(c: &mut Criterion) {
                     enable_parallel: false,
                     ..Default::default()
                 };
-                let reasoner = TableauxReasoner::with_config(ontology.clone(), config);
+                let mut reasoner = TableauxReasoner::with_config(ontology.clone(), config);
 
                 b.iter(|| black_box(reasoner.is_consistent().unwrap()));
             },
@@ -402,7 +402,7 @@ fn bench_comprehensive_validation(c: &mut Criterion) {
                 enable_parallel: false,
                 ..Default::default()
             };
-            let reasoner = TableauxReasoner::with_config(parsed_ontology, reason_config);
+            let mut reasoner = TableauxReasoner::with_config(parsed_ontology, reason_config);
             black_box(reasoner.is_consistent().unwrap());
         });
     });

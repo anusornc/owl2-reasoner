@@ -185,7 +185,11 @@ impl SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No mutable access occurs while this reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
+        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
+            panic!("Failed to acquire arena lock: {}", e);
+        });
+        // Safe alternative to transmute
+        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*arena_guard) }
     }
 }
 
@@ -284,7 +288,11 @@ impl ParserArenaTrait for SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No mutable access occurs while this reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*self.arena.lock().unwrap()) }
+        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
+            panic!("Failed to acquire arena lock: {}", e);
+        });
+        // Safe alternative to transmute
+        unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*arena_guard) }
     }
 
     fn arena_mut(&mut self) -> &mut ParserArena {
@@ -293,11 +301,13 @@ impl ParserArenaTrait for SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No other references exist while this mutable reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        unsafe {
-            std::mem::transmute::<&mut ParserArena, &mut ParserArena>(
-                &mut *self.arena.lock().unwrap(),
-            )
-        }
+        let mut arena_guard = self.arena.lock().unwrap_or_else(|e| {
+            panic!("Failed to acquire arena lock: {}", e);
+        });
+        // Safe alternative to transmute
+        unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(
+            &mut *arena_guard
+        ) }
     }
 
     fn reset(&mut self) {

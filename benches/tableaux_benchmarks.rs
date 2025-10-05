@@ -29,7 +29,7 @@ pub fn bench_tableaux_core(c: &mut Criterion) {
             })
         });
 
-        let reasoner = TableauxReasoner::new(ontology.clone());
+        let mut reasoner = TableauxReasoner::new(ontology.clone());
         group.bench_with_input(
             BenchmarkId::new("consistency_checking", size),
             size,
@@ -319,7 +319,7 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
             ontology_size,
             |b, _size| {
                 b.iter(|| {
-                    let reasoner = TableauxReasoner::with_config(
+                    let mut reasoner = TableauxReasoner::with_config(
                         black_box(ontology.clone()),
                         ReasoningConfig {
                             max_depth: 1000,
@@ -386,7 +386,7 @@ pub fn bench_tableaux_integration(c: &mut Criterion) {
                 ontology_size,
                 |b, _| {
                     b.iter(|| {
-                        let reasoner = TableauxReasoner::with_config(
+                        let mut reasoner = TableauxReasoner::with_config(
                             black_box(ontology.clone()),
                             black_box(config.clone()),
                         );
@@ -523,7 +523,7 @@ pub fn bench_tableaux_memory_usage(c: &mut Criterion) {
             |b, size| {
                 b.iter(|| {
                     let ontology = create_comprehensive_test_ontology(*size);
-                    let reasoner = TableauxReasoner::new(ontology);
+                    let mut reasoner = TableauxReasoner::new(ontology);
 
                     // Perform reasoning to populate memory structures
                     let _is_consistent = reasoner.is_consistent().unwrap();
@@ -563,7 +563,7 @@ pub fn bench_tableaux_caching(c: &mut Criterion) {
     let mut group = c.benchmark_group("tableaux_caching");
 
     for cache_size in [100, 500, 1000].iter() {
-        let reasoner = TableauxReasoner::new(create_test_ontology(*cache_size));
+        let mut reasoner = TableauxReasoner::new(create_test_ontology(*cache_size));
 
         // Warm up cache
         for _ in 0..*cache_size {

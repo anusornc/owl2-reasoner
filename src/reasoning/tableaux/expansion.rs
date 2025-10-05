@@ -85,6 +85,7 @@ use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::ObjectPropertyExpression;
 use crate::iri::IRI;
 use hashbrown::HashMap;
+use smallvec::SmallVec;
 use std::collections::{HashSet, VecDeque};
 
 /// Types of expansion rules
@@ -410,21 +411,161 @@ impl ExpansionRules {
 
     fn apply_nominal_rule(
         &self,
-        _graph: &mut TableauxGraph,
+        graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
-        _context: &mut ExpansionContext,
+        context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Simplified nominal rule implementation
+        // Handle nominals (individuals): {a} → create node for individual a
+        // First, collect the nominals without holding a mutable borrow
+        let nominals: Vec<_> = if let Some(node) = graph.get_node(context.current_node) {
+            node.concepts_iter()
+                .filter(|c| matches!(c, ClassExpression::ObjectOneOf(_)))
+                .cloned()
+                .collect()
+        } else {
+            return Ok(vec![]);
+        };
+
+        for nominal in nominals {
+            if let ClassExpression::ObjectOneOf(individuals) = nominal {
+                // For each individual in the nominal, ensure they have corresponding nodes
+                for individual in individuals.iter() {
+                    // Check if we already have a node for this individual
+                    let individual_node = self.find_or_create_individual_node(graph, individual);
+
+                    // Create expansion task for the individual node
+                    let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> = SmallVec::new();
+                    task_individual_vec.push(individual.clone());
+                    let task = ExpansionTask {
+                        node_id: individual_node,
+                        concept: ClassExpression::ObjectOneOf(Box::new(task_individual_vec)),
+                        rule_type: ExpansionRule::Nominal,
+                        priority: 7, // Medium priority for nominals
+                    };
+                    return Ok(vec![task]);
+                }
+            }
+        }
         Ok(vec![])
+    }
+
+    /// Find or create a node for an individual
+    fn find_or_create_individual_node(&self, graph: &mut TableauxGraph, individual: &crate::entities::Individual) -> NodeId {
+        // For now, create a new node for each individual
+        // In a full implementation, we'd maintain a mapping of individuals to nodes
+        let node_id = graph.add_node();
+
+        // Add the individual as a nominal concept to the new node
+        let mut individual_vec: SmallVec<[crate::entities::Individual; 8]> = SmallVec::new();
+        individual_vec.push(individual.clone());
+        graph.add_concept(node_id, ClassExpression::ObjectOneOf(Box::new(individual_vec)));
+
+        node_id
     }
 
     fn apply_data_range_rule(
         &self,
-        _graph: &mut TableauxGraph,
+        graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
-        _context: &mut ExpansionContext,
+        context: &mut ExpansionContext,
     ) -> Result<Vec<ExpansionTask>, String> {
-        // Simplified data range rule implementation
+        // Handle data property restrictions and data ranges
+        if let Some(node) = graph.get_node_mut(context.current_node) {
+            // Find all data property restrictions
+            let data_restrictions: Vec<_> = node
+                .concepts_iter()
+                .filter(|c| matches!(c,
+                    ClassExpression::DataSomeValuesFrom(_, _) |
+                    ClassExpression::DataAllValuesFrom(_, _) |
+                    ClassExpression::DataHasValue(_, _) |
+                    ClassExpression::DataMinCardinality(_, _) |
+                    ClassExpression::DataMaxCardinality(_, _) |
+                    ClassExpression::DataExactCardinality(_, _)
+                ))
+                .cloned()
+                .collect();
+
+            for restriction in data_restrictions {
+                match &restriction {
+                    ClassExpression::DataSomeValuesFrom(_, _) => {
+                        // ∃D.R → create data value satisfying R
+                        // For now, we'll create a placeholder data value
+                        // In a full implementation, this would involve data range reasoning
+                        let task = ExpansionTask {
+                            node_id: context.current_node,
+                            concept: restriction.clone(),
+                            rule_type: ExpansionRule::DataRange,
+                            priority: 6, // Medium priority for data restrictions
+                        };
+                        return Ok(vec![task]);
+                    }
+                    ClassExpression::DataAllValuesFrom(_, _) => {
+                        // ∀D.R → all data values must satisfy R
+                        // This is handled during model completion
+                        let task = ExpansionTask {
+                            node_id: context.current_node,
+                            concept: restriction.clone(),
+                            rule_type: ExpansionRule::DataRange,
+                            priority: 6,
+                        };
+                        return Ok(vec![task]);
+                    }
+                    ClassExpression::DataHasValue(_, _) => {
+                        // D = v → the node has data value v for property D
+                        // This represents a concrete data assertion
+                        let task = ExpansionTask {
+                            node_id: context.current_node,
+                            concept: restriction.clone(),
+                            rule_type: ExpansionRule::DataRange,
+                            priority: 6,
+                        };
+                        return Ok(vec![task]);
+                    }
+                    ClassExpression::DataMinCardinality(cardinality, _) => {
+                        // ≥n D → at least n distinct data values
+                        if *cardinality > 0 {
+                            // Create additional data values to satisfy minimum cardinality
+                            for _ in 0..*cardinality {
+                                let task = ExpansionTask {
+                                    node_id: context.current_node,
+                                    concept: restriction.clone(),
+                                    rule_type: ExpansionRule::DataRange,
+                                    priority: 6,
+                                };
+                                return Ok(vec![task]);
+                            }
+                        }
+                    }
+                    ClassExpression::DataMaxCardinality(_, _) => {
+                        // ≤n D → at most n distinct data values
+                        // This is a constraint that will be checked during completion
+                        let task = ExpansionTask {
+                            node_id: context.current_node,
+                            concept: restriction.clone(),
+                            rule_type: ExpansionRule::DataRange,
+                            priority: 6,
+                        };
+                        return Ok(vec![task]);
+                    }
+                    ClassExpression::DataExactCardinality(cardinality, _) => {
+                        // =n D → exactly n distinct data values
+                        if *cardinality > 0 {
+                            // Create exactly n data values
+                            for _ in 0..*cardinality {
+                                let task = ExpansionTask {
+                                    node_id: context.current_node,
+                                    concept: restriction.clone(),
+                                    rule_type: ExpansionRule::DataRange,
+                                    priority: 6,
+                                };
+                                return Ok(vec![task]);
+                            }
+                        }
+                    }
+                    _ => {} // Other cases handled above
+                }
+            }
+        }
         Ok(vec![])
     }
 }

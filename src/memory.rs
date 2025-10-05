@@ -109,17 +109,17 @@ impl MemoryMonitor {
         }
     }
 
-    /// Get current memory statistics
+    /// Get current memory statistics with timeout
     pub fn get_stats(&self) -> MemoryStats {
-        // Attempt to get stats with graceful fallback on lock failure
-        let mut stats = match self.stats.lock() {
+        // Attempt to get stats with timeout and graceful fallback
+        let mut stats = match self.acquire_lock_with_timeout(&self.stats, Duration::from_millis(1000), "stats") {
             Ok(guard) => guard,
             Err(e) => {
-                eprintln!("Memory stats lock poisoned: {}", e);
+                eprintln!("Memory stats lock failed: {}", e);
                 // Create temporary fallback stats
                 return MemoryStats {
-                    total_usage: self.get_current_memory_usage(),
-                    peak_usage: self.get_current_memory_usage(),
+                    total_usage: self.get_current_memory_usage_safe(),
+                    peak_usage: self.get_current_memory_usage_safe(),
                     iri_cache_size: 0,
                     entity_cache_size: 0,
                     cleanup_count: self.cleanup_count.load(Ordering::Relaxed),
@@ -128,8 +128,8 @@ impl MemoryMonitor {
             }
         };
 
-        // Update current usage
-        stats.total_usage = self.get_current_memory_usage();
+        // Update current usage safely
+        stats.total_usage = self.get_current_memory_usage_safe();
         stats.peak_usage = stats.peak_usage.max(stats.total_usage);
 
         // Update cache sizes (now using unified cache) with graceful fallback
@@ -159,117 +159,13 @@ impl MemoryMonitor {
         stats.clone()
     }
 
-    /// Get current memory usage (platform-specific)
-    fn get_current_memory_usage(&self) -> usize {
-        #[cfg(target_os = "linux")]
-        {
-            // Use /proc/self/status on Linux
-            if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
-                for line in content.lines() {
-                    if line.starts_with("VmRSS:") {
-                        if let Some(kb_str) = line.split_whitespace().nth(1) {
-                            if let Ok(kb) = kb_str.parse::<usize>() {
-                                return kb * 1024; // Convert KB to bytes
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            // Use mach APIs on macOS
-            #[allow(deprecated)]
-            unsafe {
-                use libc::{
-                    mach_msg_type_number_t, mach_task_basic_info, mach_task_self, task_info,
-                };
-
-                // SAFETY:
-                // 1. mach_task_basic_info is a plain data structure with no padding
-                // 2. std::mem::zeroed() is safe for plain data structs
-                // 3. task_info is a system call that only writes to the provided buffer
-                // 4. We provide the correct struct size via count parameter
-                // 5. MACH_TASK_BASIC_INFO (4) is a valid system-defined constant
-                // 6. mach_task_self() returns a valid task handle for the current process
-                // 7. The pointer cast is safe because both structs have compatible layout
-                let mut info: mach_task_basic_info = std::mem::zeroed();
-                let mut count = (std::mem::size_of::<mach_task_basic_info>()
-                    / std::mem::size_of::<i32>())
-                    as mach_msg_type_number_t;
-
-                // SAFETY: task_info kernel call
-                // - Writes at most 'count' integers to info buffer
-                // - Returns 0 on success, error code on failure
-                // - Only accesses memory within the info struct bounds
-                // - No undefined behavior as we provide valid, properly aligned memory
-                if task_info(
-                    mach_task_self(),
-                    4, // MACH_TASK_BASIC_INFO
-                    &mut info as *mut _ as *mut _,
-                    &mut count,
-                ) == 0
-                {
-                    return info.virtual_size as usize;
-                }
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            // Use Windows APIs
-            unsafe {
-                use winapi::um::processthreadsapi::OpenProcess;
-                use winapi::um::psapi::{
-                    GetCurrentProcess, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
-                };
-
-                // SAFETY: Windows API calls for process memory information
-                // 1. GetCurrentProcess() returns a pseudo-handle that's always valid
-                // 2. OpenProcess() returns a valid handle when successful, checked below
-                // 3. PROCESS_MEMORY_COUNTERS is a plain data struct safe to zero
-                // 4. GetProcessMemoryInfo only writes within the provided buffer size
-                // 5. The size parameter correctly matches the struct size
-                use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
-
-                let process = OpenProcess(PROCESS_QUERY_INFORMATION, 0, GetCurrentProcess());
-                if !process.is_null() {
-                    // SAFETY: PROCESS_MEMORY_COUNTERS is a POD struct safe to zero
-                    let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
-
-                    // SAFETY: GetProcessMemoryInfo kernel call
-                    // - Third parameter is size, correctly calculated
-                    // - Only writes within pmc buffer bounds
-                    // - Returns BOOL: TRUE on success, FALSE on failure
-                    if GetProcessMemoryInfo(
-                        process,
-                        &mut pmc,
-                        std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-                    ) != 0
-                    {
-                        return pmc.WorkingSetSize as usize;
-                    }
-                }
-            }
-        }
-
-        // Fallback: estimate from known structures (now using unified cache)
-        let cache_size = cache_manager::global_cache_manager()
-            .get_iri_cache_size()
-            .unwrap_or(0); // Default to 0 if we can't get size
-
-        cache_size * 200 + // Estimate ~200 bytes per cached IRI (unified cache)
-        1024 * 1024 // Base 1MB estimate
-    }
 
     /// Check for memory pressure and perform cleanup if needed
     pub fn check_and_cleanup(&self) -> Result<(), String> {
         let stats = self.get_stats();
         let mut last_cleanup = self
-            .last_cleanup
-            .lock()
-            .map_err(|e| format!("Cleanup timing lock poisoned: {}", e))?;
+            .acquire_lock_with_timeout(&self.last_cleanup, Duration::from_millis(500), "last_cleanup")
+            .map_err(|e| format!("Cleanup timing lock failed: {}", e))?;
 
         // Check if we're above pressure threshold
         if stats.pressure_level > self.config.pressure_threshold {
@@ -349,6 +245,47 @@ impl MemoryMonitor {
     /// Get cleanup count
     pub fn get_cleanup_count(&self) -> u64 {
         self.cleanup_count.load(Ordering::Relaxed)
+    }
+
+    /// Acquire lock with timeout to prevent deadlocks
+    fn acquire_lock_with_timeout<'a, T>(
+        &self,
+        mutex: &'a Mutex<T>,
+        timeout: Duration,
+        lock_name: &str,
+    ) -> Result<std::sync::MutexGuard<'a, T>, String> {
+        let start_time = Instant::now();
+        
+        loop {
+            match mutex.try_lock() {
+                Ok(guard) => return Ok(guard),
+                Err(_) => {
+                    if start_time.elapsed() >= timeout {
+                        return Err(format!("Timeout acquiring {} lock after {:?}", lock_name, timeout));
+                    }
+                    // Sleep briefly to avoid busy waiting
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+        }
+    }
+
+    /// Safe memory usage estimation without unsafe operations
+    fn get_current_memory_usage_safe(&self) -> usize {
+        // Use a safe, platform-independent estimation approach
+        // This avoids unsafe platform-specific code
+        
+        // Try to get cache size as a baseline
+        let cache_size = cache_manager::global_cache_manager()
+            .get_iri_cache_size()
+            .unwrap_or(0);
+
+        // Safe estimation based on known structures
+        let base_memory = 1024 * 1024; // 1MB base
+        let cache_memory = cache_size * 200; // ~200 bytes per cached IRI
+        let overhead_memory = 512 * 1024; // 512KB overhead estimate
+        
+        base_memory + cache_memory + overhead_memory
     }
 }
 
