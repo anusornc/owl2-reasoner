@@ -185,8 +185,10 @@ impl ValueProcessor {
             }])
         } else {
             // Default to string literal
-            let datatype_iri = IRI::new("http://www.w3.org/2001/XMLSchema#string")
-                .map_err(|e| crate::error::OwlError::ParseError(format!("Invalid XSD string IRI: {}", e)))?;
+            let datatype_iri =
+                IRI::new("http://www.w3.org/2001/XMLSchema#string").map_err(|e| {
+                    crate::error::OwlError::ParseError(format!("Invalid XSD string IRI: {}", e))
+                })?;
             Ok(vec![ProcessedValue::TypedLiteral {
                 value: value.to_string(),
                 datatype: datatype_iri,

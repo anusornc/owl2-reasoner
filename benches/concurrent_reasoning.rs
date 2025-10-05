@@ -3,7 +3,7 @@
 //! Tests the performance and behavior of multiple reasoning tasks
 //! running simultaneously, focusing on thread safety and resource contention.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -96,14 +96,14 @@ fn bench_concurrent_satisfiability(c: &mut Criterion) {
                                 let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
                                 // Get a class for satisfiability testing
-                                if let Some(first_class) = reasoner.ontology().classes().next() {
+                                if let Some(first_class) = reasoner.ontology.classes().iter().next() {
                                     let class_iri = first_class.iri().clone();
 
                                     barrier.wait(); // Synchronize start
 
                                     // Perform satisfiability check
                                     let result =
-                                        reasoner.is_class_satisfiability(&class_iri).unwrap();
+                                        reasoner.is_class_satisfiable(&class_iri).unwrap();
                                     completed_operations.fetch_add(1, Ordering::Relaxed);
                                     black_box(result)
                                 } else {
@@ -168,11 +168,11 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
                                     1 => {
                                         // Satisfiability checking
                                         if let Some(first_class) =
-                                            reasoner.ontology().classes().next()
+                                            reasoner.ontology.classes().iter().next()
                                         {
                                             let class_iri = first_class.iri().clone();
                                             let result = reasoner
-                                                .is_class_satisfiability(&class_iri)
+                                                .is_class_satisfiable(&class_iri)
                                                 .unwrap();
                                             completed_operations.fetch_add(1, Ordering::Relaxed);
                                             black_box(result)
@@ -183,12 +183,12 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
                                     _ => {
                                         // Multiple satisfiability checks
                                         if let Some(first_class) =
-                                            reasoner.ontology().classes().next()
+                                            reasoner.ontology.classes().iter().next()
                                         {
                                             let class_iri = first_class.iri().clone();
                                             for _ in 0..3 {
                                                 let result = reasoner
-                                                    .is_class_satisfiability(&class_iri)
+                                                    .is_class_satisfiable(&class_iri)
                                                     .unwrap();
                                                 black_box(result);
                                             }
@@ -338,9 +338,9 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
                     let reasoner = Arc::new(owl2_reasoner::SimpleReasoner::new(ontology));
 
                     // Pre-populate cache with some classes
-                    let classes: Vec<_> = reasoner.ontology().classes().take(10).collect();
+                    let classes: Vec<_> = reasoner.ontology.classes().iter().take(10).collect();
                     for class in &classes {
-                        let _ = reasoner.is_class_satisfiability(class.iri()).unwrap();
+                        let _ = reasoner.is_class_satisfiable(class.iri()).unwrap();
                     }
 
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -361,7 +361,7 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
                                 // Perform cached operations
                                 for class in &classes {
                                     let result =
-                                        reasoner.is_class_satisfiability(class.iri()).unwrap();
+                                        reasoner.is_class_satisfiable(class.iri()).unwrap();
                                     black_box(result);
                                 }
                                 completed_operations.fetch_add(1, Ordering::Relaxed);
@@ -474,11 +474,11 @@ fn run_concurrent_analysis() -> PerformanceResults {
                             measurement
                         }
                         1 => {
-                            if let Some(first_class) = reasoner.ontology().classes().next() {
+                            if let Some(first_class) = reasoner.ontology.classes().iter().next() {
                                 let class_iri = first_class.iri().clone();
                                 let (_, measurement) = measure_performance(
                                     &format!("satisfiability_{}", thread_count),
-                                    || reasoner.is_class_satisfiability(&class_iri).unwrap(),
+                                    || reasoner.is_class_satisfiable(&class_iri).unwrap(),
                                 );
                                 measurement
                             } else {
@@ -489,8 +489,9 @@ fn run_concurrent_analysis() -> PerformanceResults {
                                     memory_before: Default::default(),
                                     memory_after: Default::default(),
                                     memory_delta: Default::default(),
-                                    allocations_count: 0,
-                                    deallocations_count: 0,
+                                    allocator_before: Default::default(),
+                                    allocator_after: Default::default(),
+                                    allocator_delta: Default::default(),
                                 }
                             }
                         }
@@ -520,8 +521,9 @@ fn run_concurrent_analysis() -> PerformanceResults {
             memory_before: Default::default(),
             memory_after: Default::default(),
             memory_delta: Default::default(),
-            allocations_count: 0,
-            deallocations_count: 0,
+            allocator_before: Default::default(),
+            allocator_after: Default::default(),
+            allocator_delta: Default::default(),
         };
         results.add_measurement(summary_measurement);
 
@@ -622,7 +624,7 @@ fn bench_thread_safety(c: &mut Criterion) {
 
             let final_results = results.lock().unwrap();
             assert_eq!(final_results.len(), thread_count);
-            black_box(final_results)
+            black_box(final_results.clone())
         })
     });
 

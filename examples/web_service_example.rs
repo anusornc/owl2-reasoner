@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("====================================");
 
         // Start web service in background
-        let service_handle = tokio::spawn(async { start_web_service(8080).await });
+        let service_handle = tokio::spawn(async { start_web_service(8080) });
 
         // Give the service time to start
         sleep(Duration::from_secs(1)).await;

@@ -22,7 +22,7 @@ use owl2_reasoner::entities::{Class, NamedIndividual, ObjectProperty};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
+// TODO: Replace with alternative size calculation approach
 use std::time::Instant;
 
 /// Main benchmark suite that tests basic performance
@@ -117,19 +117,19 @@ fn measure_memory_usage(c: &mut Criterion) {
 
                 // Estimate class sizes
                 for class in ontology.classes() {
-                    total_entity_bytes += EntitySizeCalculator::estimate_class_size(class);
+                    total_entity_bytes += std::mem::size_of_val(class);
                     entity_count += 1;
                 }
 
                 // Estimate property sizes
                 for prop in ontology.object_properties() {
-                    total_entity_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
+                    total_entity_bytes += std::mem::size_of_val(prop);
                     entity_count += 1;
                 }
 
                 // Estimate axiom sizes
                 for axiom in ontology.subclass_axioms() {
-                    total_entity_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
+                    total_entity_bytes += std::mem::size_of_val(axiom);
                     entity_count += 1;
                 }
 
@@ -293,7 +293,7 @@ fn comprehensive_performance_benchmark(c: &mut Criterion) {
                 let mut count = 0;
 
                 for class in reasoner.ontology.classes() {
-                    total_bytes += EntitySizeCalculator::estimate_class_size(class);
+                    total_bytes += std::mem::size_of_val(class);
                     count += 1;
                 }
 

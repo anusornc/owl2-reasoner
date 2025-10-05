@@ -128,6 +128,10 @@ pub enum OwlError {
     #[error("UTF-8 conversion error: {0}")]
     Utf8Error(#[from] std::string::FromUtf8Error),
 
+    /// JSON serialization errors
+    #[error("JSON serialization error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
     /// Unexpected structure errors (replacing panic! calls)
     #[error("Unexpected structure: {0}")]
     UnexpectedStructure(String),

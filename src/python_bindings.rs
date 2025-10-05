@@ -224,11 +224,11 @@ impl PyOWL2Reasoner {
 
     pub fn get_statistics(&self) -> PyResult<HashMap<String, usize>> {
         let mut stats = HashMap::new();
-        stats.insert("classes", self.reasoner.ontology().classes().len());
-        stats.insert("object_properties", self.reasoner.ontology().object_properties().len());
-        stats.insert("data_properties", self.reasoner.ontology().data_properties().len());
-        stats.insert("individuals", self.reasoner.ontology().named_individuals().len());
-        stats.insert("axioms", self.reasoner.ontology().axioms().len());
+        stats.insert("classes", self.reasoner.ontology.classes().len());
+        stats.insert("object_properties", self.reasoner.ontology.object_properties().len());
+        stats.insert("data_properties", self.reasoner.ontology.data_properties().len());
+        stats.insert("individuals", self.reasoner.ontology.named_individuals().len());
+        stats.insert("axioms", self.reasoner.ontology.axioms().len());
         Ok(stats)
     }
 

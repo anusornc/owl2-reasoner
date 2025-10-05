@@ -68,9 +68,9 @@ fn satisfiability_check_small() {
     let ontology = generate_small_ontology();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
-    if let Some(first_class) = reasoner.ontology().classes().next() {
+    if let Some(first_class) = reasoner.ontology.classes().iter().next() {
         let class_iri = first_class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 }
 
@@ -79,9 +79,9 @@ fn satisfiability_check_medium() {
     let ontology = generate_medium_ontology();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
-    if let Some(first_class) = reasoner.ontology().classes().next() {
+    if let Some(first_class) = reasoner.ontology.classes().iter().next() {
         let class_iri = first_class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 }
 
@@ -104,7 +104,7 @@ fn subclass_check_small() {
     let ontology = generate_small_ontology();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
-    let classes: Vec<_> = reasoner.ontology().classes().take(2).collect();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().take(2).collect();
     if classes.len() >= 2 {
         let sub_class_iri = classes[0].iri().clone();
         let super_class_iri = classes[1].iri().clone();
@@ -119,7 +119,7 @@ fn subclass_check_medium() {
     let ontology = generate_medium_ontology();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
-    let classes: Vec<_> = reasoner.ontology().classes().take(2).collect();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().take(2).collect();
     if classes.len() >= 2 {
         let sub_class_iri = classes[0].iri().clone();
         let super_class_iri = classes[1].iri().clone();
@@ -137,9 +137,9 @@ fn complex_reasoning_workflow() {
     // Full reasoning workflow
     let _ = reasoner.is_consistent().unwrap();
 
-    if let Some(first_class) = reasoner.ontology().classes().next() {
+    if let Some(first_class) = reasoner.ontology.classes().iter().next() {
         let class_iri = first_class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 
     let _ = reasoner.classify().unwrap();
@@ -177,10 +177,10 @@ fn memory_intensive_operations() {
     let _ = reasoner.classify().unwrap();
 
     // Multiple satisfiability checks
-    let classes: Vec<_> = reasoner.ontology().classes().take(10).collect();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().take(10).collect();
     for class in classes {
         let class_iri = class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 }
 
@@ -190,18 +190,18 @@ fn cache_behavior_analysis() {
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     // Get some classes for cache testing
-    let classes: Vec<_> = reasoner.ontology().classes().take(5).collect();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().take(5).collect();
 
     // First pass (cache misses)
     for class in &classes {
         let class_iri = class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 
     // Second pass (cache hits)
     for class in &classes {
         let class_iri = class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 }
 
@@ -246,10 +246,10 @@ fn repeated_operations() {
         let _ = reasoner.is_consistent().unwrap();
     }
 
-    if let Some(first_class) = reasoner.ontology().classes().next() {
+    if let Some(first_class) = reasoner.ontology.classes().iter().next() {
         let class_iri = first_class.iri().clone();
         for _ in 0..10 {
-            let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+            let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
         }
     }
 }
@@ -273,10 +273,10 @@ fn stress_test_large_ontology() {
     let _ = reasoner.classify().unwrap();
 
     // Multiple satisfiability checks
-    let classes: Vec<_> = reasoner.ontology().classes().take(20).collect();
+    let classes: Vec<_> = reasoner.ontology.classes().iter().take(20).collect();
     for class in classes {
         let class_iri = class.iri().clone();
-        let _ = reasoner.is_class_satisfiability(&class_iri).unwrap();
+        let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 }
 
@@ -309,8 +309,8 @@ fn run_instruction_level_analysis() {
         let (_result, measurement) = measure_performance(name, operation);
         println!("  Duration: {:.2} ms", measurement.duration_ms);
         println!(
-            "  Memory delta: {} bytes",
-            measurement.memory_delta.heap_allocated
+            "  Memory delta: {:.2} MB",
+            measurement.memory_delta.used_delta_mb
         );
     }
 }
@@ -326,7 +326,7 @@ mod tests {
 
         // Should be able to perform basic operations
         assert!(reasoner.is_consistent().unwrap());
-        assert!(reasoner.ontology().classes().count() > 0);
+        assert!(reasoner.ontology.classes().len() > 0);
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
     }
 }
 
-main!(
+iai_callgrind::main!(
     ontology_creation_small,
     ontology_creation_medium,
     ontology_creation_custom_size,

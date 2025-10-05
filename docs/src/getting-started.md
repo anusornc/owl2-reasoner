@@ -276,6 +276,7 @@ match ontology.add_class(invalid_class) {
 
 ## Next Steps
 
+- [🛡️ Memory-Safe Testing Guide](memory-safety/testing.md) - Learn about memory-safe testing patterns
 - [User Guide](user-guide/basic-usage.md) - Detailed usage patterns
 - [Examples](examples/) - Real-world examples
 - [API Reference](api/) - Complete API documentation
@@ -292,6 +293,7 @@ match ontology.add_class(invalid_class) {
 
 ### Getting Help
 
+- Check the [Memory Safety Documentation](memory-safety/README.md) for testing guidelines
 - Check the [API Documentation](api/)
 - Review the [Examples](examples/)
 - Open an issue on GitHub for bug reports or feature requests

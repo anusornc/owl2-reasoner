@@ -142,7 +142,7 @@ pub fn bench_tableaux_memory(c: &mut Criterion) {
 
                     // Get memory stats without arena reference
                     let stats = memory_manager.get_memory_stats();
-                    black_box(stats);
+                    let _ = black_box(stats);
                 })
             },
         );

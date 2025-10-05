@@ -361,8 +361,12 @@ impl JsonLdParser {
         prop_iri: &IRI,
         blank_id: &str,
     ) -> OwlResult<()> {
-        let object_individual = NamedIndividual::new(IRI::new(blank_id)
-            .map_err(|e| crate::error::OwlError::ParseError(format!("Invalid blank node IRI '{}': {}", blank_id, e)))?);
+        let object_individual = NamedIndividual::new(IRI::new(blank_id).map_err(|e| {
+            crate::error::OwlError::ParseError(format!(
+                "Invalid blank node IRI '{}': {}",
+                blank_id, e
+            ))
+        })?);
         ontology.add_named_individual(object_individual.clone())?;
 
         let prop = ObjectProperty::new(prop_iri.clone());

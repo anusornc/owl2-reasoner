@@ -3,7 +3,7 @@
 //! This tool provides honest performance measurements for the OWL2 Reasoner.
 //! It measures actual performance without making false claims or guarantees.
 
-use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator;
+// use owl2_reasoner::validation::memory_profiler::EntitySizeCalculator; // TODO: Replace with alternative
 use owl2_reasoner::*;
 use std::time::Instant;
 
@@ -136,19 +136,19 @@ fn main() -> OwlResult<()> {
 
     // Calculate class sizes
     for class in ontology.classes() {
-        total_entity_bytes += EntitySizeCalculator::estimate_class_size(class);
+        total_entity_bytes += std::mem::size_of_val(class);
         entity_count += 1;
     }
 
     // Calculate property sizes
     for prop in ontology.object_properties() {
-        total_entity_bytes += EntitySizeCalculator::estimate_object_property_size(prop);
+        total_entity_bytes += std::mem::size_of_val(prop);
         entity_count += 1;
     }
 
     // Calculate axiom sizes
     for axiom in ontology.subclass_axioms() {
-        total_entity_bytes += EntitySizeCalculator::estimate_subclass_axiom_size(axiom);
+        total_entity_bytes += std::mem::size_of_val(axiom);
         entity_count += 1;
     }
 

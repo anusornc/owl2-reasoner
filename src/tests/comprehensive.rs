@@ -9,7 +9,9 @@ use crate::entities::*;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
 use crate::reasoning::*;
-use crate::test_helpers::{memory_safe_test, memory_safe_stress_test, MemorySafeTestConfig};
+use crate::test_helpers::MemorySafeTestConfig;
+// Import the memory safety macros
+use crate::{memory_safe_stress_test, memory_safe_test};
 
 /// Test family relationship ontology with complex property characteristics
 pub mod family {
@@ -216,23 +218,27 @@ pub mod family {
     }
 
     /// Test family relationship reasoning
-    memory_safe_test!(test_family_relationship_reasoning, MemorySafeTestConfig::small(), {
-        let ontology = create_family_ontology();
-        let mut reasoner = OwlReasoner::new(ontology);
+    memory_safe_test!(
+        test_family_relationship_reasoning,
+        MemorySafeTestConfig::small(),
+        {
+            let ontology = create_family_ontology();
+            let mut reasoner = OwlReasoner::new(ontology);
 
-        // Test basic subclass relationships
-        let person_iri = IRI::new("http://example.org/family/Person").unwrap();
-        let male_iri = IRI::new("http://example.org/family/Male").unwrap();
+            // Test basic subclass relationships
+            let person_iri = IRI::new("http://example.org/family/Person").unwrap();
+            let male_iri = IRI::new("http://example.org/family/Male").unwrap();
 
-        assert!(reasoner.is_subclass_of(&male_iri, &person_iri).unwrap());
+            assert!(reasoner.is_subclass_of(&male_iri, &person_iri).unwrap());
 
-        // Test instance retrieval
-        let males = reasoner.get_instances(&male_iri).unwrap();
-        assert_eq!(males.len(), 2); // John and Bob
+            // Test instance retrieval
+            let males = reasoner.get_instances(&male_iri).unwrap();
+            assert_eq!(males.len(), 2); // John and Bob
 
-        // Test consistency
-        assert!(reasoner.is_consistent().unwrap());
-    });
+            // Test consistency
+            assert!(reasoner.is_consistent().unwrap());
+        }
+    );
 
     /// Test query functionality with family ontology
     memory_safe_test!(test_family_query, MemorySafeTestConfig::small(), {
@@ -526,18 +532,22 @@ pub mod property_characteristics {
     }
 
     /// Test property characteristic reasoning
-    memory_safe_test!(test_property_characteristics, MemorySafeTestConfig::small(), {
-        let ontology = create_property_test_ontology();
-        let mut reasoner = OwlReasoner::new(ontology);
+    memory_safe_test!(
+        test_property_characteristics,
+        MemorySafeTestConfig::small(),
+        {
+            let ontology = create_property_test_ontology();
+            let mut reasoner = OwlReasoner::new(ontology);
 
-        // Test consistency
-        assert!(reasoner.is_consistent().unwrap());
+            // Test consistency
+            assert!(reasoner.is_consistent().unwrap());
 
-        // Test basic instance retrieval
-        let person_iri = IRI::new("http://example.org/test/Person").unwrap();
-        let people = reasoner.get_instances(&person_iri).unwrap();
-        assert_eq!(people.len(), 2); // Alice and Bob
-    });
+            // Test basic instance retrieval
+            let person_iri = IRI::new("http://example.org/test/Person").unwrap();
+            let people = reasoner.get_instances(&person_iri).unwrap();
+            assert_eq!(people.len(), 2); // Alice and Bob
+        }
+    );
 }
 
 /// Test consistency checking scenarios

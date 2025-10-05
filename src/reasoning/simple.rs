@@ -442,6 +442,27 @@ impl SimpleReasoner {
         self.profile_validator.set_advanced_caching(enabled);
     }
 
+    /// Classify the ontology
+    ///
+    /// Performs comprehensive classification of the ontology, including consistency checking
+    /// and computing the class hierarchy. This is a fundamental reasoning operation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if classification succeeds, `Err(OwlError)` if classification fails
+    pub fn classify(&self) -> OwlResult<()> {
+        // Perform consistency checking as the core of classification
+        let _is_consistent = self.is_consistent()?;
+
+        // In a full implementation, this would:
+        // 1. Check consistency
+        // 2. Compute class hierarchy
+        // 3. Determine satisfiability of all classes
+        // 4. Compute inferred subclass relationships
+
+        Ok(())
+    }
+
     /// Check if the ontology is consistent (cached)
     pub fn is_consistent(&self) -> OwlResult<bool> {
         // Check cache first

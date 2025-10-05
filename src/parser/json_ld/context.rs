@@ -235,6 +235,7 @@ impl ContextManager {
     }
 
     /// Parse container specification
+    #[allow(clippy::only_used_in_recursion)]
     fn parse_container(&self, container: &Value) -> OwlResult<Option<Container>> {
         match container {
             Value::String(container_str) => match container_str.as_str() {
@@ -267,8 +268,11 @@ impl ContextManager {
 
     /// Expand IRI using current context
     pub fn expand_iri(&self, iri: &str) -> OwlResult<String> {
-        let context = self.active_contexts.last()
-            .ok_or_else(|| crate::error::OwlError::ParseError("No active context available for IRI expansion".to_string()))?;
+        let context = self.active_contexts.last().ok_or_else(|| {
+            crate::error::OwlError::ParseError(
+                "No active context available for IRI expansion".to_string(),
+            )
+        })?;
 
         // Check if it's a keyword
         if iri.starts_with('@') {
@@ -295,8 +299,11 @@ impl ContextManager {
 
     /// Compact IRI using current context
     pub fn compact_iri(&self, iri: &str) -> OwlResult<String> {
-        let context = self.active_contexts.last()
-            .ok_or_else(|| crate::error::OwlError::ParseError("No active context available for IRI expansion".to_string()))?;
+        let context = self.active_contexts.last().ok_or_else(|| {
+            crate::error::OwlError::ParseError(
+                "No active context available for IRI expansion".to_string(),
+            )
+        })?;
 
         // Check for vocabulary mapping
         if let Some(vocab) = &context.vocab {
@@ -336,8 +343,9 @@ impl ContextManager {
 
     /// Get the current active context
     pub fn current_context(&self) -> OwlResult<&Context> {
-        self.active_contexts.last()
-            .ok_or_else(|| crate::error::OwlError::ParseError("No active context available".to_string()))
+        self.active_contexts.last().ok_or_else(|| {
+            crate::error::OwlError::ParseError("No active context available".to_string())
+        })
     }
 }
 

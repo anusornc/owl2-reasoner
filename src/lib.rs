@@ -104,8 +104,8 @@ pub mod reasoning;
 /// OWL2 Profile validation (EL, QL, RL) with comprehensive checking
 pub mod profiles;
 
-/// Empirical validation and benchmarking system for performance claims
-pub mod validation;
+// /// Empirical validation and benchmarking system for performance claims
+// pub mod validation; // Temporarily disabled for compilation
 
 /// GS1 EPCIS ontology implementation for supply chain traceability
 pub mod epcis;
@@ -186,7 +186,7 @@ pub use test_suite_advanced::*;
 pub use test_suite_simple::*;
 
 #[cfg(feature = "web-service")]
-pub use web_service::{start_web_service, WebServiceState};
+pub use web_service::start_web_service;
 
 /// Start the web service - dummy function when feature is disabled
 #[cfg(not(feature = "web-service"))]

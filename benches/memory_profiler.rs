@@ -8,7 +8,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-use sysinfo::System;
+use sysinfo::System as SysInfoSystem;
 
 /// Tracking allocator that instruments allocations for the bench crate.
 #[derive(Debug)]
@@ -133,7 +133,7 @@ pub struct MemorySnapshot {
 impl MemorySnapshot {
     /// Capture a best-effort snapshot of the current process memory usage.
     pub fn capture() -> Self {
-        let mut system = sysinfo::System::new_all();
+        let mut system = SysInfoSystem::new_all();
         system.refresh_memory();
 
         // `sysinfo` reports memory in kibibytes; convert to megabytes.

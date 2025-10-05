@@ -32,6 +32,7 @@ env_logger = "0.10"
 
 # Validation and benchmarking
 chrono = { version = "0.4", features = ["serde"] }
+time = { version = "0.3", features = ["serde"] }
 num_cpus = "1.13"
 
 # Utilities
@@ -72,6 +73,7 @@ url = "2.5"
 warp = { version = "0.3", optional = true }
 uuid = { version = "1.0", features = ["v4", "serde"], optional = true }
 tokio = { version = "1.0", features = ["rt", "macros", "rt-multi-thread", "sync"], optional = true }
+async-trait = { version = "0.1", optional = true }
 bincode = "2.0.1"
 
 [dev-dependencies]
@@ -96,10 +98,10 @@ fake = { version = "2.9", features = ["derive"] }
  
 [features]
 # Default to streaming RDF/XML backend in non-strict mode
-default = ["rio-xml", "http"]
+default = ["rio-xml", "http", "tokio", "uuid", "async-trait"]
 rio-xml = []
 http = ["reqwest"]
-web-service = ["warp", "uuid", "tokio"]
+web-service = ["warp", "uuid", "tokio", "async-trait"]
 
 [[bench]]
 name = "basic_benchmarks"
@@ -216,5 +218,7 @@ name = "web_service_example"
 path = "examples/web_service_example.rs"
 required-features = ["web-service"]
 
-
+[[bin]]
+name = "owl2_validation"
+path = "src/bin/owl2_validation.rs"
  

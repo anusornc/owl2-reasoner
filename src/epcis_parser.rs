@@ -4,6 +4,7 @@
 //! converting them into OWL2 ontologies for reasoning.
 
 use crate::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -36,7 +37,7 @@ impl Default for EPCISParserConfig {
 }
 
 /// Simple EPCIS event representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EPCISSimpleEvent {
     pub event_id: String,
     pub event_type: String,
@@ -48,7 +49,7 @@ pub struct EPCISSimpleEvent {
 }
 
 /// EPCIS Document Parser - Simplified version for compilation
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EPCISDocumentParser {
     #[allow(dead_code)]
     config: EPCISParserConfig,
