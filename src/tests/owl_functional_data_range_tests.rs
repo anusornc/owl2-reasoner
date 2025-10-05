@@ -87,7 +87,7 @@ Ontology(<http://example.org/test>
     println!("   - Total range axioms: {}", range_axioms.len());
     println!("   - Found datatypes: {:?}", datatypes_found);
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -186,7 +186,7 @@ Ontology(<http://example.org/test>
     println!("   - xsd:date: ✓");
     println!("   - Total derived datatype axioms: {}", range_axioms.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -255,7 +255,7 @@ Ontology(<http://example.org/test>
     println!("   - Boolean: ✓");
     println!("   - Total range axioms: {}", range_axioms.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -335,5 +335,5 @@ Ontology(<http://example.org/test>
         range_axioms.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

@@ -4,9 +4,7 @@
 //! and generates comprehensive reports on the memory safety implementation
 //! and project reorganization validation.
 
-use crate::cache_manager::*;
 use crate::memory::*;
-use crate::test_memory_guard::*;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -325,6 +323,7 @@ impl ComprehensiveTestReport {
 
 /// Comprehensive test runner
 pub struct ComprehensiveTestRunner {
+    #[allow(dead_code)]
     config: TestRunnerConfig,
     results: Arc<Mutex<ComprehensiveTestReport>>,
 }
@@ -345,7 +344,7 @@ impl ComprehensiveTestRunner {
         println!("🚀 Starting Comprehensive Test Suite Execution");
         println!("==============================================");
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         // Run all test suites
         self.run_memory_safety_validation();
@@ -718,6 +717,7 @@ impl Default for TestRunnerConfig {
 
 /// Test execution result
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum TestExecutionResult {
     Passed,
     Failed(String),

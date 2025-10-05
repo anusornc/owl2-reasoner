@@ -1,6 +1,8 @@
+#![allow(unused_doc_comments)]
+
 use std::sync::Arc;
 
-use crate::{memory_safe_bench_test, memory_safe_test};
+use crate::memory_safe_test;
 use crate::test_helpers::MemorySafeTestConfig;
 /// Regression Test Suite for OWL2 Reasoner
 ///
@@ -54,7 +56,7 @@ memory_safe_test!(
             "Basic functionality should complete quickly"
         );
 
-        Ok(())
+        Ok::<(), crate::OwlError>(())
     }
 );
 
@@ -131,7 +133,7 @@ memory_safe_test!(
             "Total test should complete quickly"
         );
 
-        Ok(())
+        Ok::<(), crate::OwlError>(())
     }
 );
 
@@ -196,7 +198,7 @@ memory_safe_test!(
             "Memory test should complete in under 60 seconds"
         );
 
-        Ok(())
+        Ok::<(), crate::OwlError>(())
     }
 );
 
@@ -279,7 +281,7 @@ memory_safe_test!(
             "Total complex test should be fast"
         );
 
-        Ok(())
+        Ok::<(), crate::OwlError>(())
     }
 );
 
@@ -335,7 +337,7 @@ memory_safe_test!(
             "Total error test should be fast"
         );
 
-        Ok(())
+        Ok::<(), crate::OwlError>(())
     }
 );
 
@@ -348,11 +350,11 @@ memory_safe_test!(
         println!("=====================================");
 
         // Run key regression tests
-        test_basic_functionality_regression()?;
-        test_ontology_scalability_regression()?;
-        test_memory_usage_regression()?;
-        test_complex_reasoning_regression()?;
-        test_error_handling_regression()?;
+        test_basic_functionality_regression();
+        test_ontology_scalability_regression();
+        test_memory_usage_regression();
+        test_complex_reasoning_regression();
+        test_error_handling_regression();
 
         println!("=====================================");
         println!("✅ All performance regression tests passed!");
@@ -360,6 +362,5 @@ memory_safe_test!(
         println!("   - All timing thresholds met");
         println!("   - Memory usage within expected bounds");
 
-        Ok(())
     }
 );

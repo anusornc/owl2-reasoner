@@ -76,7 +76,7 @@ fn test_collection_axiom_creation() -> OwlResult<()> {
     println!("   - Collection has {} items", collection_axiom.len());
     println!("   - Generated {} property assertions", assertions.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_collection_with_mixed_items() -> OwlResult<()> {
 
     println!("✅ Mixed collection works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn test_empty_collection() -> OwlResult<()> {
 
     println!("✅ Empty collection works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -201,5 +201,5 @@ fn test_turtle_collection_parsing() -> OwlResult<()> {
     println!("   - rdf:first assertions: {}", first_assertions);
     println!("   - rdf:rest assertions: {}", rest_assertions);
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

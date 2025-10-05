@@ -309,10 +309,8 @@ fn bench_memory_efficiency(c: &mut Criterion) {
         b.iter(|| {
             let mut validator =
                 Owl2ProfileValidator::new(Arc::new(black_box(ontology.clone()))).unwrap();
-            let result = validator.validate_profile(OwlProfile::EL);
-            let stats = validator.get_validation_stats();
-            // Convert to owned data to avoid borrowing issues
-            let owned_stats = stats.clone();
+            let result = validator.validate_profile(Owl2Profile::EL);
+            let owned_stats = validator.get_validation_stats().clone();
             black_box((result.unwrap(), owned_stats))
         });
     });

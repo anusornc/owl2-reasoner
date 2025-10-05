@@ -27,7 +27,7 @@ fn bench_concurrent_consistency(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("concurrent_consistency", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -78,7 +78,7 @@ fn bench_concurrent_satisfiability(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("concurrent_satisfiability", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -137,7 +137,7 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("mixed_operations", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -146,8 +146,7 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
                     let start_time = Instant::now();
 
                     let handles: Vec<_> = (0..thread_count)
-                        .enumerate()
-                        .map(|(thread_id)| {
+                        .map(|thread_id| {
                             let barrier = barrier.clone();
                             let completed_operations = completed_operations.clone();
 
@@ -194,7 +193,7 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
                                             }
                                             completed_operations.fetch_add(1, Ordering::Relaxed);
                                         }
-                                        black_box(())
+                                        black_box(true)
                                     }
                                 }
                             })
@@ -225,7 +224,7 @@ fn bench_resource_contention(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("contention_test", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     // Create a shared ontology (simulating shared resources)
@@ -279,7 +278,7 @@ fn bench_concurrent_memory_allocation(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("memory_allocation", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -295,7 +294,7 @@ fn bench_concurrent_memory_allocation(c: &mut Criterion) {
                             thread::spawn(move || {
                                 // Each thread creates its own reasoner to test allocation
                                 let ontology = generate_ontology_with_size(50);
-                                let mut reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
+                                let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
                                 barrier.wait(); // Synchronize start
 
@@ -331,18 +330,9 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("cache_access", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
-                    let ontology = generate_ontology_with_size(100);
-                    let reasoner = Arc::new(owl2_reasoner::SimpleReasoner::new(ontology));
-
-                    // Pre-populate cache with some classes
-                    let classes: Vec<_> = reasoner.ontology.classes().iter().take(10).collect();
-                    for class in &classes {
-                        let _ = reasoner.is_class_satisfiable(class.iri()).unwrap();
-                    }
-
                     let barrier = Arc::new(Barrier::new(thread_count));
                     let completed_operations = Arc::new(AtomicUsize::new(0));
 
@@ -350,18 +340,33 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
 
                     let handles: Vec<_> = (0..thread_count)
                         .map(|_| {
-                            let reasoner = reasoner.clone();
                             let barrier = barrier.clone();
                             let completed_operations = completed_operations.clone();
-                            let classes = classes.clone();
 
                             thread::spawn(move || {
+                                // Maintain an isolated reasoner per thread to avoid sharing
+                                // non-Send state while still exercising cache-heavy workloads.
+                                let ontology = generate_ontology_with_size(100);
+                                let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
+                                let classes: Vec<_> = reasoner
+                                    .ontology
+                                    .classes()
+                                    .iter()
+                                    .take(10)
+                                    .map(|class| class.iri().clone())
+                                    .collect();
+
+                                // Warm the local cache prior to synchronization
+                                for class_iri in &classes {
+                                    let _ = reasoner.is_class_satisfiable(class_iri).unwrap();
+                                }
+
                                 barrier.wait(); // Synchronize start
 
                                 // Perform cached operations
-                                for class in &classes {
+                                for class_iri in &classes {
                                     let result =
-                                        reasoner.is_class_satisfiable(class.iri()).unwrap();
+                                        reasoner.is_class_satisfiable(class_iri).unwrap();
                                     black_box(result);
                                 }
                                 completed_operations.fetch_add(1, Ordering::Relaxed);
@@ -394,7 +399,7 @@ fn bench_high_concurrency_stress(c: &mut Criterion) {
     for thread_count in thread_counts {
         group.bench_with_input(
             BenchmarkId::new("stress_test", thread_count),
-            thread_count,
+            &thread_count,
             |b, &thread_count| {
                 b.iter(|| {
                     let barrier = Arc::new(Barrier::new(thread_count));
@@ -440,6 +445,7 @@ fn bench_high_concurrency_stress(c: &mut Criterion) {
 }
 
 /// Comprehensive concurrent reasoning analysis
+#[allow(dead_code)]
 fn run_concurrent_analysis() -> PerformanceResults {
     let mut results = PerformanceResults::new();
 
@@ -517,7 +523,7 @@ fn run_concurrent_analysis() -> PerformanceResults {
         // Add a summary measurement for this thread count
         let summary_measurement = memory_profiler::PerformanceMeasurement {
             operation_name: format!("concurrent_test_{}_threads", thread_count),
-            duration_ms: total_duration.as_millis(),
+            duration_ms: total_duration.as_millis() as f64,
             memory_before: Default::default(),
             memory_after: Default::default(),
             memory_delta: Default::default(),
@@ -538,6 +544,7 @@ fn run_concurrent_analysis() -> PerformanceResults {
 }
 
 /// Analyze concurrent reasoning performance
+#[allow(dead_code)]
 fn analyze_concurrent_performance() {
     println!("\n=== Concurrent Reasoning Performance Analysis ===");
     let results = run_concurrent_analysis();
@@ -633,7 +640,6 @@ fn bench_thread_safety(c: &mut Criterion) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_concurrent_setup() {

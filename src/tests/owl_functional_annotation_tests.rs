@@ -91,7 +91,7 @@ Ontology(<http://example.org/test>
         lang_tagged_values.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -174,7 +174,7 @@ Ontology(<http://example.org/test>
         range_axioms.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -265,5 +265,5 @@ Ontology(<http://example.org/test>
     println!("   - String literal: ✓");
     println!("   - IRI value: ⚠️ (not fully implemented yet)");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

@@ -80,7 +80,7 @@ fn test_container_axiom_creation() -> OwlResult<()> {
     );
     println!("   - Generated {} property assertions", assertions.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_container_types() -> OwlResult<()> {
 
     println!("✅ All container types work correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn test_container_with_mixed_items() -> OwlResult<()> {
 
     println!("✅ Mixed container works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn test_empty_container() -> OwlResult<()> {
 
     println!("✅ Empty container works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -251,5 +251,5 @@ fn test_container_vs_collection() -> OwlResult<()> {
         container_assertions.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

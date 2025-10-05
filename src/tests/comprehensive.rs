@@ -4,6 +4,8 @@
 //! including family relationships, biomedical ontologies, and complex property characteristics.
 //! All tests are now memory-safe and will fail gracefully before causing OOM.
 
+#![allow(unused_doc_comments)]
+
 use crate::axioms::*;
 use crate::entities::*;
 use crate::iri::IRI;

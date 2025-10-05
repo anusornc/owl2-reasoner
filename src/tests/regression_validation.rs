@@ -4,6 +4,8 @@
 //! is preserved and no regressions were introduced during the memory safety
 //! implementation and project reorganization.
 
+#![allow(unused_doc_comments)]
+
 use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
@@ -11,11 +13,12 @@ use crate::memory::*;
 use crate::ontology::*;
 use crate::parser::*;
 use crate::reasoning::*;
-use crate::test_memory_guard::*;
 use crate::test_helpers::*;
-use crate::{memory_safe_test, memory_safe_stress_test};
+use crate::test_memory_guard::*;
+use crate::memory_safe_test;
+use crate::{ClassAssertionAxiom, ClassExpression, SubClassOfAxiom};
 use std::sync::Arc;
-use std::time::Duration;
+use smallvec::smallvec;
 
 /// Test basic ontology creation and management (regression test)
 memory_safe_test!(
@@ -211,9 +214,9 @@ memory_safe_test!(
         let initial_stats = global_cache_stats();
 
         // Create some IRIs to populate cache
-        let iri1 = IRI::new("http://example.org/cache/test1").unwrap();
-        let iri2 = IRI::new("http://example.org/cache/test2").unwrap();
-        let iri3 = IRI::new("http://example.org/cache/test1").unwrap(); // Same as iri1
+        let _iri1 = IRI::new("http://example.org/cache/test1").unwrap();
+        let _iri2 = IRI::new("http://example.org/cache/test2").unwrap();
+        let _iri3 = IRI::new("http://example.org/cache/test1").unwrap(); // Same as iri1
 
         // Check cache stats after IRI creation
         let after_stats = global_cache_stats();
@@ -406,14 +409,14 @@ memory_safe_test!(
         ontology.add_class(teacher.clone()).unwrap();
 
         // Create complex class expressions
-        let student_or_teacher = ClassExpression::ObjectUnionOf(vec![
-            ClassExpression::Class(student.clone()),
-            ClassExpression::Class(teacher.clone()),
+        let student_or_teacher = ClassExpression::ObjectUnionOf(smallvec![
+            Box::new(ClassExpression::Class(student.clone())),
+            Box::new(ClassExpression::Class(teacher.clone())),
         ]);
 
-        let person_and_student = ClassExpression::ObjectIntersectionOf(vec![
-            ClassExpression::Class(person.clone()),
-            ClassExpression::Class(student.clone()),
+        let person_and_student = ClassExpression::ObjectIntersectionOf(smallvec![
+            Box::new(ClassExpression::Class(person.clone())),
+            Box::new(ClassExpression::Class(student.clone())),
         ]);
 
         // Test that expressions can be created and used
@@ -592,17 +595,17 @@ memory_safe_test!(
         println!("===========================================");
 
         // Run all regression tests
-        test_basic_ontology_regression()?;
-        test_iri_creation_regression()?;
-        test_basic_reasoning_regression()?;
-        test_turtle_parsing_regression()?;
-        test_cache_functionality_regression()?;
-        test_property_characteristics_regression()?;
-        test_individual_assertions_regression()?;
-        test_error_handling_regression()?;
-        test_class_expressions_regression()?;
-        test_performance_characteristics_regression()?;
-        test_memory_safety_compatibility_regression()?;
+        test_basic_ontology_regression();
+        test_iri_creation_regression();
+        test_basic_reasoning_regression();
+        test_turtle_parsing_regression();
+        test_cache_functionality_regression();
+        test_property_characteristics_regression();
+        test_individual_assertions_regression();
+        test_error_handling_regression();
+        test_class_expressions_regression();
+        test_performance_characteristics_regression();
+        test_memory_safety_compatibility_regression();
 
         println!("===========================================");
         println!("✅ All regression validation tests passed!");
@@ -634,6 +637,5 @@ memory_safe_test!(
             "System pressure should be manageable"
         );
 
-        Ok(())
     }
 );

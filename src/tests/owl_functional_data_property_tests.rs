@@ -101,7 +101,7 @@ Ontology(<http://example.org/test>
     println!("   - Language-tagged literal: ✓");
     println!("   - Boolean literal: ✓");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -160,7 +160,7 @@ Ontology(<http://example.org/test>
         neg_data_assertions.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -230,5 +230,5 @@ Ontology(<http://example.org/test>
     println!("✅ OWL Functional Syntax complex literal parsing works correctly!");
     println!("   - Parsed values: {:?}", values);
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

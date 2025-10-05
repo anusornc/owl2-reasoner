@@ -3,13 +3,15 @@
 //! This module provides stress tests that push the memory safety system to its limits
 //! to ensure it behaves correctly under extreme conditions.
 
+#![allow(unused_doc_comments)]
+
 use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
 use crate::memory::*;
 use crate::ontology::*;
 use crate::test_memory_guard::*;
-use crate::{memory_safe_test, memory_safe_stress_test};
+use crate::memory_safe_stress_test;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::Duration;

@@ -584,7 +584,7 @@ impl ProfileValidator for Owl2ProfileValidator {
 }
 
 /// Validation statistics tracking
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ValidationStats {
     total_validations: usize,
     total_violations_found: usize,

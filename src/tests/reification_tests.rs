@@ -96,7 +96,7 @@ fn test_reification_axiom_creation() -> OwlResult<()> {
     );
     println!("   - Generated {} property assertions", assertions.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_reification_with_anonymous_object() -> OwlResult<()> {
 
     println!("✅ Reification with anonymous object works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn test_reification_with_literal_object() -> OwlResult<()> {
 
     println!("✅ Reification with literal object works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -204,7 +204,7 @@ fn test_reification_with_additional_properties() -> OwlResult<()> {
         reification_axiom.properties().len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -254,7 +254,7 @@ fn test_reification_with_properties_constructor() -> OwlResult<()> {
 
     println!("✅ Reification with properties constructor works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -301,7 +301,7 @@ fn test_reification_statement_structure() -> OwlResult<()> {
 
     println!("✅ Reification statement structure works correctly for all object types!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -349,5 +349,5 @@ fn test_reification_rdf_statement_type() -> OwlResult<()> {
 
     println!("✅ Reification rdf:Statement type assertion works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

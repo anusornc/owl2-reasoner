@@ -4,11 +4,13 @@
 //! works correctly under various conditions including edge cases, stress scenarios,
 //! and concurrent access patterns.
 
+#![allow(unused_doc_comments)]
+
 use crate::cache_manager::*;
 use crate::memory::*;
 use crate::test_memory_guard::*;
 use crate::test_helpers::*;
-use crate::{memory_safe_test, memory_safe_stress_test};
+use crate::memory_safe_test;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -482,7 +484,7 @@ memory_safe_test!(
             auto_cleanup: true,
         };
 
-        let mut monitor = MemoryMonitor::new(initial_config);
+        let mut monitor = MemoryMonitor::new(initial_config.clone());
 
         // Test initial configuration
         assert!(monitor.get_pressure_level() < initial_config.pressure_threshold);
@@ -523,15 +525,15 @@ memory_safe_test!(
         println!("==============================================");
 
         // Run all the individual validation tests
-        test_basic_memory_monitoring()?;
-        test_memory_guard_configuration()?;
+        test_basic_memory_monitoring();
+        test_memory_guard_configuration();
         test_memory_guard_low_memory();
-        test_memory_cleanup_functionality()?;
-        test_concurrent_memory_access()?;
-        test_memory_pressure_detection()?;
+        test_memory_cleanup_functionality();
+        test_concurrent_memory_access();
+        test_memory_pressure_detection();
         test_memory_guard_error_handling();
-        test_memory_leak_detection_accuracy()?;
-        test_memory_monitor_configuration_updates()?;
+        test_memory_leak_detection_accuracy();
+        test_memory_monitor_configuration_updates();
 
         println!("==============================================");
         println!("✅ All memory safety validation tests passed!");
@@ -571,6 +573,5 @@ memory_safe_test!(
             "System efficiency should be reasonable"
         );
 
-        Ok(())
     }
 );

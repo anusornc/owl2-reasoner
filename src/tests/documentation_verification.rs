@@ -3,6 +3,8 @@
 //! This module provides tests to verify that all documentation links,
 //! examples, and code snippets work correctly after the reorganization.
 
+#![allow(unused_doc_comments)]
+
 use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
@@ -10,10 +12,11 @@ use crate::memory::*;
 use crate::ontology::*;
 use crate::parser::*;
 use crate::reasoning::*;
-use crate::test_memory_guard::*;
 use crate::test_helpers::*;
-use crate::{memory_safe_test, memory_safe_stress_test};
-use crate::axioms::{SubClassOfAxiom, ClassExpression, ClassAssertionAxiom};
+use crate::test_memory_guard::*;
+use crate::memory_safe_test;
+use crate::axioms::{ClassAssertionAxiom, ClassExpression, SubClassOfAxiom};
+use smallvec::smallvec;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -342,7 +345,7 @@ memory_safe_test!(
 
         // Adding same class twice should be handled gracefully
         let result1 = ontology.add_class(class.clone());
-        let result2 = ontology.add_class(class.clone());
+        let _result2 = ontology.add_class(class.clone());
 
         assert!(result1.is_ok(), "First class addition should succeed");
         // Depending on implementation, second addition might succeed or fail gracefully
@@ -406,9 +409,9 @@ memory_safe_test!(
         );
 
         // Test cache management as documented
-        let cache_stats_before = global_cache_stats();
+        let _cache_stats_before = global_cache_stats();
         let _ = clear_global_iri_cache();
-        let cache_stats_after = global_cache_stats();
+        let _cache_stats_after = global_cache_stats();
 
         println!("  ✅ Memory safety documentation examples work correctly");
     }
@@ -522,14 +525,10 @@ memory_safe_test!(
 
         // Test cache API
         let cache_stats = global_cache_stats();
-        assert!(
-            cache_stats.iri_hits >= 0,
-            "Cache hits should be non-negative"
-        );
-        assert!(
-            cache_stats.iri_misses >= 0,
-            "Cache misses should be non-negative"
-        );
+        // Cache stats are always non-negative (unsigned types)
+        // Just verify we can access them
+        let _ = cache_stats.iri_hits;
+        let _ = cache_stats.iri_misses;
 
         println!("  ✅ API reference documentation examples work correctly");
     }
@@ -561,15 +560,15 @@ memory_safe_test!(
         ontology.add_class(teacher.clone()).unwrap();
 
         // Create union class expression
-        let student_or_teacher = ClassExpression::ObjectUnionOf(vec![
-            ClassExpression::Class(student.clone()),
-            ClassExpression::Class(teacher.clone()),
+        let student_or_teacher = ClassExpression::ObjectUnionOf(smallvec![
+            Box::new(ClassExpression::Class(student.clone())),
+            Box::new(ClassExpression::Class(teacher.clone())),
         ]);
 
         // Create intersection class expression
-        let person_and_student = ClassExpression::ObjectIntersectionOf(vec![
-            ClassExpression::Class(person.clone()),
-            ClassExpression::Class(student.clone()),
+        let person_and_student = ClassExpression::ObjectIntersectionOf(smallvec![
+            Box::new(ClassExpression::Class(person.clone())),
+            Box::new(ClassExpression::Class(student.clone())),
         ]);
 
         // Test that expressions can be created and used
@@ -673,17 +672,17 @@ memory_safe_test!(
         println!("================================================");
 
         // Run all documentation verification tests
-        test_library_documentation_examples()?;
-        test_readme_examples()?;
-        test_example_files_compilation()?;
-        test_documentation_links()?;
-        test_turtle_parsing_documentation()?;
-        test_error_handling_documentation()?;
-        test_memory_safety_documentation()?;
-        test_performance_documentation()?;
-        test_api_reference_documentation()?;
-        test_advanced_features_documentation()?;
-        test_documentation_accessibility()?;
+        test_library_documentation_examples();
+        test_readme_examples();
+        test_example_files_compilation();
+        test_documentation_links();
+        test_turtle_parsing_documentation();
+        test_error_handling_documentation();
+        test_memory_safety_documentation();
+        test_performance_documentation();
+        test_api_reference_documentation();
+        test_advanced_features_documentation();
+        test_documentation_accessibility();
 
         println!("================================================");
         println!("✅ All documentation verification tests passed!");
@@ -713,6 +712,5 @@ memory_safe_test!(
             "System should be ready for documentation"
         );
 
-        Ok(())
     }
 );

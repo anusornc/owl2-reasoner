@@ -61,7 +61,7 @@ fn bench_satisfiability_cache(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("satisfiability_first_call", i),
                 &i,
-                |b, &i| {
+                |b, &_index| {
                     b.iter(|| {
                         let result = black_box(reasoner.is_class_satisfiable(&class_iri).unwrap());
                         black_box(result)
@@ -76,7 +76,7 @@ fn bench_satisfiability_cache(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("satisfiability_cached_call", i),
                 &i,
-                |b, &i| {
+                |b, &_index| {
                     b.iter(|| {
                         let result = black_box(reasoner.is_class_satisfiable(&class_iri).unwrap());
                         black_box(result)
@@ -227,6 +227,7 @@ fn bench_multi_layer_cache(c: &mut Criterion) {
 }
 
 /// Comprehensive cache analysis
+#[allow(dead_code)]
 fn run_cache_analysis() -> PerformanceResults {
     let mut results = PerformanceResults::new();
 
@@ -288,6 +289,7 @@ fn run_cache_analysis() -> PerformanceResults {
 }
 
 /// Analyze cache effectiveness
+#[allow(dead_code)]
 fn analyze_cache_effectiveness() {
     println!("\n=== Cache Effectiveness Analysis ===");
     let results = run_cache_analysis();
@@ -373,11 +375,10 @@ fn bench_cache_ttl(c: &mut Criterion) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_cache_setup() {
-        let ontology = generate_ontology_with_size(50);
+        let ontology = super::generate_ontology_with_size(50);
         let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
         // Should be able to perform basic operations
@@ -389,17 +390,17 @@ mod tests {
 
     #[test]
     fn test_cache_measurement() {
-        let ontology = generate_ontology_with_size(10);
+        let ontology = super::generate_ontology_with_size(10);
         let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
         if let Some(first_class) = reasoner.ontology.classes().iter().next() {
             let class_iri = first_class.iri().clone();
 
-            let (result1, measurement1) = measure_performance("first_call", || {
+            let (result1, measurement1) = super::measure_performance("first_call", || {
                 reasoner.is_class_satisfiable(&class_iri).unwrap()
             });
 
-            let (result2, measurement2) = measure_performance("second_call", || {
+            let (result2, measurement2) = super::measure_performance("second_call", || {
                 reasoner.is_class_satisfiable(&class_iri).unwrap()
             });
 

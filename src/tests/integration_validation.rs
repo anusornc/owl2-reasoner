@@ -3,6 +3,8 @@
 //! This module provides integration tests to validate that all components
 //! work together correctly after the project reorganization.
 
+#![allow(unused_doc_comments)]
+
 use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
@@ -12,7 +14,7 @@ use crate::parser::*;
 use crate::reasoning::*;
 use crate::test_memory_guard::*;
 use crate::test_helpers::*;
-use crate::{memory_safe_test, memory_safe_stress_test};
+use crate::memory_safe_test;
 use crate::axioms::{SubClassOfAxiom, ClassExpression};
 use std::sync::Arc;
 use std::time::Duration;
@@ -61,7 +63,7 @@ memory_safe_test!(
         let _ = guard.check_memory();
 
         // Test reasoning
-        let reasoner = SimpleReasoner::new(ontology);
+        let reasoner = SimpleReasoner::new(ontology.clone());
         let is_consistent = reasoner.is_consistent().unwrap();
         let is_manager_employee = reasoner
             .is_subclass_of(manager_class.iri(), employee_class.iri())
@@ -196,8 +198,9 @@ ex:Bob ex:manages ex:Mary .
         // Parse the ontology
         let parser = TurtleParser::new();
         let parse_result = parser.parse_str(turtle_content);
+        let parse_success = parse_result.is_ok();
 
-        assert!(parse_result.is_ok(), "Parsing should succeed");
+        assert!(parse_success, "Parsing should succeed");
         let ontology = parse_result.unwrap();
 
         // Check memory after parsing
@@ -222,20 +225,19 @@ ex:Bob ex:manages ex:Mary .
 
         let report = guard.stop_monitoring();
 
+        let ontology_ref = &reasoner.ontology;
+
         println!("  Parser integration test completed:");
-        println!(
-            "    Classes parsed: {}",
-            reasoner.ontology().classes().len()
-        );
+        println!("    Classes parsed: {}", ontology_ref.classes().len());
         println!(
             "    Properties parsed: {}",
-            reasoner.ontology().object_properties().len()
+            ontology_ref.object_properties().len()
         );
         println!(
             "    Memory usage: {:.1} MB",
             report.end_memory as f64 / 1024.0 / 1024.0
         );
-        println!("    Parsing successful: {}", parse_result.is_ok());
+        println!("    Parsing successful: {}", parse_success);
 
         assert!(report.is_acceptable(), "Memory usage should be acceptable");
     }
@@ -265,7 +267,7 @@ memory_safe_test!(
         ];
 
         let mut class_entities = Vec::new();
-        for (name, iri_str) in &classes {
+        for &(name, iri_str) in &classes {
             let iri = IRI::new(iri_str).unwrap();
             let class = Class::new(Arc::new(iri));
             ontology.add_class(class.clone()).unwrap();
@@ -279,16 +281,16 @@ memory_safe_test!(
             ("Manager", "Employee"),
         ];
 
-        for (subclass, superclass) in &relationships {
+        for &(subclass, superclass) in &relationships {
             let subclass_class = class_entities
                 .iter()
-                .find(|(name, _)| *name == *subclass)
+                .find(|(name, _)| *name == subclass)
                 .unwrap()
                 .1
                 .clone();
             let superclass_class = class_entities
                 .iter()
-                .find(|(name, _)| *name == *superclass)
+                .find(|(name, _)| *name == superclass)
                 .unwrap()
                 .1
                 .clone();
@@ -315,16 +317,16 @@ memory_safe_test!(
         let _ = guard.check_memory();
 
         // Test subclass reasoning
-        for (subclass, superclass) in &relationships {
+        for &(subclass, superclass) in &relationships {
             let subclass_iri = class_entities
                 .iter()
-                .find(|(name, _)| *name == *subclass)
+                .find(|(name, _)| *name == subclass)
                 .unwrap()
                 .1
                 .iri();
             let superclass_iri = class_entities
                 .iter()
-                .find(|(name, _)| *name == *superclass)
+                .find(|(name, _)| *name == superclass)
                 .unwrap()
                 .1
                 .iri();
@@ -394,7 +396,7 @@ memory_safe_test!(
         // Test ontology errors
         let mut ontology = Ontology::new();
         let valid_class = Class::new(Arc::new(IRI::new("http://example.org/ValidClass").unwrap()));
-        ontology.add_class(valid_class).unwrap();
+        ontology.add_class(valid_class.clone()).unwrap();
 
         // Try to add duplicate class (should handle gracefully)
         let duplicate_result = ontology.add_class(valid_class.clone());
@@ -611,7 +613,8 @@ ex:Carol ex:assignedTo ex:ProductX .
         let _ = guard.check_memory();
 
         // Step 2: Validate parsed ontology
-        assert!(!ontology.classes().is_empty(), "Should have parsed classes");
+        let parsed_success = !ontology.classes().is_empty();
+        assert!(parsed_success, "Should have parsed classes");
         assert!(
             !ontology.object_properties().is_empty(),
             "Should have parsed properties"
@@ -658,19 +661,18 @@ ex:Carol ex:assignedTo ex:ProductX .
 
         let report = guard.stop_monitoring();
 
+        let reasoner_ontology = &reasoner.ontology;
+
         println!("  Full pipeline integration test completed:");
-        println!(
-            "    Parsed successfully: {}",
-            !ontology.classes().is_empty()
-        );
-        println!("    Classes: {}", reasoner.ontology().classes().len());
+        println!("    Parsed successfully: {}", parsed_success);
+        println!("    Classes: {}", reasoner_ontology.classes().len());
         println!(
             "    Properties: {}",
-            reasoner.ontology().object_properties().len()
+            reasoner_ontology.object_properties().len()
         );
         println!(
             "    Individuals: {}",
-            reasoner.ontology().named_individuals().len()
+            reasoner_ontology.named_individuals().len()
         );
         println!("    Consistent: {}", is_consistent);
         println!("    Managers: {}", managers.len());
@@ -697,13 +699,13 @@ memory_safe_test!(
         println!("==============================================");
 
         // Run all integration tests
-        test_memory_ontology_integration()?;
-        test_cache_memory_integration()?;
-        test_parser_memory_integration()?;
-        test_reasoning_memory_integration()?;
-        test_error_handling_memory_integration()?;
-        test_concurrent_component_integration()?;
-        test_full_pipeline_integration()?;
+        test_memory_ontology_integration();
+        test_cache_memory_integration();
+        test_parser_memory_integration();
+        test_reasoning_memory_integration();
+        test_error_handling_memory_integration();
+        test_concurrent_component_integration();
+        test_full_pipeline_integration();
 
         println!("==============================================");
         println!("✅ All integration validation tests passed!");
@@ -741,6 +743,5 @@ memory_safe_test!(
             "System should have good efficiency"
         );
 
-        Ok(())
     }
 );

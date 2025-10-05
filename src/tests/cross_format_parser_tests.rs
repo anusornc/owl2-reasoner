@@ -377,7 +377,7 @@ Ontology(<http://example.org/test>
     println!("   🎯 Entity counts consistent across formats");
     println!("   🔍 Key entities found in all parsers");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -502,7 +502,7 @@ fn test_manchester_syntax_specific_features() -> OwlResult<()> {
     println!("   🔄 Inverse properties parsed correctly");
     println!("   ❌ Disjoint classes parsed correctly");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -641,5 +641,5 @@ Ontology(<http://example.org/test>
     println!("   📝 Annotations parsed correctly");
     println!("   🚫 Different individuals parsed correctly");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

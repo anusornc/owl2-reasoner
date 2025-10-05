@@ -21,6 +21,7 @@ struct TrackingAllocator {
     deallocation_count: AtomicU64,
 }
 
+#[allow(dead_code)]
 impl TrackingAllocator {
     const fn new() -> Self {
         Self {
@@ -125,11 +126,13 @@ static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator::new();
 
 /// Snapshot of process memory usage in megabytes.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct MemorySnapshot {
     pub total_memory_mb: f64,
     pub used_memory_mb: f64,
 }
 
+#[allow(dead_code)]
 impl MemorySnapshot {
     /// Capture a best-effort snapshot of the current process memory usage.
     pub fn capture() -> Self {
@@ -149,11 +152,13 @@ impl MemorySnapshot {
 
 /// Difference between two memory snapshots.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct MemoryDelta {
     pub total_delta_mb: f64,
     pub used_delta_mb: f64,
 }
 
+#[allow(dead_code)]
 impl MemoryDelta {
     fn from_snapshots(before: &MemorySnapshot, after: &MemorySnapshot) -> Self {
         Self {
@@ -165,6 +170,7 @@ impl MemoryDelta {
 
 /// Allocator statistics captured before and after a benchmarked operation.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct AllocatorStats {
     pub total_allocated_bytes: u64,
     pub total_deallocated_bytes: u64,
@@ -174,6 +180,7 @@ pub struct AllocatorStats {
     pub deallocation_count: u64,
 }
 
+#[allow(dead_code)]
 impl AllocatorStats {
     fn capture() -> Self {
         GLOBAL_ALLOCATOR.snapshot()
@@ -182,6 +189,7 @@ impl AllocatorStats {
 
 /// Delta between two allocator snapshots.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct AllocatorDelta {
     pub allocated_bytes: i64,
     pub deallocated_bytes: i64,
@@ -190,6 +198,7 @@ pub struct AllocatorDelta {
     pub deallocation_count: i64,
 }
 
+#[allow(dead_code)]
 impl AllocatorDelta {
     fn from_stats(before: &AllocatorStats, after: &AllocatorStats) -> Self {
         Self {
@@ -207,6 +216,7 @@ impl AllocatorDelta {
 
 /// Individual performance measurement captured during a benchmark helper run.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct PerformanceMeasurement {
     pub operation_name: String,
     pub duration_ms: f64,
@@ -220,12 +230,14 @@ pub struct PerformanceMeasurement {
 
 /// Aggregate performance results for a benchmark scenario.
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct PerformanceResults {
     pub measurements: Vec<PerformanceMeasurement>,
     started_at: Option<Instant>,
     completed_at: Option<Instant>,
 }
 
+#[allow(dead_code)]
 impl PerformanceResults {
     pub fn new() -> Self {
         Self {
@@ -306,6 +318,7 @@ impl PerformanceResults {
 }
 
 /// Execute `operation` while capturing duration, allocator, and memory data.
+#[allow(dead_code)]
 pub fn measure_performance<F, R>(
     operation_name: &str,
     mut operation: F,
@@ -343,6 +356,7 @@ pub mod utils {
     use super::PerformanceMeasurement;
 
     /// Generate a Markdown report of memory and allocation deltas captured in performance measurements.
+    #[allow(dead_code)]
     pub fn generate_memory_report(measurements: &[PerformanceMeasurement]) -> String {
         if measurements.is_empty() {
             return "No memory measurements captured.".to_string();

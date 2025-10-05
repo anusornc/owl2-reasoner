@@ -96,7 +96,7 @@ fn test_turtle_blank_node_property_assertion() -> OwlResult<()> {
         anonymous_individuals.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -159,5 +159,5 @@ fn test_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
 
     println!("✅ PropertyAssertionAxiom with anonymous individuals works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }

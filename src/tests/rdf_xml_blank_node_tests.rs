@@ -92,7 +92,7 @@ fn test_rdf_xml_blank_node_property_assertion() -> OwlResult<()> {
         anonymous_individuals.len()
     );
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -155,7 +155,7 @@ fn test_rdf_xml_property_assertion_axiom_with_anonymous() -> OwlResult<()> {
 
     println!("✅ RDF/XML PropertyAssertionAxiom with anonymous individuals works correctly!");
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn test_rdf_xml_nested_blank_nodes() -> OwlResult<()> {
     );
     println!("   - Property assertions: {}", property_assertions.len());
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
 
 #[test]
@@ -286,5 +286,5 @@ fn test_rdf_xml_mixed_named_and_blank_nodes() -> OwlResult<()> {
     println!("   - Named object assertions: {}", named_assertions);
     println!("   - Anonymous object assertions: {}", anon_assertions);
 
-    Ok(())
+    Ok::<(), crate::OwlError>(())
 }
