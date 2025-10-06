@@ -87,7 +87,17 @@ impl CachedOntology {
     }
 }
 
-/// Estimate the memory size of an ontology
+/// Estimates the memory size of an ontology for cache management.
+///
+/// This function provides a rough estimate of the ontology's memory footprint
+/// based on the number of entities and axioms. Used for cache size management
+/// and eviction policies.
+///
+/// # Parameters
+/// - `ontology`: The ontology to estimate the size of
+///
+/// # Returns
+/// Returns an estimated size in bytes.
 fn estimate_ontology_size(ontology: &Ontology) -> usize {
     // Basic size estimation based on entity counts
     let base_size = std::mem::size_of::<Ontology>();

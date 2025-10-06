@@ -136,12 +136,23 @@ impl Default for NtriplesParser {
 }
 
 impl NtriplesParser {
+    /// Creates a new N-Triples parser with default configuration.
+    ///
+    /// # Returns
+    /// Returns a new `NtriplesParser` instance with default settings.
     pub fn new() -> Self {
         Self {
             config: ParserConfig::default(),
         }
     }
 
+    /// Creates a new N-Triples parser with custom configuration.
+    ///
+    /// # Parameters
+    /// - `config`: The parser configuration to use
+    ///
+    /// # Returns
+    /// Returns a new `NtriplesParser` instance with the specified configuration.
     pub fn with_config(config: ParserConfig) -> Self {
         Self { config }
     }
@@ -196,6 +207,19 @@ impl OntologyParser for NtriplesParser {
 }
 
 impl NtriplesParser {
+    /// Parses a single N-Triples line into a triple.
+    ///
+    /// This method parses a line of N-Triples format according to the W3C specification,
+    /// extracting the subject, predicate, and object terms.
+    ///
+    /// # Parameters
+    /// - `line`: The N-Triples line to parse (without comments or whitespace)
+    ///
+    /// # Returns
+    /// Returns an `OwlResult` containing the parsed triple or an error.
+    ///
+    /// # Errors
+    /// Returns an error if the line is malformed or doesn't follow N-Triples syntax.
     fn parse_ntriples_line(&self, line: &str) -> OwlResult<NtriplesTriple> {
         let mut chars = line.char_indices();
 
@@ -233,6 +257,19 @@ impl NtriplesParser {
         })
     }
 
+    /// Parses an N-Triples term (IRI, literal, or blank node) from the character iterator.
+    ///
+    /// This method parses individual terms according to N-Triples syntax rules,
+    /// handling IRIs in angle brackets, literals in quotes, and blank nodes with _: prefixes.
+    ///
+    /// # Parameters
+    /// - `chars`: A mutable reference to the character iterator positioned at the start of the term
+    ///
+    /// # Returns
+    /// Returns an `OwlResult` containing the parsed term or an error.
+    ///
+    /// # Errors
+    /// Returns an error if the term is malformed or incomplete.
     fn parse_ntriples_term(
         &self,
         chars: &mut std::str::CharIndices<'_>,
@@ -417,6 +454,13 @@ impl NtriplesParser {
         }
     }
 
+    /// Skips whitespace characters in the character iterator.
+    ///
+    /// This method advances the iterator past any consecutive whitespace characters,
+    /// positioning it at the next non-whitespace character or end of input.
+    ///
+    /// # Parameters
+    /// - `chars`: A mutable reference to the character iterator to advance
     fn skip_whitespace(&self, chars: &mut std::str::CharIndices<'_>) {
         while let Some((_, c)) = chars.clone().next() {
             if c.is_whitespace() {
@@ -427,6 +471,20 @@ impl NtriplesParser {
         }
     }
 
+    /// Adds an N-Triples triple to the ontology by converting it to appropriate OWL axioms.
+    ///
+    /// This method interprets common RDF patterns and converts them to OWL axioms such as
+    /// class assertions, subclass relationships, and property assertions.
+    ///
+    /// # Parameters
+    /// - `ontology`: A mutable reference to the ontology to add axioms to
+    /// - `triple`: The N-Triples triple to convert and add
+    ///
+    /// # Returns
+    /// Returns an `OwlResult` indicating success or failure.
+    ///
+    /// # Errors
+    /// Returns an error if adding axioms to the ontology fails.
     fn add_triple_to_ontology(
         &self,
         ontology: &mut Ontology,

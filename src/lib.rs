@@ -188,7 +188,19 @@ pub use test_suite_simple::*;
 #[cfg(feature = "web-service")]
 pub use web_service::start_web_service;
 
-/// Start the web service - dummy function when feature is disabled
+/// Attempts to start the web service when the feature is not enabled.
+///
+/// This is a dummy implementation that always returns an error, indicating that
+/// the "web-service" feature must be enabled at compile time to use web service functionality.
+///
+/// # Parameters
+/// - `_port`: The port number to start the service on (unused in this dummy implementation)
+///
+/// # Returns
+/// Returns an `Err` with a message indicating the feature is not enabled.
+///
+/// # Errors
+/// Always returns an error since the web service feature is disabled.
 #[cfg(not(feature = "web-service"))]
 pub async fn start_web_service(_port: u16) -> Result<(), Box<dyn std::error::Error>> {
     Err("Web service feature not enabled. Compile with --features web-service".into())

@@ -8,14 +8,32 @@ use crate::iri::IRI;
 use crate::{constants::*, OwlError, OwlResult};
 use std::sync::Arc;
 
-/// Helper function to create IRIs safely with proper error handling
+/// Creates an IRI safely with proper error handling.
+///
+/// This function attempts to create an optimized IRI from the given string.
+/// If the IRI creation fails, it returns an appropriate error.
+///
+/// # Parameters
+/// - `iri_str`: The IRI string to create
+///
+/// # Returns
+/// Returns an `OwlResult` containing the created IRI wrapped in an `Arc`, or an `OwlError::IriCreationError`.
 pub fn create_iri_safe(iri_str: &str) -> OwlResult<Arc<IRI>> {
     IRI::new_optimized(iri_str).map_err(|_| OwlError::IriCreationError {
         iri_str: iri_str.to_string(),
     })
 }
 
-/// Helper function to create blank node IRIs safely
+/// Creates a blank node IRI safely with proper error handling.
+///
+/// This function creates an IRI for a blank node by prefixing the node ID
+/// with the standard blank node prefix and attempting to create an optimized IRI.
+///
+/// # Parameters
+/// - `node_id`: The identifier for the blank node
+///
+/// # Returns
+/// Returns an `OwlResult` containing the created blank node IRI wrapped in an `Arc`, or an `OwlError::IriCreationError`.
 pub fn create_blank_node_iri(node_id: &str) -> OwlResult<Arc<IRI>> {
     IRI::new_optimized(format!("{}{}", BLANK_NODE_PREFIX, node_id)).map_err(|_| {
         OwlError::IriCreationError {
