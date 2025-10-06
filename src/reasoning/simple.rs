@@ -846,6 +846,33 @@ impl SimpleReasoner {
         Ok(result)
     }
 
+    /// Check if two classes are disjoint (basic implementation)
+    pub fn are_disjoint_classes(&self, class1: &IRI, class2: &IRI) -> OwlResult<bool> {
+        // Check explicit disjoint axioms
+        for axiom in self.ontology.disjoint_classes_axioms() {
+            let classes = axiom.classes();
+            let mut found_class1 = false;
+            let mut found_class2 = false;
+
+            for class_iri in classes {
+                if **class_iri == *class1 {
+                    found_class1 = true;
+                }
+                if **class_iri == *class2 {
+                    found_class2 = true;
+                }
+            }
+
+            if found_class1 && found_class2 {
+                return Ok(true);
+            }
+        }
+
+        // Basic reasoning: check if one is subclass of the other and they're disjoint with something
+        // This is a simplified implementation - full disjointness reasoning would be more complex
+        Ok(false)
+    }
+
     /// Compute instances (internal method)
     fn compute_instances(&self, class_iri: &IRI) -> OwlResult<Vec<IRI>> {
         let mut instances = Vec::new();

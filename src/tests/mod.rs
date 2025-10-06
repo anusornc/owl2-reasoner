@@ -1,6 +1,7 @@
 //! Comprehensive test suite module
 //! All tests are now memory-safe and will fail gracefully before causing OOM.
 
+pub mod aggressive_memory_test;
 pub mod blank_node_tests;
 pub mod collection_tests;
 pub mod comma_test;
@@ -15,6 +16,7 @@ pub mod documentation_verification;
 pub mod error_handling;
 pub mod integration_tests;
 pub mod integration_validation;
+pub mod memory_limit_test;
 pub mod memory_safety_validation;
 pub mod memory_stress_tests;
 pub mod negative_tests;

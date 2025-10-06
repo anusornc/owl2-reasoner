@@ -4,8 +4,8 @@
 //! All tests are now memory-safe and will fail gracefully before causing OOM.
 
 use crate::parser::*;
-use crate::{memory_safe_bench_test, memory_safe_stress_test, memory_safe_test};
 use crate::test_helpers::MemorySafeTestConfig;
+use crate::{memory_safe_bench_test, memory_safe_stress_test, memory_safe_test};
 
 #[cfg(test)]
 mod tests {

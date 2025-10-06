@@ -5,17 +5,17 @@
 
 #![allow(unused_doc_comments)]
 
+use crate::axioms::{ClassExpression, SubClassOfAxiom};
 use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
 use crate::memory::*;
+use crate::memory_safe_test;
 use crate::ontology::*;
 use crate::parser::*;
 use crate::reasoning::*;
-use crate::test_memory_guard::*;
 use crate::test_helpers::*;
-use crate::memory_safe_test;
-use crate::axioms::{SubClassOfAxiom, ClassExpression};
+use crate::test_memory_guard::*;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -742,6 +742,5 @@ memory_safe_test!(
             final_leak_report.memory_efficiency_score > 0.6,
             "System should have good efficiency"
         );
-
     }
 );

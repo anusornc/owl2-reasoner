@@ -5,8 +5,28 @@
 
 use bumpalo::Bump;
 use std::cell::Cell;
+use std::fmt;
 use std::slice;
 use std::sync::Arc;
+
+/// Error type for memory limit violations
+#[derive(Debug, Clone)]
+pub struct MemoryLimitExceeded {
+    pub current_usage: usize,
+    pub limit: usize,
+}
+
+impl fmt::Display for MemoryLimitExceeded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Memory limit exceeded: {} bytes used, limit is {} bytes",
+            self.current_usage, self.limit
+        )
+    }
+}
+
+impl std::error::Error for MemoryLimitExceeded {}
 
 /// Parser arena for efficient allocation of frequently created objects
 pub struct ParserArena {
@@ -168,13 +188,20 @@ impl Default for LocalParserArena {
 #[derive(Clone)]
 pub struct SharedParserArena {
     arena: Arc<std::sync::Mutex<ParserArena>>,
+    memory_limit_bytes: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl SharedParserArena {
     /// Create a new shared parser arena
     pub fn new() -> Self {
+        Self::with_memory_limit(usize::MAX) // No limit by default
+    }
+
+    /// Create a new shared parser arena with memory limit
+    pub fn with_memory_limit(limit_bytes: usize) -> Self {
         Self {
             arena: Arc::new(std::sync::Mutex::new(ParserArena::new())),
+            memory_limit_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(limit_bytes)),
         }
     }
 
@@ -190,6 +217,61 @@ impl SharedParserArena {
         });
         // Safe alternative to transmute
         unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*arena_guard) }
+    }
+
+    /// Get current memory usage in bytes
+    pub fn memory_usage(&self) -> usize {
+        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
+            panic!("Failed to acquire arena lock: {}", e);
+        });
+        arena_guard.memory_usage()
+    }
+
+    /// Get memory usage as percentage of limit
+    pub fn memory_usage_percent(&self) -> f64 {
+        let limit = self
+            .memory_limit_bytes
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if limit == usize::MAX {
+            0.0 // No limit set
+        } else {
+            let usage = self.memory_usage();
+            (usage as f64 / limit as f64) * 100.0
+        }
+    }
+
+    /// Get memory limit in bytes
+    pub fn memory_limit(&self) -> usize {
+        self.memory_limit_bytes
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Check if arena is approaching memory limit
+    pub fn is_near_limit(&self, threshold_percent: f64) -> bool {
+        self.memory_usage_percent() > threshold_percent
+    }
+
+    /// Enforce memory limit by checking current usage
+    pub fn enforce_memory_limit(&self) -> Result<(), MemoryLimitExceeded> {
+        let limit = self
+            .memory_limit_bytes
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if limit != usize::MAX {
+            let usage = self.memory_usage();
+            if usage > limit {
+                return Err(MemoryLimitExceeded {
+                    current_usage: usage,
+                    limit,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Set new memory limit
+    pub fn set_memory_limit(&self, new_limit: usize) {
+        self.memory_limit_bytes
+            .store(new_limit, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -237,6 +319,7 @@ impl ParserArenaBuilder {
         if self.is_shared {
             Box::new(SharedParserArena {
                 arena: Arc::new(std::sync::Mutex::new(arena)),
+                memory_limit_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(usize::MAX)),
             })
         } else {
             Box::new(LocalParserArena { arena })
@@ -305,9 +388,7 @@ impl ParserArenaTrait for SharedParserArena {
             panic!("Failed to acquire arena lock: {}", e);
         });
         // Safe alternative to transmute
-        unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(
-            &mut *arena_guard
-        ) }
+        unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(&mut *arena_guard) }
     }
 
     fn reset(&mut self) {

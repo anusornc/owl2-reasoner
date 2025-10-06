@@ -297,14 +297,22 @@ fn run_instruction_level_analysis() {
         println!("Analyzing: {}", name);
         match name {
             "Small Ontology Creation" => {
-                let (_result, measurement) = measure_performance(name, || generate_small_ontology());
+                let (_result, measurement) =
+                    measure_performance(name, || generate_small_ontology());
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
-                println!("  Memory delta: {:.2} MB", measurement.memory_delta.used_delta_mb);
+                println!(
+                    "  Memory delta: {:.2} MB",
+                    measurement.memory_delta.used_delta_mb
+                );
             }
             "Medium Ontology Creation" => {
-                let (_result, measurement) = measure_performance(name, || generate_medium_ontology());
+                let (_result, measurement) =
+                    measure_performance(name, || generate_medium_ontology());
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
-                println!("  Memory delta: {:.2} MB", measurement.memory_delta.used_delta_mb);
+                println!(
+                    "  Memory delta: {:.2} MB",
+                    measurement.memory_delta.used_delta_mb
+                );
             }
             "Small Consistency Check" => {
                 let (_result, measurement) = measure_performance(name, || {
@@ -313,7 +321,10 @@ fn run_instruction_level_analysis() {
                     reasoner.is_consistent().unwrap()
                 });
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
-                println!("  Memory delta: {:.2} MB", measurement.memory_delta.used_delta_mb);
+                println!(
+                    "  Memory delta: {:.2} MB",
+                    measurement.memory_delta.used_delta_mb
+                );
             }
             "Medium Consistency Check" => {
                 let (_result, measurement) = measure_performance(name, || {
@@ -322,7 +333,10 @@ fn run_instruction_level_analysis() {
                     reasoner.is_consistent().unwrap()
                 });
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
-                println!("  Memory delta: {:.2} MB", measurement.memory_delta.used_delta_mb);
+                println!(
+                    "  Memory delta: {:.2} MB",
+                    measurement.memory_delta.used_delta_mb
+                );
             }
             "Small Classification" => {
                 let (_result, measurement) = measure_performance(name, || {
@@ -331,7 +345,10 @@ fn run_instruction_level_analysis() {
                     reasoner.classify().unwrap()
                 });
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
-                println!("  Memory delta: {:.2} MB", measurement.memory_delta.used_delta_mb);
+                println!(
+                    "  Memory delta: {:.2} MB",
+                    measurement.memory_delta.used_delta_mb
+                );
             }
             _ => unreachable!(),
         };

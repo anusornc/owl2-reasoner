@@ -78,11 +78,12 @@
 //! println!("Expansion completed: {}", expansion_complete);
 //! ```
 
-use super::core::NodeId;
+use super::core::{NodeId, ReasoningRules};
 use super::graph::TableauxGraph;
 use super::memory::MemoryManager;
 use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::ObjectPropertyExpression;
+use crate::entities::Class;
 use crate::iri::IRI;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
@@ -103,6 +104,8 @@ pub enum ExpansionRule {
     Nominal,
     /// Data range rule
     DataRange,
+    /// Subclass axiom application rule
+    SubclassAxiom,
 }
 
 /// Expansion context for rule application
@@ -112,6 +115,7 @@ pub struct ExpansionContext {
     pub current_depth: usize,
     pub applied_rules: HashSet<ExpansionRule>,
     pub pending_expansions: VecDeque<ExpansionTask>,
+    pub reasoning_rules: Option<super::core::ReasoningRules>,
 }
 
 #[derive(Debug, Clone)]
@@ -155,9 +159,11 @@ impl ExpansionRules {
             ExpansionRule::UniversalRestriction,
             ExpansionRule::Nominal,
             ExpansionRule::DataRange,
+            ExpansionRule::SubclassAxiom,
         ];
 
         let rule_order = vec![
+            ExpansionRule::SubclassAxiom, // Apply subclass axioms first
             ExpansionRule::Conjunction,
             ExpansionRule::ExistentialRestriction,
             ExpansionRule::UniversalRestriction,
@@ -211,6 +217,7 @@ impl ExpansionRules {
             }
             ExpansionRule::Nominal => self.apply_nominal_rule(graph, memory, context),
             ExpansionRule::DataRange => self.apply_data_range_rule(graph, memory, context),
+            ExpansionRule::SubclassAxiom => self.apply_subclass_axiom_rule(graph, memory, context),
         }
     }
 
@@ -434,7 +441,8 @@ impl ExpansionRules {
                     let individual_node = self.find_or_create_individual_node(graph, individual);
 
                     // Create expansion task for the individual node
-                    let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> = SmallVec::new();
+                    let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> =
+                        SmallVec::new();
                     task_individual_vec.push(individual.clone());
                     let task = ExpansionTask {
                         node_id: individual_node,
@@ -450,7 +458,11 @@ impl ExpansionRules {
     }
 
     /// Find or create a node for an individual
-    fn find_or_create_individual_node(&self, graph: &mut TableauxGraph, individual: &crate::entities::Individual) -> NodeId {
+    fn find_or_create_individual_node(
+        &self,
+        graph: &mut TableauxGraph,
+        individual: &crate::entities::Individual,
+    ) -> NodeId {
         // For now, create a new node for each individual
         // In a full implementation, we'd maintain a mapping of individuals to nodes
         let node_id = graph.add_node();
@@ -458,7 +470,10 @@ impl ExpansionRules {
         // Add the individual as a nominal concept to the new node
         let mut individual_vec: SmallVec<[crate::entities::Individual; 8]> = SmallVec::new();
         individual_vec.push(individual.clone());
-        graph.add_concept(node_id, ClassExpression::ObjectOneOf(Box::new(individual_vec)));
+        graph.add_concept(
+            node_id,
+            ClassExpression::ObjectOneOf(Box::new(individual_vec)),
+        );
 
         node_id
     }
@@ -474,14 +489,17 @@ impl ExpansionRules {
             // Find all data property restrictions
             let data_restrictions: Vec<_> = node
                 .concepts_iter()
-                .filter(|c| matches!(c,
-                    ClassExpression::DataSomeValuesFrom(_, _) |
-                    ClassExpression::DataAllValuesFrom(_, _) |
-                    ClassExpression::DataHasValue(_, _) |
-                    ClassExpression::DataMinCardinality(_, _) |
-                    ClassExpression::DataMaxCardinality(_, _) |
-                    ClassExpression::DataExactCardinality(_, _)
-                ))
+                .filter(|c| {
+                    matches!(
+                        c,
+                        ClassExpression::DataSomeValuesFrom(_, _)
+                            | ClassExpression::DataAllValuesFrom(_, _)
+                            | ClassExpression::DataHasValue(_, _)
+                            | ClassExpression::DataMinCardinality(_, _)
+                            | ClassExpression::DataMaxCardinality(_, _)
+                            | ClassExpression::DataExactCardinality(_, _)
+                    )
+                })
                 .cloned()
                 .collect();
 
@@ -568,6 +586,85 @@ impl ExpansionRules {
         }
         Ok(vec![])
     }
+
+    fn apply_subclass_axiom_rule(
+        &self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<Vec<ExpansionTask>, String> {
+        // Apply subclass axioms: if node contains A and A ⊑ B, then add B to the node
+        if let Some(reasoning_rules) = &context.reasoning_rules {
+            if let Some(node) = graph.get_node_mut(context.current_node) {
+                // Get all class concepts in the current node
+                let class_concepts: Vec<ClassExpression> = node
+                    .concepts_iter()
+                    .filter(|c| matches!(c, ClassExpression::Class(_)))
+                    .cloned()
+                    .collect();
+
+                for concept in class_concepts {
+                    if let ClassExpression::Class(class) = concept {
+                        // Find all subclass axioms where this class is the subclass
+                        for axiom in &reasoning_rules.subclass_rules {
+                            if let ClassExpression::Class(sub_class) = axiom.sub_class() {
+                                if sub_class.iri().as_ref() == class.iri().as_ref() {
+                                    // Add the superclass to the node if not already present
+                                    if let ClassExpression::Class(super_class) = axiom.super_class()
+                                    {
+                                        let super_concept = ClassExpression::Class(Class::new(
+                                            super_class.iri().as_str(),
+                                        ));
+                                        if !node.contains_concept(&super_concept) {
+                                            node.add_concept(super_concept.clone());
+
+                                            // Create expansion task for the superclass
+                                            let task = ExpansionTask {
+                                                node_id: context.current_node,
+                                                concept: super_concept,
+                                                rule_type: ExpansionRule::SubclassAxiom,
+                                                priority: 1, // Highest priority for subclass axioms
+                                            };
+                                            return Ok(vec![task]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Also check equivalent classes
+                        for equiv_axiom in &reasoning_rules.equivalence_rules {
+                            let classes = equiv_axiom.classes();
+                            if classes.iter().any(|c| c.as_ref() == class.iri().as_ref()) {
+                                // Add all other equivalent classes to the node
+                                for equiv_class in classes {
+                                    if equiv_class.as_ref() != class.iri().as_ref() {
+                                        let equiv_concept = ClassExpression::Class(Class::new(
+                                            equiv_class.as_str(),
+                                        ));
+                                        if !node.contains_concept(&equiv_concept) {
+                                            node.add_concept(equiv_concept.clone());
+
+                                            // Create expansion task for the equivalent class
+                                            let task = ExpansionTask {
+                                                node_id: context.current_node,
+                                                concept: equiv_concept,
+                                                rule_type: ExpansionRule::SubclassAxiom,
+                                                priority: 1,
+                                            };
+                                            return Ok(vec![task]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(vec![])
+    }
 }
 
 impl Default for ExpansionRules {
@@ -581,6 +678,7 @@ impl Default for ExpansionRules {
 pub struct ExpansionEngine {
     pub rules: ExpansionRules,
     pub context: ExpansionContext,
+    pub reasoning_rules: Option<ReasoningRules>,
 }
 
 impl ExpansionEngine {
@@ -592,8 +690,16 @@ impl ExpansionEngine {
                 current_depth: 0,
                 applied_rules: HashSet::new(),
                 pending_expansions: VecDeque::new(),
+                reasoning_rules: None,
             },
+            reasoning_rules: None,
         }
+    }
+
+    pub fn with_reasoning_rules(mut self, rules: ReasoningRules) -> Self {
+        self.reasoning_rules = Some(rules.clone());
+        self.context.reasoning_rules = Some(rules);
+        self
     }
 
     pub fn expand(
@@ -633,6 +739,7 @@ impl ExpansionEngine {
             current_depth: 0,
             applied_rules: HashSet::new(),
             pending_expansions: VecDeque::new(),
+            reasoning_rules: self.reasoning_rules.clone(),
         };
     }
 }

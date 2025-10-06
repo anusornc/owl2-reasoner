@@ -10,14 +10,15 @@ use crate::entities::*;
 use crate::iri::IRI;
 use crate::memory::*;
 use crate::ontology::*;
+use crate::test_helpers::TestRiskLevel;
 use crate::test_memory_guard::*;
-use crate::memory_safe_stress_test;
+use crate::{memory_safe_stress_test, risk_aware_test};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::Duration;
 
 /// Test memory guard under extreme memory pressure
-memory_safe_stress_test!(test_extreme_memory_pressure, {
+risk_aware_test!(test_extreme_memory_pressure, TestRiskLevel::Critical, {
     println!("🔥 Testing memory guard under extreme pressure...");
 
     let config = TestMemoryConfig {
@@ -86,6 +87,22 @@ memory_safe_stress_test!(test_extreme_memory_pressure, {
 memory_safe_stress_test!(test_concurrent_memory_stress, {
     println!("🔥 Testing concurrent memory stress scenarios...");
 
+    // Log initial system state
+    let initial_stats = get_memory_stats();
+    let initial_cache_stats = global_cache_stats();
+    println!(
+        "  Initial system memory: {} MB",
+        initial_stats.total_usage / 1024 / 1024
+    );
+    println!(
+        "  Initial cache size: {} entries",
+        initial_cache_stats.iri_hits + initial_cache_stats.iri_misses
+    );
+    println!(
+        "  Initial pressure: {:.2}%",
+        initial_stats.pressure_level * 100.0
+    );
+
     let num_threads = 6;
     let barrier = Arc::new(Barrier::new(num_threads));
     let results = Arc::new(Mutex::new(Vec::new()));
@@ -115,6 +132,7 @@ memory_safe_stress_test!(test_concurrent_memory_stress, {
 
             let mut thread_allocations = Vec::new();
             let mut warnings_count = 0;
+            let mut total_allocated_bytes = 0;
 
             // Perform intensive memory operations
             for round in 0..50 {
@@ -122,16 +140,31 @@ memory_safe_stress_test!(test_concurrent_memory_stress, {
                 let size = (thread_id * 1000000 + round * 100000) % 2000000 + 500000;
                 let allocation: Vec<u8> = vec![(round + thread_id) as u8; size];
                 thread_allocations.push(allocation);
+                total_allocated_bytes += size;
 
                 // Check memory
                 if let Err(_) = guard.check_memory() {
                     warnings_count += 1;
                 }
 
+                // Diagnostic: Log memory state every 10 rounds
+                if round % 10 == 0 {
+                    let current_stats = get_memory_stats();
+                    let current_cache = global_cache_stats();
+                    println!("    Thread {}-Round {}: Memory={}MB, Cache={} entries, Pressure={:.1}%, Warnings={}",
+                        thread_id, round,
+                        current_stats.total_usage / 1024 / 1024,
+                        current_cache.iri_hits + current_cache.iri_misses,
+                        current_stats.pressure_level * 100.0,
+                        warnings_count);
+                }
+
                 // Periodic cleanup simulation
                 if round % 10 == 0 && round > 0 {
                     // Free some allocations
-                    thread_allocations.drain(0..thread_allocations.len() / 2);
+                    let freed_count = thread_allocations.len() / 2;
+                    thread_allocations.drain(0..freed_count);
+                    println!("    Thread {} freed {} allocations", thread_id, freed_count);
                 }
 
                 // Small delay to allow other threads
@@ -142,7 +175,7 @@ memory_safe_stress_test!(test_concurrent_memory_stress, {
 
             // Store results
             let mut results = results_clone.lock().unwrap();
-            results.push((thread_id, report, warnings_count));
+            results.push((thread_id, report, warnings_count, total_allocated_bytes));
 
             // Clean up
             drop(thread_allocations);
@@ -156,36 +189,94 @@ memory_safe_stress_test!(test_concurrent_memory_stress, {
         handle.join().unwrap();
     }
 
+    // Log final system state
+    let final_stats = get_memory_stats();
+    let final_cache_stats = global_cache_stats();
+    println!(
+        "  Final system memory: {} MB",
+        final_stats.total_usage / 1024 / 1024
+    );
+    println!(
+        "  Final cache size: {} entries",
+        final_cache_stats.iri_hits + final_cache_stats.iri_misses
+    );
+    println!(
+        "  Final pressure: {:.2}%",
+        final_stats.pressure_level * 100.0
+    );
+    println!(
+        "  Memory growth: {} MB",
+        (final_stats
+            .total_usage
+            .saturating_sub(initial_stats.total_usage))
+            / 1024
+            / 1024
+    );
+    println!(
+        "  Cache growth: {} entries",
+        (final_cache_stats.iri_hits + final_cache_stats.iri_misses)
+            - (initial_cache_stats.iri_hits + initial_cache_stats.iri_misses)
+    );
+
     // Analyze results
     let results = results.lock().unwrap();
     assert_eq!(results.len(), num_threads, "All threads should complete");
 
-    let total_warnings: usize = results.iter().map(|(_, _, warnings)| *warnings).sum();
-
+    let total_warnings: usize = results.iter().map(|(_, _, warnings, _)| *warnings).sum();
     let total_guard_warnings: usize = results
         .iter()
-        .map(|(_, report, _)| report.warnings.len())
+        .map(|(_, report, _, _)| report.warnings.len())
         .sum();
+    let total_allocated_bytes: usize = results.iter().map(|(_, _, _, bytes)| *bytes).sum();
 
     println!("  Concurrent stress test results:");
     println!("    Threads completed: {}", results.len());
     println!("    Total memory warnings: {}", total_warnings);
     println!("    Total guard warnings: {}", total_guard_warnings);
+    println!(
+        "    Total allocated bytes: {} MB",
+        total_allocated_bytes / 1024 / 1024
+    );
 
-    for (thread_id, report, _) in results.iter() {
+    for (thread_id, report, warnings, allocated_bytes) in results.iter() {
         println!(
-            "    Thread {}: {:.1}% peak usage, {} warnings",
+            "    Thread {}: {:.1}% peak usage, {} warnings, {} MB allocated",
             thread_id,
             (report.peak_memory as f64 / report.max_memory_bytes as f64) * 100.0,
-            report.warnings.len()
+            warnings,
+            allocated_bytes / 1024 / 1024
         );
     }
 
     // All threads should complete successfully
-    for (_, report, _) in results.iter() {
+    for (_, report, _, _) in results.iter() {
         assert!(
             report.end_memory > 0,
             "Each thread should have memory usage"
+        );
+    }
+
+    // Diagnostic check for concerning memory patterns
+    let memory_growth_mb = (final_stats
+        .total_usage
+        .saturating_sub(initial_stats.total_usage))
+        / 1024
+        / 1024;
+    let cache_growth = (final_cache_stats.iri_hits + final_cache_stats.iri_misses)
+        - (initial_cache_stats.iri_hits + initial_cache_stats.iri_misses);
+
+    if memory_growth_mb > 1000 {
+        println!("  🚨 Excessive memory growth: {} MB", memory_growth_mb);
+    }
+
+    if cache_growth > 10000 {
+        println!("  🚨 Excessive cache growth: {} entries", cache_growth);
+    }
+
+    if final_stats.pressure_level > 0.9 {
+        println!(
+            "  🚨 Critical memory pressure: {:.2}%",
+            final_stats.pressure_level * 100.0
         );
     }
 });

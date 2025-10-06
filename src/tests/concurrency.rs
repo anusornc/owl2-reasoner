@@ -244,21 +244,41 @@ mod tests {
 
     #[test]
     fn test_memory_pressure_under_load() {
+        // Add diagnostic logging
+        println!("🔍 Starting memory pressure under load test...");
+
         let arena = Arc::new(SharedParserArena::new());
         let num_threads = 2;
         let large_allocations = 100;
 
+        // Log initial memory state
+        let initial_memory = crate::memory::get_memory_stats();
+        println!(
+            "  Initial memory usage: {} MB",
+            initial_memory.total_usage / 1024 / 1024
+        );
+        println!(
+            "  Initial pressure: {:.2}%",
+            initial_memory.pressure_level * 100.0
+        );
+
         let handles: Vec<_> = (0..num_threads)
-            .map(|_thread_id| {
+            .map(|thread_id| {
                 let arena_clone = Arc::clone(&arena);
                 thread::spawn(move || {
+                    let mut thread_allocations = 0;
+                    let mut thread_memory = 0;
+
                     for i in 0..large_allocations {
                         // Create large strings to test memory pressure
                         let large_content = "x".repeat(1000 + (i % 5000));
-                        let _allocated = {
+                        let allocated = {
                             let arena_ref = arena_clone.arena();
                             arena_ref.alloc_str(&large_content)
                         };
+
+                        thread_allocations += 1;
+                        thread_memory += large_content.len();
 
                         // Periodically check memory usage
                         if i % 20 == 0 {
@@ -266,9 +286,32 @@ mod tests {
                                 let arena_ref = arena_clone.arena();
                                 arena_ref.memory_usage()
                             };
+                            let current_stats = crate::memory::get_memory_stats();
+                            println!(
+                                "    Thread {}-{}: Arena={}KB, System={}MB, Pressure={:.1}%",
+                                thread_id,
+                                i,
+                                usage / 1024,
+                                current_stats.total_usage / 1024 / 1024,
+                                current_stats.pressure_level * 100.0
+                            );
+
                             assert!(usage > 0, "Memory usage should be positive");
+
+                            // Diagnostic: Check for abnormal memory growth
+                            if current_stats.pressure_level > 0.8 {
+                                println!("    ⚠️  High memory pressure detected!");
+                            }
                         }
+
+                        // Prevent compiler from optimizing away allocation
+                        assert!(!allocated.is_empty());
                     }
+
+                    println!(
+                        "    Thread {} completed: {} allocations, {} bytes",
+                        thread_id, thread_allocations, thread_memory
+                    );
                 })
             })
             .collect();
@@ -278,10 +321,46 @@ mod tests {
             handle.join().unwrap();
         }
 
+        // Log final memory state
+        let final_memory = crate::memory::get_memory_stats();
+        let arena_usage = arena.arena().memory_usage();
+
+        println!("  Final arena usage: {} MB", arena_usage / 1024 / 1024);
+        println!(
+            "  Final system memory: {} MB",
+            final_memory.total_usage / 1024 / 1024
+        );
+        println!(
+            "  Final pressure: {:.2}%",
+            final_memory.pressure_level * 100.0
+        );
+        println!(
+            "  Memory growth: {} MB",
+            (final_memory
+                .total_usage
+                .saturating_sub(initial_memory.total_usage))
+                / 1024
+                / 1024
+        );
+
         // Verify memory tracking still works
         {
             let arena_ref = arena.arena();
             assert!(arena_ref.memory_usage() > 0);
+        }
+
+        // Diagnostic check for excessive memory growth
+        let memory_growth_mb = (final_memory
+            .total_usage
+            .saturating_sub(initial_memory.total_usage))
+            / 1024
+            / 1024;
+        if memory_growth_mb > 500 {
+            // More than 500MB growth is suspicious
+            println!(
+                "  🚨 Excessive memory growth detected: {} MB",
+                memory_growth_mb
+            );
         }
     }
 

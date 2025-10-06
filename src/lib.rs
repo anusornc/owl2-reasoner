@@ -74,6 +74,9 @@
 //!
 //! [examples]: https://github.com/your-org/owl2-reasoner/tree/main/examples
 
+/// Memory protection orchestration and safeguards for the reasoner runtime
+pub mod memory_protection;
+
 /// OWL2 Reasoner error types and result handling
 pub mod error;
 

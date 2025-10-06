@@ -206,6 +206,58 @@ OWL2_TEST_VERBOSE=1 cargo test
 - **Performance tests**: Use `MemorySafeTestConfig::large()`
 - **Stress tests**: Use `MemorySafeTestConfig::stress()`
 
+### 2. Memory-Intensive Test Management
+
+#### Running Tests Safely by Category
+
+For systems with limited memory, run tests selectively to avoid out-of-memory errors:
+
+```bash
+# ✅ SAFE: Core functionality tests (recommended for most systems)
+cargo test reasoning --lib        # Reasoning algorithms
+cargo test parser --lib           # Parser functionality
+cargo test ontology --lib         # Ontology operations
+cargo test memory_safety_validation --lib  # Memory safety checks
+
+# ⚠️ MODERATE: Integration tests (may need 1GB+ RAM)
+cargo test integration_tests --lib
+
+# 🔥 HIGH MEMORY: Stress tests (requires 2GB+ RAM, run individually)
+cargo test test_extreme_memory_pressure --lib
+cargo test test_concurrent_memory_stress --lib
+cargo test test_ontology_memory_stress --lib
+
+# 🚫 AVOID: Comprehensive test suite (causes OOM on most systems)
+# cargo test comprehensive  # DON'T RUN THIS - will exhaust memory
+```
+
+#### Memory Usage by Test Category
+
+| Test Category | Memory Usage | Safe for | Notes |
+|---------------|-------------|----------|--------|
+| Unit Tests | 64-256MB | All systems | Core functionality |
+| Integration Tests | 256-512MB | Most systems | Component interaction |
+| Memory Safety Tests | 256-512MB | Most systems | Memory monitoring |
+| Stress Tests | 200MB-1GB each | High-memory systems | Individual execution only |
+| Comprehensive Tests | 1GB-4GB+ | Server-grade systems | Avoid on development machines |
+
+#### Recommended Testing Workflow
+
+```bash
+# Daily development (safe for all systems)
+cargo test reasoning parser ontology memory_safety_validation
+
+# Weekly validation (requires good memory)
+cargo test integration_tests performance_regression_tests
+
+# Monthly stress testing (requires high memory, run individually)
+for test in $(cargo test --lib -- --list | grep stress | awk '{print $1}'); do
+    echo "Running $test..."
+    cargo test $test --lib || echo "Test $test failed or OOM"
+    sleep 5  # Allow system recovery
+done
+```
+
 ### 2. Handle Large Data Carefully
 
 ```rust

@@ -361,6 +361,5 @@ memory_safe_test!(
         println!("   - No performance regressions detected");
         println!("   - All timing thresholds met");
         println!("   - Memory usage within expected bounds");
-
     }
 );

@@ -10,15 +10,15 @@ use crate::cache_manager::*;
 use crate::entities::*;
 use crate::iri::IRI;
 use crate::memory::*;
+use crate::memory_safe_test;
 use crate::ontology::*;
 use crate::parser::*;
 use crate::reasoning::*;
 use crate::test_helpers::*;
 use crate::test_memory_guard::*;
-use crate::memory_safe_test;
 use crate::{ClassAssertionAxiom, ClassExpression, SubClassOfAxiom};
-use std::sync::Arc;
 use smallvec::smallvec;
+use std::sync::Arc;
 
 /// Test basic ontology creation and management (regression test)
 memory_safe_test!(
@@ -636,6 +636,5 @@ memory_safe_test!(
             final_stats.pressure_level < 0.8,
             "System pressure should be manageable"
         );
-
     }
 );

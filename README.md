@@ -217,29 +217,44 @@ owl2-reasoner/
 
 ### Running Tests
 
+#### Memory-Safe Testing Approach
+
+For systems with limited memory, run tests selectively to avoid out-of-memory errors:
+
 ```bash
-# Run all tests with memory safety
-cargo test --lib
+# ✅ SAFE: Core functionality tests (recommended for most systems)
+cargo test reasoning --lib        # Reasoning algorithms
+cargo test parser --lib           # Parser functionality
+cargo test ontology --lib         # Ontology operations
+cargo test memory_safety_validation --lib  # Memory safety checks
+
+# ⚠️ MODERATE: Integration tests (may need 1GB+ RAM)
+cargo test integration_tests --lib
+
+# 🔥 HIGH MEMORY: Stress tests (requires 2GB+ RAM, run individually)
+cargo test test_extreme_memory_pressure --lib
+cargo test test_concurrent_memory_stress --lib
+cargo test test_ontology_memory_stress --lib
+
+# 🚫 AVOID: Comprehensive test suite (causes OOM on most systems)
+# cargo test comprehensive  # DON'T RUN THIS - will exhaust memory
 
 # Run tests with verbose memory reporting
-OWL2_TEST_VERBOSE=1 cargo test --lib
+OWL2_TEST_VERBOSE=1 cargo test reasoning --lib
 
-# Run specific test modules
-cargo test memory_safety_validation --lib
-cargo test reasoning --lib
-cargo test parser --lib
-cargo test json_ld --lib
-cargo test epcis --lib
-
-# Run tests with release mode
-cargo test --release --lib
-
-# Run stress tests (relaxed memory limits)
-cargo test stress_tests --lib
-
-# Run performance regression tests
-cargo test performance_regression_tests --lib
+# Run tests with release mode (faster but same memory usage)
+cargo test --release --lib reasoning parser ontology
 ```
+
+#### Memory Usage by Test Category
+
+| Test Category | Memory Usage | Safe for | Notes |
+|---------------|-------------|----------|--------|
+| Unit Tests | 64-256MB | All systems | Core functionality |
+| Integration Tests | 256-512MB | Most systems | Component interaction |
+| Memory Safety Tests | 256-512MB | Most systems | Memory monitoring |
+| Stress Tests | 200MB-1GB each | High-memory systems | Individual execution only |
+| Comprehensive Tests | 1GB-4GB+ | Server-grade systems | Avoid on development machines |
 
 ### Test Coverage
 - **314 comprehensive memory-safe tests** covering all major functionality

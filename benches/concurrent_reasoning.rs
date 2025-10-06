@@ -96,14 +96,14 @@ fn bench_concurrent_satisfiability(c: &mut Criterion) {
                                 let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
                                 // Get a class for satisfiability testing
-                                if let Some(first_class) = reasoner.ontology.classes().iter().next() {
+                                if let Some(first_class) = reasoner.ontology.classes().iter().next()
+                                {
                                     let class_iri = first_class.iri().clone();
 
                                     barrier.wait(); // Synchronize start
 
                                     // Perform satisfiability check
-                                    let result =
-                                        reasoner.is_class_satisfiable(&class_iri).unwrap();
+                                    let result = reasoner.is_class_satisfiable(&class_iri).unwrap();
                                     completed_operations.fetch_add(1, Ordering::Relaxed);
                                     black_box(result)
                                 } else {
@@ -170,9 +170,8 @@ fn bench_concurrent_mixed_operations(c: &mut Criterion) {
                                             reasoner.ontology.classes().iter().next()
                                         {
                                             let class_iri = first_class.iri().clone();
-                                            let result = reasoner
-                                                .is_class_satisfiable(&class_iri)
-                                                .unwrap();
+                                            let result =
+                                                reasoner.is_class_satisfiable(&class_iri).unwrap();
                                             completed_operations.fetch_add(1, Ordering::Relaxed);
                                             black_box(result)
                                         } else {
@@ -365,8 +364,7 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
 
                                 // Perform cached operations
                                 for class_iri in &classes {
-                                    let result =
-                                        reasoner.is_class_satisfiable(class_iri).unwrap();
+                                    let result = reasoner.is_class_satisfiable(class_iri).unwrap();
                                     black_box(result);
                                 }
                                 completed_operations.fetch_add(1, Ordering::Relaxed);

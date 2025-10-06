@@ -112,21 +112,23 @@ impl MemoryMonitor {
     /// Get current memory statistics with timeout
     pub fn get_stats(&self) -> MemoryStats {
         // Attempt to get stats with timeout and graceful fallback
-        let mut stats = match self.acquire_lock_with_timeout(&self.stats, Duration::from_millis(1000), "stats") {
-            Ok(guard) => guard,
-            Err(e) => {
-                eprintln!("Memory stats lock failed: {}", e);
-                // Create temporary fallback stats
-                return MemoryStats {
-                    total_usage: self.get_current_memory_usage_safe(),
-                    peak_usage: self.get_current_memory_usage_safe(),
-                    iri_cache_size: 0,
-                    entity_cache_size: 0,
-                    cleanup_count: self.cleanup_count.load(Ordering::Relaxed),
-                    pressure_level: 0.0,
-                };
-            }
-        };
+        let mut stats =
+            match self.acquire_lock_with_timeout(&self.stats, Duration::from_millis(1000), "stats")
+            {
+                Ok(guard) => guard,
+                Err(e) => {
+                    eprintln!("Memory stats lock failed: {}", e);
+                    // Create temporary fallback stats
+                    return MemoryStats {
+                        total_usage: self.get_current_memory_usage_safe(),
+                        peak_usage: self.get_current_memory_usage_safe(),
+                        iri_cache_size: 0,
+                        entity_cache_size: 0,
+                        cleanup_count: self.cleanup_count.load(Ordering::Relaxed),
+                        pressure_level: 0.0,
+                    };
+                }
+            };
 
         // Update current usage safely
         stats.total_usage = self.get_current_memory_usage_safe();
@@ -159,12 +161,15 @@ impl MemoryMonitor {
         stats.clone()
     }
 
-
     /// Check for memory pressure and perform cleanup if needed
     pub fn check_and_cleanup(&self) -> Result<(), String> {
         let stats = self.get_stats();
         let mut last_cleanup = self
-            .acquire_lock_with_timeout(&self.last_cleanup, Duration::from_millis(500), "last_cleanup")
+            .acquire_lock_with_timeout(
+                &self.last_cleanup,
+                Duration::from_millis(500),
+                "last_cleanup",
+            )
             .map_err(|e| format!("Cleanup timing lock failed: {}", e))?;
 
         // Check if we're above pressure threshold
@@ -255,13 +260,16 @@ impl MemoryMonitor {
         lock_name: &str,
     ) -> Result<std::sync::MutexGuard<'a, T>, String> {
         let start_time = Instant::now();
-        
+
         loop {
             match mutex.try_lock() {
                 Ok(guard) => return Ok(guard),
                 Err(_) => {
                     if start_time.elapsed() >= timeout {
-                        return Err(format!("Timeout acquiring {} lock after {:?}", lock_name, timeout));
+                        return Err(format!(
+                            "Timeout acquiring {} lock after {:?}",
+                            lock_name, timeout
+                        ));
                     }
                     // Sleep briefly to avoid busy waiting
                     std::thread::sleep(Duration::from_millis(10));
@@ -274,7 +282,7 @@ impl MemoryMonitor {
     fn get_current_memory_usage_safe(&self) -> usize {
         // Use a safe, platform-independent estimation approach
         // This avoids unsafe platform-specific code
-        
+
         // Try to get cache size as a baseline
         let cache_size = cache_manager::global_cache_manager()
             .get_iri_cache_size()
@@ -284,7 +292,7 @@ impl MemoryMonitor {
         let base_memory = 1024 * 1024; // 1MB base
         let cache_memory = cache_size * 200; // ~200 bytes per cached IRI
         let overhead_memory = 512 * 1024; // 512KB overhead estimate
-        
+
         base_memory + cache_memory + overhead_memory
     }
 }
@@ -395,9 +403,51 @@ pub fn init_memory_monitor(_config: MemoryMonitorConfig) {
     eprintln!("Memory monitor initialization not fully implemented");
 }
 
+/// Get global memory protection instance
+pub fn get_memory_protection(
+) -> std::sync::MutexGuard<'static, crate::memory_protection::MemoryProtection> {
+    crate::memory_protection::get_memory_protection()
+}
+
+/// Initialize global memory protection with custom config
+pub fn init_memory_protection(config: crate::memory_protection::MemoryProtectionConfig) {
+    crate::memory_protection::init_memory_protection(config);
+}
+
+/// Check if allocation is allowed under current memory conditions
+pub fn can_allocate(requested_bytes: usize) -> crate::memory_protection::AllocationResult {
+    crate::memory_protection::can_allocate(requested_bytes)
+}
+
+/// Get current memory protection state
+pub fn get_memory_protection_state() -> crate::memory_protection::MemoryProtectionState {
+    crate::memory_protection::get_memory_protection_state()
+}
+
+/// Trigger manual cleanup
+pub fn trigger_memory_cleanup() -> crate::memory_protection::CleanupResult {
+    crate::memory_protection::trigger_memory_cleanup()
+}
+
+/// Get global memory statistics
+pub fn get_global_memory_stats() -> crate::memory_protection::GlobalMemoryStats {
+    crate::memory_protection::get_global_memory_stats()
+}
+
+/// Start memory protection monitoring
+pub fn start_memory_protection() {
+    crate::memory_protection::start_memory_protection();
+}
+
+/// Stop memory protection monitoring
+pub fn stop_memory_protection() {
+    crate::memory_protection::stop_memory_protection();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory_protection::MemoryProtectionState;
 
     #[test]
     fn test_memory_stats() {
@@ -416,5 +466,64 @@ mod tests {
     fn test_memory_pressure() {
         let pressure = get_memory_pressure_level();
         assert!((0.0..=1.0).contains(&pressure));
+    }
+
+    #[test]
+    fn test_memory_protection_integration() {
+        // Test that memory protection can be integrated with existing systems
+        let initial_state = get_memory_protection_state();
+        assert!(matches!(initial_state, MemoryProtectionState::Normal));
+
+        // Test allocation checking
+        let small_alloc = can_allocate(1024);
+        assert!(matches!(
+            small_alloc,
+            crate::memory_protection::AllocationResult::Allowed
+        ));
+
+        let large_alloc = can_allocate(100 * 1024 * 1024); // 100MB
+        let result = match large_alloc {
+            crate::memory_protection::AllocationResult::Allowed => "allowed".to_string(),
+            crate::memory_protection::AllocationResult::Rejected(reason) => {
+                format!("rejected: {:?}", reason)
+            }
+        };
+        println!("Large allocation result: {}", result);
+    }
+
+    #[test]
+    fn test_circuit_breaker_functionality() {
+        use crate::memory_protection::CircuitBreaker;
+
+        let circuit_breaker = CircuitBreaker::new(2, Duration::from_millis(100));
+
+        // Initially closed
+        assert!(!circuit_breaker.is_open());
+
+        // Record failures to open circuit
+        circuit_breaker.record_failure();
+        circuit_breaker.record_failure();
+
+        // Should be open now
+        assert!(circuit_breaker.is_open());
+
+        // Check timeout behavior
+        thread::sleep(Duration::from_millis(200));
+        assert!(!circuit_breaker.check_and_maybe_open());
+    }
+
+    #[test]
+    fn test_global_stats_integration() {
+        // Test that global stats integrate with existing memory monitoring
+        let old_stats = get_memory_stats();
+        let global_stats = get_global_memory_stats();
+
+        // Both should provide memory usage information
+        assert!(old_stats.total_usage > 0);
+        assert!(global_stats.total_memory_usage >= old_stats.total_usage);
+
+        // Global stats should have additional fields
+        assert_eq!(global_stats.circuit_breaker_trips, 0);
+        assert_eq!(global_stats.cleanup_count, 0);
     }
 }

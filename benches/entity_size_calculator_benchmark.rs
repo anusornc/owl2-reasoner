@@ -29,7 +29,9 @@ fn entity_size_benchmark_suite(c: &mut Criterion) {
 
     ontology.add_class(person_class.clone()).unwrap();
     ontology.add_class(animal_class.clone()).unwrap();
-    ontology.add_object_property(has_parent_prop.clone()).unwrap();
+    ontology
+        .add_object_property(has_parent_prop.clone())
+        .unwrap();
 
     // Add subclass axiom
     let subclass_axiom = SubClassOfAxiom::new(
@@ -53,9 +55,6 @@ fn entity_size_benchmark_suite(c: &mut Criterion) {
     println!("✅ Basic benchmark completed");
 }
 
-criterion_group!(
-    benches,
-    entity_size_benchmark_suite
-);
+criterion_group!(benches, entity_size_benchmark_suite);
 
 criterion_main!(benches);

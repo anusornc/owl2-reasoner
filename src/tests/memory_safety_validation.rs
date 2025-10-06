@@ -8,9 +8,9 @@
 
 use crate::cache_manager::*;
 use crate::memory::*;
-use crate::test_memory_guard::*;
-use crate::test_helpers::*;
 use crate::memory_safe_test;
+use crate::test_helpers::*;
+use crate::test_memory_guard::*;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -572,6 +572,5 @@ memory_safe_test!(
             final_leak_report.memory_efficiency_score > 0.5,
             "System efficiency should be reasonable"
         );
-
     }
 );
