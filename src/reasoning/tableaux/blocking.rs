@@ -171,6 +171,7 @@ pub struct BlockingManager {
     pub blocked_nodes: HashSet<NodeId>,
     pub stats: BlockingStats,
     pub individual_constraints: HashMap<NodeId, Individual>,
+    pub constraint_log: Vec<BlockingConstraint>,
 }
 
 impl BlockingManager {
@@ -181,12 +182,14 @@ impl BlockingManager {
             blocked_nodes: HashSet::new(),
             stats: BlockingStats::default(),
             individual_constraints: HashMap::new(),
+            constraint_log: Vec::new(),
         }
     }
 
     pub fn add_blocking_constraint(&mut self, constraint: BlockingConstraint) {
         self.blocked_nodes.insert(constraint.blocked_node);
         self.blocking_constraints.push(constraint.clone());
+        self.constraint_log.push(constraint.clone());
 
         // Update statistics
         match constraint.constraint_type {
@@ -218,160 +221,172 @@ impl BlockingManager {
 
     /// Check if a node should be blocked based on the current strategy
     pub fn should_block_node(&self, node_id: NodeId, graph: &super::graph::TableauxGraph) -> bool {
+        self.detect_blocking(node_id, graph).is_some()
+    }
+
+    pub fn detect_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
         match self.strategy {
-            BlockingStrategy::Equality => self.check_equality_blocking(node_id, graph),
-            BlockingStrategy::Subset => self.check_subset_blocking(node_id, graph),
-            BlockingStrategy::Optimized => self.check_optimized_blocking(node_id, graph),
-            BlockingStrategy::Dynamic => self.check_dynamic_blocking(node_id, graph),
-            BlockingStrategy::Comprehensive => self.check_comprehensive_blocking(node_id, graph),
+            BlockingStrategy::Equality => self.detect_equality_blocking(node_id, graph),
+            BlockingStrategy::Subset => self.detect_subset_blocking(node_id, graph),
+            BlockingStrategy::Optimized => self.detect_optimized_blocking(node_id, graph),
+            BlockingStrategy::Dynamic => self.detect_dynamic_blocking(node_id, graph),
+            BlockingStrategy::Comprehensive => self.detect_comprehensive_blocking(node_id, graph),
         }
     }
 
-    /// Check equality blocking: node has exactly the same concepts as an ancestor
-    fn check_equality_blocking(
+    fn detect_equality_blocking(
         &self,
         node_id: NodeId,
         graph: &super::graph::TableauxGraph,
-    ) -> bool {
-        if let Some(node) = graph.get_node(node_id) {
-            let ancestors = self.get_ancestors(node_id, graph);
+    ) -> Option<BlockingConstraint> {
+        let node_snapshot = graph.get_node(node_id)?.clone();
+        for ancestor_id in self.get_ancestors(node_id, graph) {
+            if let Some(ancestor) = graph.get_node(ancestor_id) {
+                if self.nodes_have_equal_concepts(&node_snapshot, ancestor) {
+                    return Some(BlockingConstraint::new(
+                        node_id,
+                        ancestor_id,
+                        BlockingType::Equality,
+                    ));
+                }
+            }
+        }
+        None
+    }
 
-            for ancestor_id in ancestors {
+    fn detect_subset_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        let node_snapshot = graph.get_node(node_id)?.clone();
+        for ancestor_id in self.get_ancestors(node_id, graph) {
+            if let Some(ancestor) = graph.get_node(ancestor_id) {
+                if self.node_is_subset_of_ancestor(&node_snapshot, ancestor) {
+                    return Some(BlockingConstraint::new(
+                        node_id,
+                        ancestor_id,
+                        BlockingType::Subset,
+                    ));
+                }
+            }
+        }
+        None
+    }
+
+    fn detect_optimized_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        self.detect_equality_blocking(node_id, graph)
+            .or_else(|| self.detect_subset_blocking(node_id, graph))
+            .or_else(|| self.detect_nominal_blocking(node_id, graph))
+    }
+
+    fn detect_dynamic_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        self.detect_self_restriction_blocking(node_id, graph)
+            .or_else(|| self.detect_optimized_blocking(node_id, graph))
+    }
+
+    fn detect_comprehensive_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        self.detect_dynamic_blocking(node_id, graph)
+            .or_else(|| self.detect_cardinality_blocking(node_id, graph))
+            .or_else(|| self.detect_nominal_blocking(node_id, graph))
+    }
+
+    fn detect_self_restriction_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        let node = graph.get_node(node_id)?;
+        let self_restriction_count = node
+            .concepts_iter()
+            .filter(|c| matches!(c, ClassExpression::ObjectHasSelf(_)))
+            .count();
+
+        if self_restriction_count > 1 {
+            for ancestor_id in self.get_ancestors(node_id, graph) {
                 if let Some(ancestor) = graph.get_node(ancestor_id) {
-                    if self.nodes_have_equal_concepts(node, ancestor) {
-                        return true;
+                    let ancestor_self_count = ancestor
+                        .concepts_iter()
+                        .filter(|c| matches!(c, ClassExpression::ObjectHasSelf(_)))
+                        .count();
+
+                    if ancestor_self_count >= self_restriction_count {
+                        return Some(BlockingConstraint::new(
+                            node_id,
+                            ancestor_id,
+                            BlockingType::Dynamic,
+                        ));
                     }
                 }
             }
         }
-        false
+        None
     }
 
-    /// Check subset blocking: ancestor contains all concepts of descendant
-    fn check_subset_blocking(&self, node_id: NodeId, graph: &super::graph::TableauxGraph) -> bool {
-        if let Some(node) = graph.get_node(node_id) {
-            let ancestors = self.get_ancestors(node_id, graph);
+    fn detect_nominal_blocking(
+        &self,
+        node_id: NodeId,
+        graph: &super::graph::TableauxGraph,
+    ) -> Option<BlockingConstraint> {
+        let node = graph.get_node(node_id)?;
+        let nominals: Vec<_> = node
+            .concepts_iter()
+            .filter_map(|c| {
+                if let ClassExpression::ObjectOneOf(individuals) = c {
+                    Some(individuals.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-            for ancestor_id in ancestors {
+        for individuals in nominals {
+            for ancestor_id in self.get_ancestors(node_id, graph) {
                 if let Some(ancestor) = graph.get_node(ancestor_id) {
-                    if self.node_is_subset_of_ancestor(node, ancestor) {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    /// Check optimized blocking with heuristics
-    fn check_optimized_blocking(
-        &self,
-        node_id: NodeId,
-        graph: &super::graph::TableauxGraph,
-    ) -> bool {
-        // Try different blocking strategies in order of preference
-        self.check_equality_blocking(node_id, graph)
-            || self.check_subset_blocking(node_id, graph)
-            || self.check_nominal_blocking(node_id, graph)
-    }
-
-    /// Check dynamic blocking with adaptive heuristics
-    fn check_dynamic_blocking(&self, node_id: NodeId, graph: &super::graph::TableauxGraph) -> bool {
-        // Apply blocking based on reasoning state and patterns
-        self.check_self_restriction_blocking(node_id, graph)
-            || self.check_optimized_blocking(node_id, graph)
-    }
-
-    /// Check comprehensive blocking combining all strategies
-    fn check_comprehensive_blocking(
-        &self,
-        node_id: NodeId,
-        graph: &super::graph::TableauxGraph,
-    ) -> bool {
-        self.check_dynamic_blocking(node_id, graph)
-            || self.check_cardinality_blocking(node_id, graph)
-            || self.check_nominal_blocking(node_id, graph)
-    }
-
-    /// Check blocking based on self-restriction patterns
-    fn check_self_restriction_blocking(
-        &self,
-        node_id: NodeId,
-        graph: &super::graph::TableauxGraph,
-    ) -> bool {
-        if let Some(node) = graph.get_node(node_id) {
-            let self_restriction_count = node
-                .concepts_iter()
-                .filter(|c| matches!(c, ClassExpression::ObjectHasSelf(_)))
-                .count();
-
-            if self_restriction_count > 1 {
-                let ancestors = self.get_ancestors(node_id, graph);
-
-                for ancestor_id in ancestors {
-                    if let Some(ancestor) = graph.get_node(ancestor_id) {
-                        let ancestor_self_count = ancestor
-                            .concepts_iter()
-                            .filter(|c| matches!(c, ClassExpression::ObjectHasSelf(_)))
-                            .count();
-
-                        if ancestor_self_count >= self_restriction_count {
-                            return true;
+                    let ancestor_has_nominal = ancestor.concepts_iter().any(|c| {
+                        if let ClassExpression::ObjectOneOf(parent_individuals) = c {
+                            individuals.as_slice() == parent_individuals.as_slice()
+                        } else {
+                            false
                         }
+                    });
+
+                    if ancestor_has_nominal {
+                        return Some(BlockingConstraint::new(
+                            node_id,
+                            ancestor_id,
+                            BlockingType::Nominal,
+                        ));
                     }
                 }
             }
         }
-        false
+        None
     }
 
-    /// Check nominal blocking based on individual equality
-    fn check_nominal_blocking(&self, node_id: NodeId, graph: &super::graph::TableauxGraph) -> bool {
-        if let Some(node) = graph.get_node(node_id) {
-            // Collect nominal expressions
-            let nominals: Vec<_> = node
-                .concepts_iter()
-                .filter_map(|c| {
-                    if let ClassExpression::ObjectOneOf(individuals) = c {
-                        Some(individuals.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            for individuals in nominals {
-                let ancestors = self.get_ancestors(node_id, graph);
-
-                for ancestor_id in ancestors {
-                    if let Some(ancestor) = graph.get_node(ancestor_id) {
-                        let ancestor_has_nominal = ancestor.concepts_iter().any(|c| {
-                            if let ClassExpression::ObjectOneOf(parent_individuals) = c {
-                                individuals.as_slice() == parent_individuals.as_slice()
-                            } else {
-                                false
-                            }
-                        });
-
-                        if ancestor_has_nominal {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    /// Check cardinality blocking
-    fn check_cardinality_blocking(
+    fn detect_cardinality_blocking(
         &self,
         _node_id: NodeId,
         _graph: &super::graph::TableauxGraph,
-    ) -> bool {
-        // Simplified cardinality blocking - in full implementation would check
-        // cardinality constraints and their satisfaction
-        false
+    ) -> Option<BlockingConstraint> {
+        // Placeholder: full implementation would inspect cardinality constraints.
+        None
     }
 
     /// Get all ancestors of a node

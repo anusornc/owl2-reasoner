@@ -450,3 +450,5 @@ sessions/
 CRITICAL_FIXES_PLAN.md
 TABLEAUX_IMPLEMENTATION_PLAN.md
 THREAD_SAFETY_FIXES_PLAN.md
+green_group_tests.md
+red_group_tests.md

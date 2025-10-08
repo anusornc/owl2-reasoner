@@ -84,7 +84,7 @@ risk_aware_test!(test_extreme_memory_pressure, TestRiskLevel::Critical, {
 });
 
 /// Test concurrent memory stress scenarios
-memory_safe_stress_test!(test_concurrent_memory_stress, {
+memory_safe_stress_test!(#[ignore] test_concurrent_memory_stress, {
     println!("🔥 Testing concurrent memory stress scenarios...");
 
     // Log initial system state

@@ -99,6 +99,23 @@ pub struct MemoryOptimizationStats {
     pub arena_allocation_savings: usize,
 }
 
+/// Change log for memory allocations performed during branch expansion.
+///
+/// Currently a placeholder; will record arena allocations once branch-aware
+/// allocation is wired through [`MemoryManager`].
+#[derive(Debug, Default, Clone)]
+pub struct MemoryChangeLog;
+
+impl MemoryChangeLog {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn extend(&mut self, _other: MemoryChangeLog) {}
+
+    pub fn rollback(&self, _manager: &mut MemoryManager) {}
+}
+
 /// Arena allocation statistics
 #[derive(Debug, Clone, Default)]
 pub struct ArenaStats {

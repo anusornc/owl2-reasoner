@@ -336,10 +336,15 @@ impl IRI {
     pub fn new<S: Into<String>>(iri: S) -> OwlResult<Self> {
         let iri_str = iri.into();
 
-        // Minimal validation: reject only truly empty strings.
+        // Minimal validation: reject empty strings and IRIs without scheme separator.
         // Many components and tests currently accept relaxed IRI forms.
         if iri_str.is_empty() {
             return Err(OwlError::InvalidIRI("IRI cannot be empty".to_string()));
+        }
+
+        // Basic validation: IRI must contain a colon (scheme separator)
+        if !iri_str.contains(':') {
+            return Err(OwlError::InvalidIRI("IRI must contain ':' separating scheme from path".to_string()));
         }
 
         // Check global cache first using bounded cache
@@ -373,9 +378,14 @@ impl IRI {
     pub fn new_optimized<S: AsRef<str>>(iri_str: S) -> OwlResult<Arc<IRI>> {
         let iri_str = iri_str.as_ref();
 
-        // Minimal validation: reject only truly empty strings.
+        // Minimal validation: reject empty strings and IRIs without scheme separator.
         if iri_str.is_empty() {
             return Err(OwlError::InvalidIRI("IRI cannot be empty".to_string()));
+        }
+
+        // Basic validation: IRI must contain a colon (scheme separator)
+        if !iri_str.contains(':') {
+            return Err(OwlError::InvalidIRI("IRI must contain ':' separating scheme from path".to_string()));
         }
 
         // Single cache lookup with borrowed reference to avoid cloning

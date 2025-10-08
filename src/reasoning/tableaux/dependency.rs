@@ -63,12 +63,16 @@
 //! ```
 
 use super::core::NodeId;
+use super::expansion::ExpansionTask;
+use super::graph::GraphChangeLog;
+use super::memory::MemoryChangeLog;
 use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::property_expressions::ObjectPropertyExpression;
 use crate::entities::{Class, Individual};
 use crate::error::OwlResult;
 use hashbrown::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
+use std::time::{Duration, Instant};
 
 /// Dependency between tableaux nodes and choices
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -141,6 +145,136 @@ pub struct BacktrackStats {
     pub choices_explored: usize,
     pub contradictions_detected: usize,
     pub _average_backtrack_depth: f64,
+}
+
+/// Identifier for an active tableaux branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BranchId(usize);
+
+impl BranchId {
+    pub fn new(raw: usize) -> Self {
+        Self(raw)
+    }
+
+    pub fn as_usize(self) -> usize {
+        self.0
+    }
+}
+
+/// Runtime state associated with a branch under exploration.
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct BranchState {
+    pub id: BranchId,
+    pub change_log: GraphChangeLog,
+    pub memory_log: MemoryChangeLog,
+    pub open_tasks: VecDeque<ExpansionTask>,
+    pub blocked_nodes: HashSet<NodeId>,
+    pub depth: usize,
+    pub start_time: Instant,
+}
+
+impl BranchState {
+    pub fn new(id: BranchId, tasks: VecDeque<ExpansionTask>) -> Self {
+        Self {
+            id,
+            change_log: GraphChangeLog::new(),
+            memory_log: MemoryChangeLog::new(),
+            open_tasks: tasks,
+            blocked_nodes: HashSet::new(),
+            depth: 0,
+            start_time: Instant::now(),
+        }
+    }
+
+    pub fn push_tasks(&mut self, tasks: Vec<ExpansionTask>) {
+        self.open_tasks.extend(tasks);
+    }
+
+    pub fn take_next_task(&mut self) -> Option<ExpansionTask> {
+        self.open_tasks.pop_front()
+    }
+
+    pub fn record_changes(&mut self, log: GraphChangeLog) {
+        self.change_log.extend(log);
+    }
+
+    pub fn record_memory(&mut self, log: MemoryChangeLog) {
+        self.memory_log.extend(log);
+    }
+
+    pub fn reset_timer(&mut self) {
+        self.start_time = Instant::now();
+    }
+}
+
+/// Scheduler for active branches (placeholder until full integration).
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct BranchManager {
+    branches: HashMap<BranchId, BranchState>,
+    queue: VecDeque<BranchId>,
+    next_id: usize,
+    timeout: Option<Duration>,
+}
+
+impl BranchManager {
+    pub fn new(timeout: Option<Duration>) -> Self {
+        Self {
+            branches: HashMap::new(),
+            queue: VecDeque::new(),
+            next_id: 0,
+            timeout,
+        }
+    }
+
+    fn allocate_id(&mut self) -> BranchId {
+        let id = BranchId::new(self.next_id);
+        self.next_id += 1;
+        id
+    }
+
+    pub fn create_root_branch(&mut self, tasks: VecDeque<ExpansionTask>) -> BranchId {
+        let id = self.allocate_id();
+        let state = BranchState::new(id, tasks);
+        self.queue.push_back(id);
+        self.branches.insert(id, state);
+        id
+    }
+
+    pub fn schedule_branch(&mut self, state: BranchState) {
+        let id = state.id;
+        self.queue.push_back(id);
+        self.branches.insert(id, state);
+    }
+
+    pub fn next_branch(&mut self) -> Option<BranchId> {
+        self.queue.pop_front()
+    }
+
+    pub fn get_branch(&self, id: BranchId) -> Option<&BranchState> {
+        self.branches.get(&id)
+    }
+
+    pub fn get_branch_mut(&mut self, id: BranchId) -> Option<&mut BranchState> {
+        self.branches.get_mut(&id)
+    }
+
+    pub fn remove_branch(&mut self, id: BranchId) -> Option<BranchState> {
+        self.branches.remove(&id)
+    }
+
+    pub fn branch_timeout(&self, state: &BranchState) -> bool {
+        if let Some(limit) = self.timeout {
+            state.start_time.elapsed() >= limit
+        } else {
+            false
+        }
+    }
+
+    pub fn has_pending(&self) -> bool {
+        !self.queue.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

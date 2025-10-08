@@ -538,11 +538,6 @@ impl ManchesterGrammar {
     /// Validate that the grammar is properly formed
     pub fn validate(&self) -> Result<(), String> {
         // Check that all productions have at least one rule
-        let mut productions = std::collections::HashSet::new();
-        for rule in &self.rules {
-            productions.insert(rule.production.clone());
-        }
-
         let required_productions = vec![
             Production::Document,
             Production::PrefixDeclaration,
@@ -552,7 +547,14 @@ impl ManchesterGrammar {
         ];
 
         for required in required_productions {
-            if !productions.contains(&required) {
+            let mut found = false;
+            for rule in &self.rules {
+                if rule.production == required {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
                 return Err(format!("Missing rules for production: {:?}", required));
             }
         }

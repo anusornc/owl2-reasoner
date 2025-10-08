@@ -52,6 +52,7 @@
 //!          is_consistent, memory_stats.peak_memory_bytes);
 //! ```
 
+use crate::axioms::property_expressions::ObjectPropertyExpression;
 use crate::axioms::*;
 use crate::entities::Class;
 use crate::error::{OwlError, OwlResult};
@@ -61,7 +62,7 @@ use crate::ontology::Ontology;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 /// Reasoning rules for tableaux algorithm
@@ -214,6 +215,17 @@ impl TableauxNode {
         }
     }
 
+    pub fn remove_concept(&mut self, concept: &ClassExpression) -> bool {
+        if let Some(ref mut hashset) = self.concepts_hashset {
+            hashset.remove(concept)
+        } else if let Some(pos) = self.concepts.iter().position(|c| c == concept) {
+            self.concepts.swap_remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn concepts_iter(&self) -> impl Iterator<Item = &ClassExpression> {
         if let Some(ref hashset) = self.concepts_hashset {
             Either::Left(hashset.iter())
@@ -235,6 +247,15 @@ impl TableauxNode {
     pub fn add_label(&mut self, label: String) {
         if !self.labels.contains(&label) {
             self.labels.push(label);
+        }
+    }
+
+    pub fn remove_label(&mut self, label: &str) -> bool {
+        if let Some(pos) = self.labels.iter().position(|l| l == label) {
+            self.labels.swap_remove(pos);
+            true
+        } else {
+            false
         }
     }
 
@@ -369,57 +390,55 @@ impl TableauxReasoner {
     }
 
     pub fn check_consistency(&mut self) -> OwlResult<bool> {
-        // Create a new tableaux graph for consistency checking
         let mut graph = super::graph::TableauxGraph::new();
         let mut expansion_engine =
             super::expansion::ExpansionEngine::new().with_reasoning_rules(self.rules.clone());
-        let blocking_manager =
+        let mut blocking_manager =
             super::blocking::BlockingManager::new(super::blocking::BlockingStrategy::Optimized);
         let mut memory_manager = super::memory::MemoryManager::new();
 
-        // Initialize the root node with all classes from the ontology
         self.initialize_root_node(&mut graph)?;
 
-        // Track reasoning state
-        let mut nodes_to_expand = std::collections::VecDeque::new();
+        let mut nodes_to_expand = VecDeque::new();
         nodes_to_expand.push_back(graph.get_root());
 
-        let mut expanded_nodes = std::collections::HashSet::new();
+        let mut expanded_nodes = HashSet::new();
         expanded_nodes.insert(graph.get_root());
 
-        // Main reasoning loop
+        let mut branch_logs: Vec<super::graph::GraphChangeLog> = Vec::new();
         while let Some(current_node) = nodes_to_expand.pop_front() {
-            // Check if current node should be blocked
-            if blocking_manager.should_block_node(current_node, &graph) {
+            if let Some(constraint) = blocking_manager.detect_blocking(current_node, &graph) {
+                blocking_manager.add_blocking_constraint(constraint);
                 continue;
             }
 
-            // Apply tableaux expansion rules
             expansion_engine.context.current_node = current_node;
-            let _expansion_result = expansion_engine
-                .expand(&mut graph, &mut memory_manager, self.config.max_depth)
+            let mut local_graph_log = super::graph::GraphChangeLog::new();
+            let mut local_memory_log = super::memory::MemoryChangeLog::new();
+            expansion_engine
+                .expand(
+                    &mut graph,
+                    &mut memory_manager,
+                    self.config.max_depth,
+                    &mut local_graph_log,
+                    &mut local_memory_log,
+                )
                 .map_err(|e| OwlError::ReasoningError(format!("Expansion failed: {}", e)))?;
-
-            // Check for clashes after expansion
-            if self.has_clash(current_node, &graph)? {
-                return Ok(false); // Ontology is inconsistent
+            if !local_graph_log.is_empty() {
+                branch_logs.push(local_graph_log.clone());
             }
 
-            // Get newly created nodes from expansion
-            let new_nodes = self.get_new_successors(current_node, &graph, &expanded_nodes);
+            if self.has_clash(current_node, &graph)? {
+                return Ok(false);
+            }
 
-            // Add new nodes to expansion queue
+            let new_nodes = self.get_new_successors(current_node, &graph, &expanded_nodes);
             for new_node in new_nodes {
-                if !expanded_nodes.contains(&new_node) {
+                if expanded_nodes.insert(new_node) {
                     nodes_to_expand.push_back(new_node);
-                    expanded_nodes.insert(new_node);
                 }
             }
 
-            // For subclass checking, we don't use backtracking for simplicity
-            // If needed, backtracking can be added later
-
-            // Check timeout
             if let Some(timeout_ms) = self.config.timeout {
                 let start_time = std::time::Instant::now();
                 if start_time.elapsed().as_millis() >= timeout_ms as u128 {
@@ -431,7 +450,7 @@ impl TableauxReasoner {
             }
         }
 
-        // If we completed without finding a clash, the ontology is consistent
+        drop(branch_logs);
         Ok(true)
     }
 
@@ -613,7 +632,7 @@ impl TableauxReasoner {
         let mut graph = super::graph::TableauxGraph::new();
         let mut expansion_engine =
             super::expansion::ExpansionEngine::new().with_reasoning_rules(self.rules.clone());
-        let blocking_manager =
+        let mut blocking_manager =
             super::blocking::BlockingManager::new(super::blocking::BlockingStrategy::Optimized);
         let mut memory_manager = super::memory::MemoryManager::new();
 
@@ -626,47 +645,46 @@ impl TableauxReasoner {
         graph.add_concept(graph.get_root(), class1_expr);
         graph.add_concept(graph.get_root(), class2_expr);
 
-        // Track reasoning state
-        let mut nodes_to_expand = std::collections::VecDeque::new();
+        let mut nodes_to_expand = VecDeque::new();
         nodes_to_expand.push_back(graph.get_root());
 
-        let mut expanded_nodes = std::collections::HashSet::new();
+        let mut expanded_nodes = HashSet::new();
         expanded_nodes.insert(graph.get_root());
 
-        // Main reasoning loop
+        let mut branch_logs: Vec<super::graph::GraphChangeLog> = Vec::new();
         while let Some(current_node) = nodes_to_expand.pop_front() {
-            // Check if current node should be blocked
-            if blocking_manager.should_block_node(current_node, &graph) {
+            if let Some(constraint) = blocking_manager.detect_blocking(current_node, &graph) {
+                blocking_manager.add_blocking_constraint(constraint);
                 continue;
             }
 
-            // Apply tableaux expansion rules
             expansion_engine.context.current_node = current_node;
-            let _expansion_result = expansion_engine
-                .expand(&mut graph, &mut memory_manager, self.config.max_depth)
+            let mut local_graph_log = super::graph::GraphChangeLog::new();
+            let mut local_memory_log = super::memory::MemoryChangeLog::new();
+            expansion_engine
+                .expand(
+                    &mut graph,
+                    &mut memory_manager,
+                    self.config.max_depth,
+                    &mut local_graph_log,
+                    &mut local_memory_log,
+                )
                 .map_err(|e| OwlError::ReasoningError(format!("Expansion failed: {}", e)))?;
+            if !local_graph_log.is_empty() {
+                branch_logs.push(local_graph_log.clone());
+            }
 
-            // Check for clashes after expansion
             if self.has_clash(current_node, &graph)? {
-                // Found a clash - class1 ⊓ class2 is inconsistent, so classes are disjoint
                 return Ok(true);
             }
 
-            // Get newly created nodes from expansion
             let new_nodes = self.get_new_successors(current_node, &graph, &expanded_nodes);
-
-            // Add new nodes to expansion queue
             for new_node in new_nodes {
-                if !expanded_nodes.contains(&new_node) {
+                if expanded_nodes.insert(new_node) {
                     nodes_to_expand.push_back(new_node);
-                    expanded_nodes.insert(new_node);
                 }
             }
 
-            // For subclass checking, we don't use backtracking for simplicity
-            // If needed, backtracking can be added later
-
-            // Check timeout
             if let Some(timeout_ms) = self.config.timeout {
                 let start_time = std::time::Instant::now();
                 if start_time.elapsed().as_millis() >= timeout_ms as u128 {
@@ -678,7 +696,7 @@ impl TableauxReasoner {
             }
         }
 
-        // No clash found - class1 ⊓ class2 is consistent, so classes are not disjoint
+        drop(branch_logs);
         Ok(false)
     }
 
@@ -725,7 +743,7 @@ impl TableauxReasoner {
         let mut graph = super::graph::TableauxGraph::new();
         let mut expansion_engine =
             super::expansion::ExpansionEngine::new().with_reasoning_rules(self.rules.clone());
-        let blocking_manager =
+        let mut blocking_manager =
             super::blocking::BlockingManager::new(super::blocking::BlockingStrategy::Optimized);
         let mut memory_manager = super::memory::MemoryManager::new();
 
@@ -745,17 +763,30 @@ impl TableauxReasoner {
         expanded_nodes.insert(graph.get_root());
 
         // Main reasoning loop
+        let mut branch_logs: Vec<super::graph::GraphChangeLog> = Vec::new();
         while let Some(current_node) = nodes_to_expand.pop_front() {
             // Check if current node should be blocked
-            if blocking_manager.should_block_node(current_node, &graph) {
+            if let Some(constraint) = blocking_manager.detect_blocking(current_node, &graph) {
+                blocking_manager.add_blocking_constraint(constraint);
                 continue;
             }
 
             // Apply tableaux expansion rules
             expansion_engine.context.current_node = current_node;
+            let mut local_graph_log = super::graph::GraphChangeLog::new();
+            let mut local_memory_log = super::memory::MemoryChangeLog::new();
             let _expansion_result = expansion_engine
-                .expand(&mut graph, &mut memory_manager, self.config.max_depth)
+                .expand(
+                    &mut graph,
+                    &mut memory_manager,
+                    self.config.max_depth,
+                    &mut local_graph_log,
+                    &mut local_memory_log,
+                )
                 .map_err(|e| OwlError::ReasoningError(format!("Expansion failed: {}", e)))?;
+            if !local_graph_log.is_empty() {
+                branch_logs.push(local_graph_log.clone());
+            }
 
             // Check for clashes after expansion
             if self.has_clash(current_node, &graph)? {
@@ -790,6 +821,7 @@ impl TableauxReasoner {
         }
 
         // No clash found - ¬C is consistent, so C is unsatisfiable
+        drop(branch_logs);
         Ok(false)
     }
 
@@ -806,7 +838,7 @@ impl TableauxReasoner {
         let mut graph = super::graph::TableauxGraph::new();
         let mut expansion_engine =
             super::expansion::ExpansionEngine::new().with_reasoning_rules(self.rules.clone());
-        let blocking_manager =
+        let mut blocking_manager =
             super::blocking::BlockingManager::new(super::blocking::BlockingStrategy::Optimized);
         let mut memory_manager = super::memory::MemoryManager::new();
 
@@ -830,17 +862,30 @@ impl TableauxReasoner {
         expanded_nodes.insert(graph.get_root());
 
         // Main reasoning loop
+        let mut branch_logs: Vec<super::graph::GraphChangeLog> = Vec::new();
         while let Some(current_node) = nodes_to_expand.pop_front() {
             // Check if current node should be blocked
-            if blocking_manager.should_block_node(current_node, &graph) {
+            if let Some(constraint) = blocking_manager.detect_blocking(current_node, &graph) {
+                blocking_manager.add_blocking_constraint(constraint);
                 continue;
             }
 
             // Apply tableaux expansion rules
             expansion_engine.context.current_node = current_node;
+            let mut local_graph_log = super::graph::GraphChangeLog::new();
+            let mut local_memory_log = super::memory::MemoryChangeLog::new();
             let _expansion_result = expansion_engine
-                .expand(&mut graph, &mut memory_manager, self.config.max_depth)
+                .expand(
+                    &mut graph,
+                    &mut memory_manager,
+                    self.config.max_depth,
+                    &mut local_graph_log,
+                    &mut local_memory_log,
+                )
                 .map_err(|e| OwlError::ReasoningError(format!("Expansion failed: {}", e)))?;
+            if !local_graph_log.is_empty() {
+                branch_logs.push(local_graph_log.clone());
+            }
 
             // Check for clashes after expansion
             if self.has_clash(current_node, &graph)? {
@@ -875,6 +920,7 @@ impl TableauxReasoner {
         }
 
         // No clash found - subclass ⊓ ¬superclass is consistent, so subclass is not a subclass of superclass
+        drop(branch_logs);
         Ok(false)
     }
 
@@ -920,6 +966,83 @@ impl TableauxReasoner {
                 }
             }
 
+            // Check existential/universal restrictions against successors
+            for concept in &concepts {
+                match concept {
+                    ClassExpression::ObjectSomeValuesFrom(property, filler) => {
+                        let (is_inverse, property_iri) = Self::resolve_property_direction(property);
+                        if !is_inverse {
+                            if let Some(successors) = graph.get_successors(node_id, property_iri) {
+                                for succ_id in successors {
+                                    if let Some(succ_node) = graph.get_node(*succ_id) {
+                                        for succ_concept in succ_node.concepts_iter() {
+                                            if self.are_contradictory(succ_concept, filler)? {
+                                                return Ok(true);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            let predecessors = graph.get_predecessors(node_id, property_iri);
+                            for pred_id in predecessors {
+                                if let Some(pred_node) = graph.get_node(pred_id) {
+                                    for pred_concept in pred_node.concepts_iter() {
+                                        if self.are_contradictory(pred_concept, filler)? {
+                                            return Ok(true);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ClassExpression::ObjectAllValuesFrom(property, filler) => {
+                        let (is_inverse, property_iri) = Self::resolve_property_direction(property);
+                        if !is_inverse {
+                            if let Some(successors) = graph.get_successors(node_id, property_iri) {
+                                for succ_id in successors {
+                                    if let Some(succ_node) = graph.get_node(*succ_id) {
+                                        for succ_concept in succ_node.concepts_iter() {
+                                            if self.are_contradictory(succ_concept, filler)? {
+                                                return Ok(true);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            let predecessors = graph.get_predecessors(node_id, property_iri);
+                            for pred_id in predecessors {
+                                if let Some(pred_node) = graph.get_node(pred_id) {
+                                    for pred_concept in pred_node.concepts_iter() {
+                                        if self.are_contradictory(pred_concept, filler)? {
+                                            return Ok(true);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ClassExpression::ObjectMaxCardinality(max, property) => {
+                        let (is_inverse, property_iri) = Self::resolve_property_direction(property);
+                        let count =
+                            Self::count_role_targets(node_id, property_iri, is_inverse, graph);
+                        if count as u32 > *max {
+                            return Ok(true);
+                        }
+                    }
+                    ClassExpression::ObjectExactCardinality(exact, property) => {
+                        let (is_inverse, property_iri) = Self::resolve_property_direction(property);
+                        let count =
+                            Self::count_role_targets(node_id, property_iri, is_inverse, graph);
+                        if count as u32 > *exact {
+                            return Ok(true);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
             // Check for disjoint class axioms
             for (i, concept1) in concepts.iter().enumerate() {
                 for concept2 in concepts.iter().skip(i + 1) {
@@ -931,6 +1054,35 @@ impl TableauxReasoner {
         }
 
         Ok(false)
+    }
+
+    fn resolve_property_direction(expr: &ObjectPropertyExpression) -> (bool, &IRI) {
+        fn flatten(e: &ObjectPropertyExpression, invert: bool) -> (bool, &IRI) {
+            match e {
+                ObjectPropertyExpression::ObjectProperty(prop) => (invert, prop.iri()),
+                ObjectPropertyExpression::ObjectInverseOf(inner) => {
+                    flatten(inner.as_ref(), !invert)
+                }
+            }
+        }
+
+        flatten(expr, false)
+    }
+
+    fn count_role_targets(
+        node_id: NodeId,
+        property_iri: &IRI,
+        is_inverse: bool,
+        graph: &super::graph::TableauxGraph,
+    ) -> usize {
+        if !is_inverse {
+            graph
+                .get_successors(node_id, property_iri)
+                .map(|targets| targets.len())
+                .unwrap_or(0)
+        } else {
+            graph.get_predecessors(node_id, property_iri).len()
+        }
     }
 
     /// Check if two concepts are contradictory
@@ -1023,7 +1175,9 @@ impl TableauxReasoner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::axioms::property_expressions::ObjectPropertyExpression;
     use crate::entities::Class;
+    use crate::entities::ObjectProperty;
     use crate::iri::IRI;
 
     #[test]
@@ -1106,6 +1260,48 @@ mod tests {
 
         // Reflexive: Person should be subclass of itself
         assert!(reasoner.is_subclass_of(&person_iri, &person_iri).unwrap());
+    }
+
+    #[test]
+    fn test_consistency_detects_cardinality_conflict() {
+        use crate::axioms::ClassExpression;
+
+        let mut ontology = crate::ontology::Ontology::new();
+
+        let class_a_iri = IRI::new("http://example.org/A").unwrap();
+        let class_b_iri = IRI::new("http://example.org/B").unwrap();
+        let prop_r = ObjectProperty::new("http://example.org/R");
+
+        let class_a = Class::new(class_a_iri.as_str());
+        let class_b = Class::new(class_b_iri.as_str());
+
+        ontology.add_class(class_a.clone()).unwrap();
+        ontology.add_class(class_b.clone()).unwrap();
+
+        let property_expr = ObjectPropertyExpression::from(prop_r.clone());
+
+        let some_restriction = ClassExpression::ObjectSomeValuesFrom(
+            Box::new(property_expr.clone()),
+            Box::new(ClassExpression::Class(class_b.clone())),
+        );
+        let max_zero_restriction =
+            ClassExpression::ObjectMaxCardinality(0, Box::new(property_expr.clone()));
+
+        let subclass_some = crate::axioms::SubClassOfAxiom::new(
+            ClassExpression::Class(class_a.clone()),
+            some_restriction,
+        );
+        let subclass_max = crate::axioms::SubClassOfAxiom::new(
+            ClassExpression::Class(class_a.clone()),
+            max_zero_restriction,
+        );
+
+        ontology.add_subclass_axiom(subclass_some).unwrap();
+        ontology.add_subclass_axiom(subclass_max).unwrap();
+
+        let mut reasoner = TableauxReasoner::new(ontology);
+
+        assert!(!reasoner.is_consistent().unwrap());
     }
 
     #[test]

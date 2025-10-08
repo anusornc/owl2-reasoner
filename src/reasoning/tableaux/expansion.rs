@@ -79,8 +79,8 @@
 //! ```
 
 use super::core::{NodeId, ReasoningRules};
-use super::graph::TableauxGraph;
-use super::memory::MemoryManager;
+use super::graph::{GraphChangeLog, TableauxGraph};
+use super::memory::{MemoryChangeLog, MemoryManager};
 use crate::axioms::class_expressions::ClassExpression;
 use crate::axioms::ObjectPropertyExpression;
 use crate::entities::Class;
@@ -205,7 +205,7 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
         match rule {
             ExpansionRule::Conjunction => self.apply_conjunction_rule(graph, memory, context),
             ExpansionRule::Disjunction => self.apply_disjunction_rule(graph, memory, context),
@@ -226,7 +226,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
         // Decompose intersection: C ⊓ D → C, D
         if let Some(node) = graph.get_node_mut(context.current_node) {
             // Find all intersection concepts in the node
@@ -240,14 +241,18 @@ impl ExpansionRules {
                 if let ClassExpression::ObjectIntersectionOf(operands) = intersection {
                     // Add each operand to the node
                     for operand in operands.iter() {
-                        node.add_concept((**operand).clone());
+                        graph.add_concept_logged(
+                            context.current_node,
+                            (**operand).clone(),
+                            &mut change_log,
+                        );
                     }
                     // Remove the intersection (optional - depends on strategy)
                     // For now, we'll keep it for completeness
                 }
             }
         }
-        Ok(vec![])
+        Ok((vec![], change_log))
     }
 
     fn apply_disjunction_rule(
@@ -255,7 +260,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let change_log = GraphChangeLog::new();
         // Non-deterministic choice for union: C ⊔ D → C or D
         if let Some(node) = graph.get_node_mut(context.current_node) {
             // Find all union concepts in the node
@@ -275,12 +281,12 @@ impl ExpansionRules {
                             rule_type: ExpansionRule::Disjunction,
                             priority: 10, // Medium priority for disjunction
                         };
-                        return Ok(vec![choice]);
+                        return Ok((vec![choice], change_log));
                     }
                 }
             }
         }
-        Ok(vec![])
+        Ok((vec![], change_log))
     }
 
     fn apply_existential_restriction_rule(
@@ -288,42 +294,118 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
-        // ∃R.C → create new node with C and R-edge from the current node
-        if let Some(node) = graph.get_node_mut(context.current_node) {
-            // Find all existential restrictions in the node
-            let existentials: Vec<_> = node
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
+
+        let existentials: Vec<_> = match graph.get_node(context.current_node) {
+            Some(node) => node
                 .concepts_iter()
                 .filter(|c| matches!(c, ClassExpression::ObjectSomeValuesFrom(_, _)))
                 .cloned()
-                .collect();
+                .collect(),
+            None => return Ok((vec![], change_log)),
+        };
 
-            for existential in existentials {
-                if let ClassExpression::ObjectSomeValuesFrom(property, filler) = existential {
-                    // Extract the property IRI from the property expression
-                    let (_is_inverse, property_iri) = Self::resolve_property_direction(&property);
+        let universals: Vec<_> = graph
+            .get_node(context.current_node)
+            .map(|node| {
+                node.concepts_iter()
+                    .filter(|c| matches!(c, ClassExpression::ObjectAllValuesFrom(_, _)))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
-                    // Create new successor node
-                    let new_node_id = graph.add_node();
+        for existential in existentials {
+            if let ClassExpression::ObjectSomeValuesFrom(property, filler) = existential {
+                let (is_inverse, property_iri) = Self::resolve_property_direction(&property);
 
-                    // Add the filler concept to the new node
-                    graph.add_concept(new_node_id, (*filler).clone());
+                // Attempt to reuse existing nodes that already contain the filler
+                if !is_inverse {
+                    if let Some(successors) =
+                        graph.get_successors(context.current_node, property_iri)
+                    {
+                        if let Some(existing) = successors.iter().copied().find(|succ_id| {
+                            graph
+                                .get_node(*succ_id)
+                                .map(|n| n.contains_concept(&filler))
+                                .unwrap_or(false)
+                        }) {
+                            self.propagate_universal_to_node(
+                                &universals,
+                                is_inverse,
+                                property_iri,
+                                existing,
+                                graph,
+                                &mut change_log,
+                            );
 
-                    // Add edge from current node to new node
-                    graph.add_edge(context.current_node, property_iri, new_node_id);
+                            let task = ExpansionTask {
+                                node_id: existing,
+                                concept: (*filler).clone(),
+                                rule_type: ExpansionRule::ExistentialRestriction,
+                                priority: 5,
+                            };
+                            return Ok((vec![task], change_log));
+                        }
+                    }
+                } else {
+                    let predecessors = graph.get_predecessors(context.current_node, property_iri);
+                    if let Some(existing) = predecessors.iter().copied().find(|pred_id| {
+                        graph
+                            .get_node(*pred_id)
+                            .map(|n| n.contains_concept(&filler))
+                            .unwrap_or(false)
+                    }) {
+                        self.propagate_universal_to_node(
+                            &universals,
+                            is_inverse,
+                            property_iri,
+                            existing,
+                            graph,
+                            &mut change_log,
+                        );
 
-                    // Create expansion task for the new node with the filler concept
-                    let task = ExpansionTask {
-                        node_id: new_node_id,
-                        concept: (*filler).clone(),
-                        rule_type: ExpansionRule::ExistentialRestriction,
-                        priority: 5, // High priority for existential restrictions
-                    };
-                    return Ok(vec![task]);
+                        let task = ExpansionTask {
+                            node_id: existing,
+                            concept: (*filler).clone(),
+                            rule_type: ExpansionRule::ExistentialRestriction,
+                            priority: 5,
+                        };
+                        return Ok((vec![task], change_log));
+                    }
                 }
+
+                // No reusable node, create a new one
+                let new_node_id = graph.add_node_logged(&mut change_log);
+                graph.add_concept_logged(new_node_id, (*filler).clone(), &mut change_log);
+                graph.add_edge_logged(
+                    context.current_node,
+                    property_iri,
+                    new_node_id,
+                    &mut change_log,
+                );
+
+                self.propagate_universal_to_node(
+                    &universals,
+                    is_inverse,
+                    property_iri,
+                    new_node_id,
+                    graph,
+                    &mut change_log,
+                );
+
+                let task = ExpansionTask {
+                    node_id: new_node_id,
+                    concept: (*filler).clone(),
+                    rule_type: ExpansionRule::ExistentialRestriction,
+                    priority: 5,
+                };
+                return Ok((vec![task], change_log));
             }
         }
-        Ok(vec![])
+
+        Ok((vec![], change_log))
     }
 
     fn apply_universal_restriction_rule(
@@ -331,7 +413,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
         // ∀R.C → ensure all R-successors have C
         if let Some(node) = graph.get_node_mut(context.current_node) {
             // Find all universal restrictions in the node
@@ -359,7 +442,11 @@ impl ExpansionRules {
                                 .map(|n| !n.contains_concept(&filler))
                                 .unwrap_or(false);
                             if needs_add {
-                                graph.add_concept(successor_id, (*filler).clone());
+                                graph.add_concept_logged(
+                                    successor_id,
+                                    (*filler).clone(),
+                                    &mut change_log,
+                                );
 
                                 // Create expansion task for the successor
                                 let task = ExpansionTask {
@@ -368,7 +455,7 @@ impl ExpansionRules {
                                     rule_type: ExpansionRule::UniversalRestriction,
                                     priority: 8, // Medium-high priority for universal restrictions
                                 };
-                                return Ok(vec![task]);
+                                return Ok((vec![task], change_log));
                             }
                         }
                     } else {
@@ -384,7 +471,11 @@ impl ExpansionRules {
                                 .map(|n| !n.contains_concept(&filler))
                                 .unwrap_or(false);
                             if needs_add {
-                                graph.add_concept(pred_id, (*filler).clone());
+                                graph.add_concept_logged(
+                                    pred_id,
+                                    (*filler).clone(),
+                                    &mut change_log,
+                                );
 
                                 // Create expansion task for the predecessor
                                 let task = ExpansionTask {
@@ -393,14 +484,33 @@ impl ExpansionRules {
                                     rule_type: ExpansionRule::UniversalRestriction,
                                     priority: 8,
                                 };
-                                return Ok(vec![task]);
+                                return Ok((vec![task], change_log));
                             }
                         }
                     }
                 }
             }
         }
-        Ok(vec![])
+        Ok((vec![], change_log))
+    }
+
+    fn propagate_universal_to_node(
+        &self,
+        universals: &[ClassExpression],
+        is_inverse: bool,
+        property_iri: &IRI,
+        target_node: NodeId,
+        graph: &mut TableauxGraph,
+        change_log: &mut GraphChangeLog,
+    ) {
+        for universal in universals {
+            if let ClassExpression::ObjectAllValuesFrom(univ_property, univ_filler) = universal {
+                let (univ_inverse, univ_iri) = Self::resolve_property_direction(univ_property);
+                if univ_inverse == is_inverse && univ_iri == property_iri {
+                    graph.add_concept_logged(target_node, (**univ_filler).clone(), change_log);
+                }
+            }
+        }
     }
 
     /// Helper function to resolve property direction for inverse properties
@@ -421,7 +531,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
         // Handle nominals (individuals): {a} → create node for individual a
         // First, collect the nominals without holding a mutable borrow
         let nominals: Vec<_> = if let Some(node) = graph.get_node(context.current_node) {
@@ -430,7 +541,7 @@ impl ExpansionRules {
                 .cloned()
                 .collect()
         } else {
-            return Ok(vec![]);
+            return Ok((vec![], change_log));
         };
 
         for nominal in nominals {
@@ -438,7 +549,8 @@ impl ExpansionRules {
                 // For each individual in the nominal, ensure they have corresponding nodes
                 for individual in individuals.iter() {
                     // Check if we already have a node for this individual
-                    let individual_node = self.find_or_create_individual_node(graph, individual);
+                    let individual_node =
+                        self.find_or_create_individual_node(graph, individual, &mut change_log);
 
                     // Create expansion task for the individual node
                     let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> =
@@ -450,11 +562,11 @@ impl ExpansionRules {
                         rule_type: ExpansionRule::Nominal,
                         priority: 7, // Medium priority for nominals
                     };
-                    return Ok(vec![task]);
+                    return Ok((vec![task], change_log));
                 }
             }
         }
-        Ok(vec![])
+        Ok((vec![], change_log))
     }
 
     /// Find or create a node for an individual
@@ -462,17 +574,19 @@ impl ExpansionRules {
         &self,
         graph: &mut TableauxGraph,
         individual: &crate::entities::Individual,
+        change_log: &mut GraphChangeLog,
     ) -> NodeId {
         // For now, create a new node for each individual
         // In a full implementation, we'd maintain a mapping of individuals to nodes
-        let node_id = graph.add_node();
+        let node_id = graph.add_node_logged(change_log);
 
         // Add the individual as a nominal concept to the new node
         let mut individual_vec: SmallVec<[crate::entities::Individual; 8]> = SmallVec::new();
         individual_vec.push(individual.clone());
-        graph.add_concept(
+        graph.add_concept_logged(
             node_id,
             ClassExpression::ObjectOneOf(Box::new(individual_vec)),
+            change_log,
         );
 
         node_id
@@ -483,7 +597,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let change_log = GraphChangeLog::new();
         // Handle data property restrictions and data ranges
         if let Some(node) = graph.get_node_mut(context.current_node) {
             // Find all data property restrictions
@@ -515,7 +630,7 @@ impl ExpansionRules {
                             rule_type: ExpansionRule::DataRange,
                             priority: 6, // Medium priority for data restrictions
                         };
-                        return Ok(vec![task]);
+                        return Ok((vec![task], change_log));
                     }
                     ClassExpression::DataAllValuesFrom(_, _) => {
                         // ∀D.R → all data values must satisfy R
@@ -526,7 +641,7 @@ impl ExpansionRules {
                             rule_type: ExpansionRule::DataRange,
                             priority: 6,
                         };
-                        return Ok(vec![task]);
+                        return Ok((vec![task], change_log));
                     }
                     ClassExpression::DataHasValue(_, _) => {
                         // D = v → the node has data value v for property D
@@ -537,7 +652,7 @@ impl ExpansionRules {
                             rule_type: ExpansionRule::DataRange,
                             priority: 6,
                         };
-                        return Ok(vec![task]);
+                        return Ok((vec![task], change_log));
                     }
                     ClassExpression::DataMinCardinality(cardinality, _) => {
                         // ≥n D → at least n distinct data values
@@ -550,7 +665,7 @@ impl ExpansionRules {
                                     rule_type: ExpansionRule::DataRange,
                                     priority: 6,
                                 };
-                                return Ok(vec![task]);
+                                return Ok((vec![task], change_log));
                             }
                         }
                     }
@@ -563,7 +678,7 @@ impl ExpansionRules {
                             rule_type: ExpansionRule::DataRange,
                             priority: 6,
                         };
-                        return Ok(vec![task]);
+                        return Ok((vec![task], change_log));
                     }
                     ClassExpression::DataExactCardinality(cardinality, _) => {
                         // =n D → exactly n distinct data values
@@ -576,7 +691,7 @@ impl ExpansionRules {
                                     rule_type: ExpansionRule::DataRange,
                                     priority: 6,
                                 };
-                                return Ok(vec![task]);
+                                return Ok((vec![task], change_log));
                             }
                         }
                     }
@@ -584,7 +699,7 @@ impl ExpansionRules {
                 }
             }
         }
-        Ok(vec![])
+        Ok((vec![], change_log))
     }
 
     fn apply_subclass_axiom_rule(
@@ -592,7 +707,8 @@ impl ExpansionRules {
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
-    ) -> Result<Vec<ExpansionTask>, String> {
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
         // Apply subclass axioms: if node contains A and A ⊑ B, then add B to the node
         if let Some(reasoning_rules) = &context.reasoning_rules {
             if let Some(node) = graph.get_node_mut(context.current_node) {
@@ -616,7 +732,11 @@ impl ExpansionRules {
                                             super_class.iri().as_str(),
                                         ));
                                         if !node.contains_concept(&super_concept) {
-                                            node.add_concept(super_concept.clone());
+                                            graph.add_concept_logged(
+                                                context.current_node,
+                                                super_concept.clone(),
+                                                &mut change_log,
+                                            );
 
                                             // Create expansion task for the superclass
                                             let task = ExpansionTask {
@@ -625,7 +745,7 @@ impl ExpansionRules {
                                                 rule_type: ExpansionRule::SubclassAxiom,
                                                 priority: 1, // Highest priority for subclass axioms
                                             };
-                                            return Ok(vec![task]);
+                                            return Ok((vec![task], change_log));
                                         }
                                     }
                                 }
@@ -643,7 +763,11 @@ impl ExpansionRules {
                                             equiv_class.as_str(),
                                         ));
                                         if !node.contains_concept(&equiv_concept) {
-                                            node.add_concept(equiv_concept.clone());
+                                            graph.add_concept_logged(
+                                                context.current_node,
+                                                equiv_concept.clone(),
+                                                &mut change_log,
+                                            );
 
                                             // Create expansion task for the equivalent class
                                             let task = ExpansionTask {
@@ -652,7 +776,7 @@ impl ExpansionRules {
                                                 rule_type: ExpansionRule::SubclassAxiom,
                                                 priority: 1,
                                             };
-                                            return Ok(vec![task]);
+                                            return Ok((vec![task], change_log));
                                         }
                                     }
                                 }
@@ -663,7 +787,7 @@ impl ExpansionRules {
             }
         }
 
-        Ok(vec![])
+        Ok((vec![], change_log))
     }
 }
 
@@ -707,13 +831,18 @@ impl ExpansionEngine {
         graph: &mut TableauxGraph,
         memory: &mut MemoryManager,
         max_depth: usize,
+        change_log: &mut GraphChangeLog,
+        memory_log: &mut MemoryChangeLog,
     ) -> Result<bool, String> {
         while self.context.current_depth < max_depth {
             if let Some(rule) = self.rules.get_next_rule(&self.context) {
                 if self.rules.can_apply_rule(&rule, &self.context) {
-                    let new_tasks =
+                    let (new_tasks, local_changes) =
                         self.rules
                             .apply_rule(rule, graph, memory, &mut self.context)?;
+                    change_log.extend(local_changes);
+                    // TODO: capture memory mutations when MemoryManager supports logging.
+                    memory_log.extend(MemoryChangeLog::new());
                     self.context.pending_expansions.extend(new_tasks);
                     self.context.applied_rules.insert(rule);
                 }
