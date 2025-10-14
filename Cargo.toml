@@ -78,7 +78,7 @@ bincode = "2.0.1"
 
 [dev-dependencies]
 tempfile = "3.8"
-owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }
+# owl2-reasoner-test-suite = { path = "../owl2-reasoner-test-suite" }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.0", features = ["rt", "macros", "rt-multi-thread"] }
@@ -133,11 +133,6 @@ harness = false
 
 [[bench]]
 name = "standalone_performance_validation"
-harness = false
-
-# Load Testing Benchmarks
-[[bench]]
-name = "reasoning_load_test"
 harness = false
 
 

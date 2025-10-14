@@ -595,9 +595,8 @@ impl DependencyManager {
         let choice_point = ChoicePoint::new(choice_id, node_id, choice_type);
         self.choice_points.push(choice_point);
 
-        self.choice_points.last_mut().unwrap_or_else(|| {
-            panic!("No choice points available");
-        })
+        // SAFETY: We just pushed a choice_point above, so last_mut() cannot be None
+        self.choice_points.last_mut().expect("Choice point must exist after push")
     }
 
     pub fn get_dependencies(&self, node_id: NodeId) -> &[Dependency] {

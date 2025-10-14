@@ -187,7 +187,7 @@ impl Default for LocalParserArena {
 /// Thread-safe parser arena using Arc for shared access
 #[derive(Clone)]
 pub struct SharedParserArena {
-    arena: Arc<std::sync::Mutex<ParserArena>>,
+    arena: Arc<parking_lot::Mutex<ParserArena>>,
     memory_limit_bytes: Arc<std::sync::atomic::AtomicUsize>,
 }
 
@@ -200,7 +200,7 @@ impl SharedParserArena {
     /// Create a new shared parser arena with memory limit
     pub fn with_memory_limit(limit_bytes: usize) -> Self {
         Self {
-            arena: Arc::new(std::sync::Mutex::new(ParserArena::new())),
+            arena: Arc::new(parking_lot::Mutex::new(ParserArena::new())),
             memory_limit_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(limit_bytes)),
         }
     }
@@ -212,18 +212,14 @@ impl SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No mutable access occurs while this reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
-            panic!("Failed to acquire arena lock: {}", e);
-        });
+        let arena_guard = self.arena.lock();
         // Safe alternative to transmute
         unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*arena_guard) }
     }
 
     /// Get current memory usage in bytes
     pub fn memory_usage(&self) -> usize {
-        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
-            panic!("Failed to acquire arena lock: {}", e);
-        });
+        let arena_guard = self.arena.lock();
         arena_guard.memory_usage()
     }
 
@@ -318,7 +314,7 @@ impl ParserArenaBuilder {
 
         if self.is_shared {
             Box::new(SharedParserArena {
-                arena: Arc::new(std::sync::Mutex::new(arena)),
+                arena: Arc::new(parking_lot::Mutex::new(arena)),
                 memory_limit_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(usize::MAX)),
             })
         } else {
@@ -371,9 +367,7 @@ impl ParserArenaTrait for SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No mutable access occurs while this reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        let arena_guard = self.arena.lock().unwrap_or_else(|e| {
-            panic!("Failed to acquire arena lock: {}", e);
-        });
+        let arena_guard = self.arena.lock();
         // Safe alternative to transmute
         unsafe { std::mem::transmute::<&ParserArena, &ParserArena>(&*arena_guard) }
     }
@@ -384,17 +378,14 @@ impl ParserArenaTrait for SharedParserArena {
         // 2. The arena is guaranteed to live as long as self
         // 3. No other references exist while this mutable reference exists
         // 4. This is necessary for API compatibility with the ParserArenaTrait
-        let mut arena_guard = self.arena.lock().unwrap_or_else(|e| {
-            panic!("Failed to acquire arena lock: {}", e);
-        });
+        let mut arena_guard = self.arena.lock();
         // Safe alternative to transmute
         unsafe { std::mem::transmute::<&mut ParserArena, &mut ParserArena>(&mut *arena_guard) }
     }
 
     fn reset(&mut self) {
-        if let Ok(mut arena) = self.arena.lock() {
-            arena.reset();
-        }
+        let mut arena = self.arena.lock();
+        arena.reset();
     }
 }
 

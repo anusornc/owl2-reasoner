@@ -141,9 +141,9 @@ pub mod test_helpers;
 /// Performance utilities and optimizations
 pub mod utils;
 
-pub mod test_suite_advanced;
+// pub mod test_suite_advanced; // TODO: Missing file
 /// OWL2 Test Suite integration for W3C compliance validation
-pub mod test_suite_simple;
+// pub mod test_suite_simple; // TODO: Missing file
 
 /// Comprehensive test suite with regression tests and performance benchmarks
 #[cfg(test)]
@@ -185,8 +185,8 @@ pub use profiles::rl::*;
 // cache types are already available through profiles::common above
 pub use reasoning::*;
 pub use storage::*;
-pub use test_suite_advanced::*;
-pub use test_suite_simple::*;
+// pub use test_suite_advanced::*; // TODO: Missing file
+// pub use test_suite_simple::*; // TODO: Missing file
 
 #[cfg(feature = "web-service")]
 pub use web_service::start_web_service;

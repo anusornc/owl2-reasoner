@@ -15,6 +15,7 @@ use crate::ontology::*;
 use crate::parser::*;
 use crate::reasoning::*;
 use crate::test_helpers::*;
+use crate::test_helpers::{TestMemoryConfig, TestMemoryGuard, MemoryGuardError};
 use crate::test_memory_guard::*;
 use smallvec::smallvec;
 use std::fs;

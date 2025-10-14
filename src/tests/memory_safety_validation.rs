@@ -10,6 +10,7 @@ use crate::cache_manager::*;
 use crate::memory::*;
 use crate::memory_safe_test;
 use crate::test_helpers::*;
+use crate::test_helpers::{TestMemoryConfig, TestMemoryGuard, MemoryGuardError};
 use crate::test_memory_guard::*;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;

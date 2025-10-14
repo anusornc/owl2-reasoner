@@ -10,7 +10,7 @@ use crate::entities::*;
 use crate::iri::IRI;
 use crate::memory::*;
 use crate::ontology::*;
-use crate::test_helpers::TestRiskLevel;
+use crate::test_helpers::{TestRiskLevel, TestMemoryConfig, TestMemoryGuard, MemoryGuardError};
 use crate::test_memory_guard::*;
 use crate::{memory_safe_stress_test, risk_aware_test};
 use std::sync::{Arc, Barrier, Mutex};
