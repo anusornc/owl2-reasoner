@@ -331,7 +331,7 @@ benchmarking/
 # Debug and test files
 debug_*.rs
 debug_*.py
-test_*.rs
+# test_*.rs - Commented out to allow test modules in src/
 test_*.py
 *_test.*
 *_debug.*
@@ -367,7 +367,11 @@ validation_*.*
 
 # Test scripts and temporary files
 *_test.*
-test_*.*
+# test_*.* - Allow test modules in src/ but ignore test outputs
+test_*.log
+test_*.txt
+test_*.json
+test_*.xml
 *_benchmark.*
 benchmark_*.*
 

@@ -405,7 +405,7 @@ pub fn init_memory_monitor(_config: MemoryMonitorConfig) {
 
 /// Get global memory protection instance
 pub fn get_memory_protection(
-) -> std::sync::MutexGuard<'static, crate::memory_protection::MemoryProtection> {
+) -> parking_lot::MutexGuard<'static, crate::memory_protection::MemoryProtection> {
     crate::memory_protection::get_memory_protection()
 }
 

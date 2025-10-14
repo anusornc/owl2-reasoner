@@ -5,7 +5,8 @@
 
 use crate::memory_protection::{MemoryProtectionState, AllocationResult, RejectionReason};
 use crate::memory::get_memory_stats;
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsize, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}};
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
 
@@ -126,8 +127,8 @@ impl GracefulDegradationStrategy {
 
     /// Check if component can perform operation
     pub fn can_component_operate(&self, component: &str, requested_bytes: usize) -> ComponentOperationResult {
-        let current_level = self.current_level.lock().unwrap();
-        let component_configs = self.component_configs.lock().unwrap();
+        let current_level = self.current_level.lock();
+        let component_configs = self.component_configs.lock();
         
         // Get component-specific config or use default
         let config = component_configs.get(component)
@@ -175,7 +176,7 @@ impl GracefulDegradationStrategy {
 
     /// Update degradation level based on memory pressure
     pub fn update_degradation_level(&mut self, protection_state: MemoryProtectionState) -> DegradationLevel {
-        let old_level = self.current_level.lock().unwrap().clone();
+        let old_level = self.current_level.lock().clone();
         let new_level = match protection_state {
             MemoryProtectionState::Normal => DegradationLevel::Full,
             MemoryProtectionState::Warning => DegradationLevel::Reduced,
@@ -195,7 +196,7 @@ impl GracefulDegradationStrategy {
             };
 
             {
-                let mut history = self.degradation_history.lock().unwrap();
+                let mut history = self.degradation_history.lock();
                 history.push(event.clone());
                 
                 // Keep only last 100 events
@@ -205,8 +206,8 @@ impl GracefulDegradationStrategy {
             }
 
             // Update current level
-            *self.current_level.lock().unwrap() = new_level;
-            *self.last_degradation_time.lock().unwrap() = Instant::now();
+            *self.current_level.lock() = new_level;
+            *self.last_degradation_time.lock() = Instant::now();
 
             println!("🔄 Degradation level changed: {:?} -> {:?}", old_level, new_level);
             
@@ -221,7 +222,7 @@ impl GracefulDegradationStrategy {
 
     /// Trigger component-specific cleanup
     fn trigger_component_cleanup(&self, level: &DegradationLevel) {
-        let component_configs = self.component_configs.lock().unwrap();
+        let component_configs = self.component_configs.lock();
         
         for (component, config) in component_configs.iter() {
             if config.enable_cleanup {
@@ -250,12 +251,12 @@ impl GracefulDegradationStrategy {
             return None;
         }
 
-        let current_level = self.current_level.lock().unwrap();
+        let current_level = self.current_level.lock();
         let current_memory = get_memory_stats().total_usage;
         
         // Only attempt recovery if not in full mode
         if *current_level != DegradationLevel::Full {
-            let last_degradation = self.last_degradation_time.lock().unwrap();
+            let last_degradation = self.last_degradation_time.lock();
             
             // Wait for recovery interval
             if last_degradation.elapsed() > self.recovery_check_interval {
@@ -286,8 +287,8 @@ impl GracefulDegradationStrategy {
                             memory_usage: current_memory,
                         };
 
-                        *self.current_level.lock().unwrap() = new_level;
-                        *self.last_degradation_time.lock().unwrap() = Instant::now();
+                        *self.current_level.lock() = new_level;
+                        *self.last_degradation_time.lock() = Instant::now();
 
                         println!("🔄 Automatic recovery: {:?} -> {:?}", old_level, new_level);
                         
@@ -302,17 +303,17 @@ impl GracefulDegradationStrategy {
 
     /// Get current degradation level
     pub fn get_degradation_level(&self) -> DegradationLevel {
-        self.current_level.lock().unwrap().clone()
+        self.current_level.lock().clone()
     }
 
     /// Get degradation history
     pub fn get_degradation_history(&self) -> Vec<DegradationEvent> {
-        self.degradation_history.lock().unwrap().clone()
+        self.degradation_history.lock().clone()
     }
 
     /// Set component-specific configuration
     pub fn set_component_config(&mut self, component: String, config: ComponentDegradationConfig) {
-        let mut configs = self.component_configs.lock().unwrap();
+        let mut configs = self.component_configs.lock();
         configs.insert(component, config);
     }
 
@@ -328,7 +329,7 @@ impl GracefulDegradationStrategy {
 
     /// Manually trigger degradation
     pub fn trigger_degradation(&mut self, level: DegradationLevel, reason: String) {
-        let old_level = self.current_level.lock().unwrap().clone();
+        let old_level = self.current_level.lock().clone();
         
         if level != old_level {
             let event = DegradationEvent {
@@ -341,7 +342,7 @@ impl GracefulDegradationStrategy {
             };
 
             {
-                let mut history = self.degradation_history.lock().unwrap();
+                let mut history = self.degradation_history.lock();
                 history.push(event.clone());
                 
                 if history.len() > 100 {
@@ -349,8 +350,8 @@ impl GracefulDegradationStrategy {
                 }
             }
 
-            *self.current_level.lock().unwrap() = level;
-            *self.last_degradation_time.lock().unwrap() = Instant::now();
+            *self.current_level.lock() = level;
+            *self.last_degradation_time.lock() = Instant::now();
 
             if level != DegradationLevel::Full {
                 self.trigger_component_cleanup(&level);

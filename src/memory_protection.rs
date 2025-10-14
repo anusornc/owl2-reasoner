@@ -9,8 +9,9 @@ use crate::iri::clear_global_iri_cache;
 use crate::memory::*;
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc, Mutex,
+    Arc,
 };
+use parking_lot::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -103,10 +104,10 @@ impl CircuitBreaker {
     pub fn check_and_maybe_open(&self) -> bool {
         if self.is_open.load(Ordering::Relaxed) {
             // Check if we should close the circuit breaker
-            let mut last_trip = self.last_trip_time.lock().unwrap();
+            let mut last_trip = self.last_trip_time.lock();
             if last_trip.elapsed() >= self.trip_duration {
                 // Close the circuit breaker
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.lock();
                 state.is_open = false;
                 state.failure_count = 0;
                 self.is_open.store(false, Ordering::Relaxed);
@@ -124,14 +125,15 @@ impl CircuitBreaker {
         let mut should_open = false;
 
         {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock();
             state.failure_count += 1;
             state.last_failure_time = Instant::now();
 
             if state.failure_count >= self.failure_threshold {
                 state.is_open = true;
                 should_open = true;
-                if let Ok(mut last_trip) = self.last_trip_time.lock() {
+                {
+                    let mut last_trip = self.last_trip_time.lock();
                     *last_trip = Instant::now();
                 }
             }
@@ -206,7 +208,7 @@ impl MemoryProtection {
 
     pub fn with_config(config: MemoryProtectionConfig) -> Self {
         let protection = Self::new();
-        *protection.config.lock().unwrap() = config;
+        *protection.config.lock() = config;
         protection
     }
 
@@ -217,7 +219,8 @@ impl MemoryProtection {
         }
 
         // Start emergency protection first
-        if let Ok(mut emergency) = self.emergency_protection.lock() {
+        {
+            let mut emergency = self.emergency_protection.lock();
             emergency.start_emergency_protection();
         }
 
@@ -235,11 +238,11 @@ impl MemoryProtection {
 
             while !shutdown_flag.load(Ordering::Relaxed) {
                 let current_memory = get_memory_stats().total_usage;
-                let config = config.lock().unwrap();
+                let config = config.lock();
 
                 // Update global statistics
                 {
-                    let mut stats = global_stats.lock().unwrap();
+                    let mut stats = global_stats.lock();
                     stats.total_memory_usage = current_memory;
                     stats.peak_memory_usage = stats.peak_memory_usage.max(current_memory);
 
@@ -305,7 +308,7 @@ impl MemoryProtection {
 
                 // Update state
                 {
-                    let mut state = current_state.lock().unwrap();
+                    let mut state = current_state.lock();
                     *state = new_state;
                 }
 
@@ -336,18 +339,19 @@ impl MemoryProtection {
         }
 
         // Stop emergency protection
-        if let Ok(mut emergency) = self.emergency_protection.lock() {
+        {
+            let mut emergency = self.emergency_protection.lock();
             emergency.stop_emergency_protection();
         }
     }
 
     /// Check if memory protection allows an operation
     pub fn can_allocate(&self, requested_bytes: usize) -> AllocationResult {
-        let config = self.config.lock().unwrap();
-        let current_state = self.current_state.lock().unwrap();
+        let config = self.config.lock();
+        let current_state = self.current_state.lock();
 
         // Check emergency protection first
-        let emergency_protection = self.emergency_protection.lock().unwrap();
+        let emergency_protection = self.emergency_protection.lock();
         if !emergency_protection.can_emergency_allocate(requested_bytes) {
             return AllocationResult::Rejected(RejectionReason::EmergencyProtection);
         }
@@ -393,17 +397,17 @@ impl MemoryProtection {
 
     /// Get current memory protection state
     pub fn get_state(&self) -> MemoryProtectionState {
-        self.current_state.lock().unwrap().clone()
+        self.current_state.lock().clone()
     }
 
     /// Get global memory statistics
     pub fn get_global_stats(&self) -> GlobalMemoryStats {
-        self.global_stats.lock().unwrap().clone()
+        self.global_stats.lock().clone()
     }
 
     /// Manually trigger cleanup
     pub fn trigger_cleanup(&self) -> CleanupResult {
-        let config = self.config.lock().unwrap();
+        let config = self.config.lock();
 
         if !config.enable_auto_cleanup {
             return CleanupResult::Disabled;
@@ -429,7 +433,7 @@ impl MemoryProtection {
 
         // Update statistics
         {
-            let mut stats = self.global_stats.lock().unwrap();
+            let mut stats = self.global_stats.lock();
             stats.cleanup_count += cleanup_count;
             stats.last_cleanup_time = Some(Instant::now());
         }
@@ -459,7 +463,7 @@ impl MemoryProtection {
 
         // Update stats
         {
-            let mut s = stats.lock().unwrap();
+            let mut s = stats.lock();
             s.circuit_breaker_trips += 1;
         }
 
@@ -488,7 +492,7 @@ impl MemoryProtection {
 
         // Update stats
         {
-            let mut s = stats.lock().unwrap();
+            let mut s = stats.lock();
             s.cleanup_count += 1;
             s.last_cleanup_time = Some(Instant::now());
         }
@@ -516,7 +520,7 @@ impl MemoryProtection {
 
         // Update stats
         {
-            let mut s = stats.lock().unwrap();
+            let mut s = stats.lock();
             s.cleanup_count += 1;
             s.last_cleanup_time = Some(Instant::now());
         }
@@ -561,63 +565,46 @@ static GLOBAL_MEMORY_PROTECTION: std::sync::LazyLock<Mutex<MemoryProtection>> =
     std::sync::LazyLock::new(|| Mutex::new(MemoryProtection::new()));
 
 /// Get global memory protection instance
-pub fn get_memory_protection() -> std::sync::MutexGuard<'static, MemoryProtection> {
-    GLOBAL_MEMORY_PROTECTION
-        .lock()
-        .expect("GLOBAL_MEMORY_PROTECTION lock poisoned")
+pub fn get_memory_protection() -> parking_lot::MutexGuard<'static, MemoryProtection> {
+    GLOBAL_MEMORY_PROTECTION.lock()
 }
 
 /// Initialize global memory protection with custom config
 pub fn init_memory_protection(config: MemoryProtectionConfig) {
-    if let Ok(mut protection) = GLOBAL_MEMORY_PROTECTION.lock() {
-        *protection = MemoryProtection::with_config(config);
-    }
+    let mut protection = GLOBAL_MEMORY_PROTECTION.lock();
+    *protection = MemoryProtection::with_config(config);
 }
 
 /// Check if allocation is allowed under current memory conditions
 pub fn can_allocate(requested_bytes: usize) -> AllocationResult {
-    GLOBAL_MEMORY_PROTECTION
-        .lock()
-        .expect("GLOBAL_MEMORY_PROTECTION lock poisoned")
-        .can_allocate(requested_bytes)
+    GLOBAL_MEMORY_PROTECTION.lock().can_allocate(requested_bytes)
 }
 
 /// Get current memory protection state
 pub fn get_memory_protection_state() -> MemoryProtectionState {
-    GLOBAL_MEMORY_PROTECTION
-        .lock()
-        .expect("GLOBAL_MEMORY_PROTECTION lock poisoned")
-        .get_state()
+    GLOBAL_MEMORY_PROTECTION.lock().get_state()
 }
 
 /// Trigger manual cleanup
 pub fn trigger_memory_cleanup() -> CleanupResult {
-    GLOBAL_MEMORY_PROTECTION
-        .lock()
-        .expect("GLOBAL_MEMORY_PROTECTION lock poisoned")
-        .trigger_cleanup()
+    GLOBAL_MEMORY_PROTECTION.lock().trigger_cleanup()
 }
 
 /// Get global memory statistics
 pub fn get_global_memory_stats() -> GlobalMemoryStats {
-    GLOBAL_MEMORY_PROTECTION
-        .lock()
-        .expect("GLOBAL_MEMORY_PROTECTION lock poisoned")
-        .get_global_stats()
+    GLOBAL_MEMORY_PROTECTION.lock().get_global_stats()
 }
 
 /// Start memory protection monitoring
 pub fn start_memory_protection() {
-    if let Ok(mut protection) = GLOBAL_MEMORY_PROTECTION.lock() {
-        protection.start_protection();
-    }
+    let mut protection = GLOBAL_MEMORY_PROTECTION.lock();
+    protection.start_protection();
 }
 
 /// Stop memory protection monitoring
 pub fn stop_memory_protection() {
-    if let Ok(mut protection) = GLOBAL_MEMORY_PROTECTION.lock() {
-        protection.stop_protection();
-    }
+    let mut protection = GLOBAL_MEMORY_PROTECTION.lock();
+    protection.stop_protection();
 }
 
 #[cfg(test)]
@@ -644,7 +631,7 @@ mod tests {
         };
 
         let protection = MemoryProtection::with_config(config);
-        let limit = protection.config.lock().unwrap().global_memory_limit;
+        let limit = protection.config.lock().global_memory_limit;
         assert_eq!(limit, 100 * 1024 * 1024);
     }
 

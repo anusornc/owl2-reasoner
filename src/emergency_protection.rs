@@ -10,8 +10,9 @@ use crate::memory::*;
 use crate::memory_aware_allocation::cleanup_memory_pools;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+    Arc,
 };
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use std::thread;
 use std::collections::HashMap;
@@ -149,8 +150,8 @@ impl EmergencyProtection {
 
                     // Enter emergency mode after 3 consecutive checks
                     if consecutive_emergency_checks >= 3 {
-                        let mut state = current_state.lock().unwrap();
-                        let mut start_time = emergency_start_time.lock().unwrap();
+                        let mut state = current_state.lock();
+                        let mut start_time = emergency_start_time.lock();
 
                         if *state == EmergencyState::Normal {
                             *state = EmergencyState::Active;
@@ -218,10 +219,10 @@ impl EmergencyProtection {
                     consecutive_emergency_checks = 0;
 
                     // Check if we can exit emergency mode
-                    let mut state = current_state.lock().unwrap();
+                    let mut state = current_state.lock();
                     if *state != EmergencyState::Normal {
                         *state = EmergencyState::Normal;
-                        *emergency_start_time.lock().unwrap() = None;
+                        *emergency_start_time.lock() = None;
 
                         Self::log_emergency_event(
                             &event_history,
@@ -258,7 +259,7 @@ impl EmergencyProtection {
 
     /// Check if emergency allocation is allowed
     pub fn can_emergency_allocate(&self, requested_bytes: usize) -> bool {
-        let state = self.current_state.lock().unwrap();
+        let state = self.current_state.lock();
 
         match *state {
             EmergencyState::Normal => true,
@@ -270,24 +271,24 @@ impl EmergencyProtection {
 
     /// Get current emergency state
     pub fn get_emergency_state(&self) -> EmergencyState {
-        self.current_state.lock().unwrap().clone()
+        self.current_state.lock().clone()
     }
 
     /// Get emergency event history
     pub fn get_emergency_history(&self) -> Vec<EmergencyEvent> {
-        self.event_history.lock().unwrap().clone()
+        self.event_history.lock().clone()
     }
 
     /// Get emergency statistics
     pub fn get_emergency_stats(&self) -> EmergencyStats {
-        let action_counts = self.action_counts.lock().unwrap();
-        let last_action_time = self.last_action_time.lock().unwrap();
-        let emergency_start = self.emergency_start_time.lock().unwrap();
+        let action_counts = self.action_counts.lock();
+        let last_action_time = self.last_action_time.lock();
+        let emergency_start = self.emergency_start_time.lock();
 
         EmergencyStats {
             current_state: self.get_emergency_state(),
             emergency_duration: emergency_start.map(|t| t.elapsed()).unwrap_or(Duration::ZERO),
-            total_events: self.event_history.lock().unwrap().len(),
+            total_events: self.event_history.lock().len(),
             action_counts: action_counts.clone(),
             last_action_times: last_action_time.clone(),
         }
@@ -309,10 +310,10 @@ impl EmergencyProtection {
                 );
 
                 // Update action counts
-                let mut counts = self.action_counts.lock().unwrap();
+                let mut counts = self.action_counts.lock();
                 *counts.entry(action.clone()).or_insert(0) += 1;
 
-                let mut times = self.last_action_time.lock().unwrap();
+                let mut times = self.last_action_time.lock();
                 times.insert(action, Instant::now());
 
                 Ok(())
@@ -476,10 +477,10 @@ impl EmergencyProtection {
         event_history: &Arc<Mutex<Vec<EmergencyEvent>>>,
         current_memory: usize,
     ) {
-        let mut counts = action_counts.lock().unwrap();
+        let mut counts = action_counts.lock();
         *counts.entry(action.clone()).or_insert(0) += 1;
 
-        let mut times = last_action_time.lock().unwrap();
+        let mut times = last_action_time.lock();
         times.insert(action.clone(), Instant::now());
 
         Self::log_emergency_event(
@@ -510,7 +511,7 @@ impl EmergencyProtection {
             success,
         };
 
-        let mut history = event_history.lock().unwrap();
+        let mut history = event_history.lock();
         history.push(event.clone());
 
         // Keep only last 100 events
@@ -541,32 +542,32 @@ pub fn get_emergency_protection() -> &'static Mutex<EmergencyProtection> {
 
 /// Check if emergency allocation is allowed
 pub fn can_emergency_allocate(requested_bytes: usize) -> bool {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().can_emergency_allocate(requested_bytes)
+    GLOBAL_EMERGENCY_PROTECTION.lock().can_emergency_allocate(requested_bytes)
 }
 
 /// Get current emergency state
 pub fn get_emergency_state() -> EmergencyState {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().get_emergency_state()
+    GLOBAL_EMERGENCY_PROTECTION.lock().get_emergency_state()
 }
 
 /// Get emergency statistics
 pub fn get_emergency_stats() -> EmergencyStats {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().get_emergency_stats()
+    GLOBAL_EMERGENCY_PROTECTION.lock().get_emergency_stats()
 }
 
 /// Trigger emergency action manually
 pub fn trigger_emergency_action(action: EmergencyAction, reason: String) -> Result<(), String> {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().trigger_emergency_action(action, reason)
+    GLOBAL_EMERGENCY_PROTECTION.lock().trigger_emergency_action(action, reason)
 }
 
 /// Start emergency protection monitoring
 pub fn start_emergency_protection() {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().start_emergency_protection();
+    GLOBAL_EMERGENCY_PROTECTION.lock().start_emergency_protection();
 }
 
 /// Stop emergency protection monitoring
 pub fn stop_emergency_protection() {
-    GLOBAL_EMERGENCY_PROTECTION.lock().unwrap().stop_emergency_protection();
+    GLOBAL_EMERGENCY_PROTECTION.lock().stop_emergency_protection();
 }
 
 #[cfg(test)]

@@ -6,7 +6,8 @@
 use crate::graceful_degradation::{DegradationLevel, can_component_operate, ComponentOperationResult, RejectionReason};
 use crate::memory_protection::{can_allocate, AllocationResult};
 use crate::memory::get_memory_stats;
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 
@@ -113,7 +114,7 @@ impl<T> MemoryPool<T> {
             self.pool.truncate(keep_size);
         }
         
-        *self.last_cleanup.lock().unwrap() = Instant::now();
+        *self.last_cleanup.lock() = Instant::now();
         initial_size - self.pool.len()
     }
 }
@@ -219,7 +220,7 @@ impl MemoryAwareAllocator {
         F: FnOnce() -> T,
         T: Send + Sync + 'static,
     {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock();
         stats.total_allocations += 1;
 
         // Check global memory protection first
@@ -311,7 +312,7 @@ impl MemoryAwareAllocator {
         T: Send + Sync + 'static,
     {
         let pool_key = format!("{}_{}", component, size);
-        let mut pools = self.pools.lock().unwrap();
+        let mut pools = self.pools.lock();
         
         let pool: &mut Box<dyn MemoryPoolTrait> = pools.entry(pool_key.clone())
             .or_insert_with(|| {
@@ -326,7 +327,7 @@ impl MemoryAwareAllocator {
         
         // Update statistics
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock();
             let pool_stats = typed_pool.stats();
             stats.pool_hits += pool_stats.hits;
             stats.pool_misses += pool_stats.misses;
@@ -348,10 +349,10 @@ impl MemoryAwareAllocator {
             timestamp: Instant::now(),
         };
 
-        self.batch_queue.lock().unwrap().push_back(request);
+        self.batch_queue.lock().push_back(request);
         
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock();
             stats.batch_operations += 1;
         }
 
@@ -364,7 +365,7 @@ impl MemoryAwareAllocator {
         F: Fn() -> T,
         T: Send + Sync + Clone + 'static,
     {
-        let requests: Vec<BatchRequest> = self.batch_queue.lock().unwrap().drain(..).collect();
+        let requests: Vec<BatchRequest> = self.batch_queue.lock().drain(..).collect();
         
         requests
             .into_iter()
@@ -376,13 +377,13 @@ impl MemoryAwareAllocator {
 
     /// Get allocator statistics
     pub fn get_stats(&self) -> AllocatorStats {
-        self.stats.lock().unwrap().clone()
+        self.stats.lock().clone()
     }
 
     /// Clean up memory pools
     pub fn cleanup_pools(&mut self) -> usize {
         let mut total_cleaned = 0;
-        let mut pools = self.pools.lock().unwrap();
+        let mut pools = self.pools.lock();
         
         for (_, pool) in pools.iter_mut() {
             total_cleaned += pool.cleanup();
@@ -394,7 +395,7 @@ impl MemoryAwareAllocator {
     /// Get pool statistics for a specific component and size
     pub fn get_pool_stats(&self, component: &str, size: usize) -> Option<PoolStats> {
         let pool_key = format!("{}_{}", component, size);
-        let pools = self.pools.lock().unwrap();
+        let pools = self.pools.lock();
         
         if let Some(pool) = pools.get(&pool_key) {
             Some(pool.stats())
@@ -419,12 +420,12 @@ where
     F: FnOnce() -> T,
     T: Send + Sync + 'static,
 {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().allocate(component, size, creator)
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().allocate(component, size, creator)
 }
 
 /// Add allocation to batch queue
 pub fn add_to_batch(component: String, size: usize, count: usize) -> Result<(), String> {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().add_to_batch(component, size, count)
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().add_to_batch(component, size, count)
 }
 
 /// Process batch allocations
@@ -433,22 +434,22 @@ where
     F: Fn() -> T,
     T: Send + Sync + Clone + 'static,
 {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().process_batch(creator)
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().process_batch(creator)
 }
 
 /// Get allocator statistics
 pub fn get_allocator_stats() -> AllocatorStats {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().get_stats()
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().get_stats()
 }
 
 /// Clean up memory pools
 pub fn cleanup_memory_pools() -> usize {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().cleanup_pools()
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().cleanup_pools()
 }
 
 /// Get pool statistics for a specific component and size
 pub fn get_pool_stats(component: &str, size: usize) -> Option<PoolStats> {
-    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().unwrap().get_pool_stats(component, size)
+    GLOBAL_MEMORY_AWARE_ALLOCATOR.lock().get_pool_stats(component, size)
 }
 
 #[cfg(test)]
