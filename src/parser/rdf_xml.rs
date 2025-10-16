@@ -46,9 +46,20 @@ impl OntologyParser for RdfXmlParser {
         #[cfg(feature = "rio-xml")]
         {
             if !self.config.strict_validation {
-                // Use streaming parser for non-strict mode
+                // Try streaming parser for non-strict mode
                 let mut streaming_parser = RdfXmlStreamingParser::new(self.config.clone());
-                return streaming_parser.parse_content(content);
+                match streaming_parser.parse_content(content) {
+                    Ok(ontology) => return Ok(ontology),
+                    Err(e) => {
+                        // If streaming parser fails, try legacy parser as fallback
+                        eprintln!("[FALLBACK] Streaming parser failed: {}. Trying legacy parser...", e);
+                        log::warn!("Streaming parser failed: {}. Trying legacy parser...", e);
+                        let mut legacy_config = self.config.clone();
+                        legacy_config.strict_validation = false; // Disable strict validation for fallback
+                        let mut legacy_parser = RdfXmlLegacyParser::new(legacy_config);
+                        return legacy_parser.parse_content(content);
+                    }
+                }
             }
         }
 
