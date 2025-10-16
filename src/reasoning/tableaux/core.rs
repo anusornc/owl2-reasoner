@@ -85,6 +85,14 @@ pub struct ReasoningRules {
     pub property_domains: Vec<ObjectPropertyDomainAxiom>,
     pub property_ranges: Vec<ObjectPropertyRangeAxiom>,
     pub inverse_properties: Vec<InverseObjectPropertiesAxiom>,
+    // Individual reasoning (ABox)
+    pub property_assertions: Vec<PropertyAssertionAxiom>,
+    pub data_property_assertions: Vec<DataPropertyAssertionAxiom>,
+    pub negative_property_assertions: Vec<NegativeObjectPropertyAssertionAxiom>,
+    pub negative_data_property_assertions: Vec<NegativeDataPropertyAssertionAxiom>,
+    // Individual equality
+    pub same_individual_axioms: Vec<SameIndividualAxiom>,
+    pub different_individuals_axioms: Vec<DifferentIndividualsAxiom>,
 }
 
 impl ReasoningRules {
@@ -178,6 +186,44 @@ impl ReasoningRules {
             .map(|ax| (**ax).clone())
             .collect();
 
+        // Extract property assertions (ABox)
+        let property_assertions = ontology
+            .property_assertions()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
+        let data_property_assertions = ontology
+            .data_property_assertions()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
+        let negative_property_assertions = ontology
+            .negative_object_property_assertions()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
+        let negative_data_property_assertions = ontology
+            .negative_data_property_assertions()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
+        // Extract individual equality axioms
+        let same_individual_axioms = ontology
+            .same_individual_axioms()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
+        let different_individuals_axioms = ontology
+            .different_individuals_axioms()
+            .iter()
+            .map(|ax| (*ax).clone())
+            .collect();
+
         Self {
             subclass_rules,
             equivalence_rules,
@@ -194,6 +240,12 @@ impl ReasoningRules {
             property_domains,
             property_ranges,
             inverse_properties,
+            property_assertions,
+            data_property_assertions,
+            negative_property_assertions,
+            negative_data_property_assertions,
+            same_individual_axioms,
+            different_individuals_axioms,
         }
     }
 
@@ -213,6 +265,12 @@ impl ReasoningRules {
         self.property_domains.clear();
         self.property_ranges.clear();
         self.inverse_properties.clear();
+        self.property_assertions.clear();
+        self.data_property_assertions.clear();
+        self.negative_property_assertions.clear();
+        self.negative_data_property_assertions.clear();
+        self.same_individual_axioms.clear();
+        self.different_individuals_axioms.clear();
     }
 }
 

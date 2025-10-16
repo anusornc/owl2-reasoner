@@ -88,6 +88,7 @@ use crate::iri::IRI;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::collections::{HashSet, VecDeque};
+use std::sync::Arc;
 
 /// Types of expansion rules
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -128,6 +129,14 @@ pub enum ExpansionRule {
     PropertyRange,
     /// Inverse property rule
     InverseProperty,
+    /// Property assertion initialization (ABox)
+    PropertyAssertion,
+    /// Negative property assertion clash detection
+    NegativePropertyAssertion,
+    /// Same individual reasoning (equality propagation)
+    SameIndividual,
+    /// Different individuals reasoning (inequality clash detection)
+    DifferentIndividuals,
 }
 
 /// Expansion context for rule application
@@ -274,6 +283,20 @@ impl ExpansionRules {
             }
             ExpansionRule::InverseProperty => {
                 self.apply_inverse_property_rule(graph, memory, context)
+            }
+            // Individual reasoning (ABox) rules
+            ExpansionRule::PropertyAssertion => {
+                self.apply_property_assertion_rule(graph, memory, context)
+            }
+            ExpansionRule::NegativePropertyAssertion => {
+                self.apply_negative_property_assertion_rule(graph, memory, context)
+            }
+            // Individual equality rules
+            ExpansionRule::SameIndividual => {
+                self.apply_same_individual_rule(graph, memory, context)
+            }
+            ExpansionRule::DifferentIndividuals => {
+                self.apply_different_individuals_rule(graph, memory, context)
             }
         }
     }
@@ -590,11 +613,15 @@ impl ExpansionRules {
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
         let mut change_log = GraphChangeLog::new();
-        // Handle nominals (individuals): {a} → create node for individual a
+        
+        // Handle two types of nominals:
+        // 1. ObjectOneOf: {a, b, c} → enumerated individuals
+        // 2. ObjectHasValue: ∃R.{a} → property with specific individual value
+        
         // First, collect the nominals without holding a mutable borrow
         let nominals: Vec<_> = if let Some(node) = graph.get_node(context.current_node) {
             node.concepts_iter()
-                .filter(|c| matches!(c, ClassExpression::ObjectOneOf(_)))
+                .filter(|c| matches!(c, ClassExpression::ObjectOneOf(_) | ClassExpression::ObjectHasValue(_, _)))
                 .cloned()
                 .collect()
         } else {
@@ -602,25 +629,64 @@ impl ExpansionRules {
         };
 
         for nominal in nominals {
-            if let ClassExpression::ObjectOneOf(individuals) = nominal {
-                // For each individual in the nominal, ensure they have corresponding nodes
-                for individual in individuals.iter() {
-                    // Check if we already have a node for this individual
-                    let individual_node =
-                        self.find_or_create_individual_node(graph, individual, &mut change_log);
+            match nominal {
+                ClassExpression::ObjectOneOf(individuals) => {
+                    // For each individual in the nominal, ensure they have corresponding nodes
+                    for individual in individuals.iter() {
+                        // Check if we already have a node for this individual
+                        let individual_node =
+                            self.find_or_create_individual_node(graph, individual, &mut change_log);
 
-                    // Create expansion task for the individual node
-                    let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> =
-                        SmallVec::new();
-                    task_individual_vec.push(individual.clone());
-                    let task = ExpansionTask {
-                        node_id: individual_node,
-                        concept: ClassExpression::ObjectOneOf(Box::new(task_individual_vec)),
-                        rule_type: ExpansionRule::Nominal,
-                        priority: 7, // Medium priority for nominals
-                    };
-                    return Ok((vec![task], change_log));
+                        // Create expansion task for the individual node
+                        let mut task_individual_vec: SmallVec<[crate::entities::Individual; 8]> =
+                            SmallVec::new();
+                        task_individual_vec.push(individual.clone());
+                        let task = ExpansionTask {
+                            node_id: individual_node,
+                            concept: ClassExpression::ObjectOneOf(Box::new(task_individual_vec)),
+                            rule_type: ExpansionRule::Nominal,
+                            priority: 7, // Medium priority for nominals
+                        };
+                        return Ok((vec![task], change_log));
+                    }
                 }
+                ClassExpression::ObjectHasValue(property, individual) => {
+                    // ObjectHasValue(R, a) is equivalent to ∃R.{a}
+                    // Create a node for the individual and connect it with property R
+                    
+                    let individual_node =
+                        self.find_or_create_individual_node(graph, &individual, &mut change_log);
+                    
+                    // Get property IRI
+                    let property_iri = match property.as_ref() {
+                        ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
+                        ObjectPropertyExpression::ObjectInverseOf(inner_prop) => {
+                            // For inverse properties, we reverse the edge direction
+                            // ∃R⁻.{a} means: a R current_node
+                            // Extract the base property from the inverse
+                            if let ObjectPropertyExpression::ObjectProperty(prop) = inner_prop.as_ref() {
+                                graph.add_edge_logged(
+                                    individual_node,
+                                    prop.iri(),
+                                    context.current_node,
+                                    &mut change_log,
+                                );
+                            }
+                            return Ok((vec![], change_log));
+                        }
+                    };
+                    
+                    // Add edge: current_node --R--> individual_node
+                    graph.add_edge_logged(
+                        context.current_node,
+                        property_iri,
+                        individual_node,
+                        &mut change_log,
+                    );
+                    
+                    return Ok((vec![], change_log));
+                }
+                _ => {}
             }
         }
         Ok((vec![], change_log))
@@ -1391,6 +1457,267 @@ impl ExpansionRules {
             // Now add all the collected edges
             for (from, prop, to) in edges_to_add {
                 graph.add_edge_logged(from, &prop, to, &mut change_log);
+            }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Apply property assertion rule
+    /// Initialize ABox by creating edges for all property assertions
+    fn apply_property_assertion_rule(
+        &self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
+        let tasks = Vec::new();
+
+        // Get property assertions from reasoning rules
+        let property_assertions = match &context.reasoning_rules {
+            Some(rules) => &rules.property_assertions,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // For each property assertion (subject, property, object)
+        for axiom in property_assertions {
+            let subject_iri = axiom.subject();
+            let property_iri = axiom.property();
+            
+            // Get object IRI (skip anonymous individuals for now)
+            if let Some(object_iri) = axiom.object_iri() {
+                // Find or create nodes for subject and object
+                let subject_node = self.find_or_create_individual_node_by_iri(
+                    graph,
+                    subject_iri,
+                    &mut change_log,
+                );
+                let object_node = self.find_or_create_individual_node_by_iri(
+                    graph,
+                    object_iri,
+                    &mut change_log,
+                );
+
+                // Check if edge already exists
+                let all_edges = graph.edges.get_all_edges();
+                let edge_exists = all_edges.iter().any(|(from, p, to)| {
+                    *from == subject_node
+                        && *to == object_node
+                        && p.as_str() == property_iri.as_str()
+                });
+
+                // Add edge if it doesn't exist
+                if !edge_exists {
+                    graph.add_edge_logged(subject_node, property_iri, object_node, &mut change_log);
+                }
+            }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Apply negative property assertion rule (clash detection)
+    /// Check if any negative assertions are violated
+    fn apply_negative_property_assertion_rule(
+        &self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let change_log = GraphChangeLog::new();
+        let tasks = Vec::new();
+
+        // Get negative property assertions from reasoning rules
+        let negative_assertions = match &context.reasoning_rules {
+            Some(rules) => &rules.negative_property_assertions,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // For each negative property assertion
+        for axiom in negative_assertions {
+            let subject_iri = axiom.subject();
+            let property_iri = axiom.property();
+            let object_iri = axiom.object();
+
+            // Find nodes for subject and object
+            let subject_arc = Arc::new(subject_iri.clone());
+            let object_arc = Arc::new(object_iri.clone());
+            let subject_node_opt = self.find_individual_node_by_iri(graph, &subject_arc);
+            let object_node_opt = self.find_individual_node_by_iri(graph, &object_arc);
+
+            // If both nodes exist, check if the edge exists
+            if let (Some(subject_node), Some(object_node)) = (subject_node_opt, object_node_opt) {
+                let all_edges = graph.edges.get_all_edges();
+                let edge_exists = all_edges.iter().any(|(from, p, to)| {
+                    *from == subject_node
+                        && *to == object_node
+                        && p.as_str() == property_iri.as_str()
+                });
+
+                // If edge exists, we have a clash
+                if edge_exists {
+                    return Err(format!(
+                        "Clash: Negative property assertion violated for ({}, {}, {})",
+                        subject_iri.as_str(),
+                        property_iri.as_str(),
+                        object_iri.as_str()
+                    ));
+                }
+            }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Find or create a node for a named individual by IRI
+    fn find_or_create_individual_node_by_iri(
+        &self,
+        graph: &mut TableauxGraph,
+        individual_iri: &Arc<IRI>,
+        change_log: &mut GraphChangeLog,
+    ) -> NodeId {
+        // Try to find existing node with this individual's IRI as label
+        if let Some(node_id) = self.find_individual_node_by_iri(graph, individual_iri) {
+            return node_id;
+        }
+
+        // Create new node for this individual
+        let node_id = graph.add_node_logged(change_log);
+        if let Some(node) = graph.nodes.get_mut(node_id.as_usize()) {
+            node.labels.push(individual_iri.as_str().to_string());
+        }
+        node_id
+    }
+
+    /// Find a node representing a named individual by IRI
+    fn find_individual_node_by_iri(
+        &self,
+        graph: &TableauxGraph,
+        individual_iri: &Arc<IRI>,
+    ) -> Option<NodeId> {
+        let iri_str = individual_iri.as_str();
+        for (idx, node) in graph.nodes.iter().enumerate() {
+            if node.labels.iter().any(|label| label == iri_str) {
+                return Some(NodeId::new(idx));
+            }
+        }
+        None
+    }
+
+    /// Apply same individual rule (equality propagation)
+    /// Merge nodes representing the same individual
+    fn apply_same_individual_rule(
+        &self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
+        let tasks = Vec::new();
+
+        // Get same individual axioms from reasoning rules
+        let same_individual_axioms = match &context.reasoning_rules {
+            Some(rules) => &rules.same_individual_axioms,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // For each same individual axiom
+        for axiom in same_individual_axioms {
+            let individuals = axiom.individuals();
+            
+            // Find nodes for all individuals in the axiom
+            let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
+            for individual_iri in individuals {
+                if let Some(node_id) = self.find_individual_node_by_iri(graph, individual_iri) {
+                    nodes.push((node_id, individual_iri.clone()));
+                }
+            }
+
+            // If we have multiple nodes for the same individuals, they should be merged
+            // For now, we'll mark them as equivalent by adding labels
+            // A full implementation would merge the nodes and propagate all properties/concepts
+            if nodes.len() >= 2 {
+                let (canonical_node, canonical_iri) = &nodes[0];
+                
+                // Add all individual IRIs as labels to the canonical node
+                if let Some(node) = graph.nodes.get_mut(canonical_node.as_usize()) {
+                    for (_, iri) in &nodes[1..] {
+                        let iri_str = iri.as_str().to_string();
+                        if !node.labels.contains(&iri_str) {
+                            node.labels.push(iri_str);
+                        }
+                    }
+                }
+
+                // TODO: Full implementation should:
+                // 1. Merge all concepts from other nodes into canonical node
+                // 2. Redirect all edges pointing to other nodes to canonical node
+                // 3. Copy all outgoing edges from other nodes to canonical node
+                // 4. Remove redundant nodes
+            }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Apply different individuals rule (inequality clash detection)
+    /// Check if individuals that should be different are identified as the same
+    fn apply_different_individuals_rule(
+        &self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let change_log = GraphChangeLog::new();
+        let tasks = Vec::new();
+
+        // Get different individuals axioms from reasoning rules
+        let different_individuals_axioms = match &context.reasoning_rules {
+            Some(rules) => &rules.different_individuals_axioms,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // For each different individuals axiom
+        for axiom in different_individuals_axioms {
+            let individuals = axiom.individuals();
+            
+            // Find nodes for all individuals in the axiom
+            let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
+            for individual_iri in individuals {
+                if let Some(node_id) = self.find_individual_node_by_iri(graph, individual_iri) {
+                    nodes.push((node_id, individual_iri.clone()));
+                }
+            }
+
+            // Check if any two different individuals share the same node
+            // This would be a clash
+            for i in 0..nodes.len() {
+                for j in (i + 1)..nodes.len() {
+                    let (node_i, iri_i) = &nodes[i];
+                    let (node_j, iri_j) = &nodes[j];
+                    
+                    // If two different individuals map to the same node, we have a clash
+                    if node_i == node_j {
+                        return Err(format!(
+                            "Clash: Different individuals {} and {} are identified as the same",
+                            iri_i.as_str(),
+                            iri_j.as_str()
+                        ));
+                    }
+
+                    // Also check if either node has both IRIs as labels
+                    if let Some(node) = graph.get_node(*node_i) {
+                        let has_both = node.labels.iter().any(|l| l == iri_j.as_str());
+                        if has_both {
+                            return Err(format!(
+                                "Clash: Different individuals {} and {} are identified as the same",
+                                iri_i.as_str(),
+                                iri_j.as_str()
+                            ));
+                        }
+                    }
+                }
             }
         }
 

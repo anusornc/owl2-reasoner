@@ -1514,6 +1514,22 @@ impl Ontology {
             .map(|axiom| axiom.as_ref())
             .collect()
     }
+
+    /// Get all negative object property assertion axioms
+    pub fn negative_object_property_assertions(&self) -> Vec<&crate::axioms::NegativeObjectPropertyAssertionAxiom> {
+        self.negative_object_property_assertion_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
+
+    /// Get all negative data property assertion axioms
+    pub fn negative_data_property_assertions(&self) -> Vec<&crate::axioms::NegativeDataPropertyAssertionAxiom> {
+        self.negative_data_property_assertion_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
 }
 
 #[cfg(test)]
