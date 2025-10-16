@@ -351,14 +351,68 @@ impl RdfXmlLegacyParser {
     ) -> OwlResult<()> {
         // Handle generic RDF descriptions
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
-            // Named individual
             let iri = IRI::new(about)?;
-            let individual = NamedIndividual::new(iri);
-            ontology.add_named_individual(individual.clone())?;
+            
+            // Check if this is a class axiom by examining child elements
+            let has_class_axioms = element.children.iter().any(|child| {
+                matches!(child.name.as_str(),
+                    "disjointWith" | "owl:disjointWith" |
+                    "equivalentClass" | "owl:equivalentClass" |
+                    "subClassOf" | "rdfs:subClassOf"
+                )
+            });
+            
+            if has_class_axioms {
+                // This is a class description, not an individual
+                // Process class axioms
+                for child in &element.children {
+                    // Process disjoint classes
+                    if child.name == "disjointWith" || child.name == "owl:disjointWith" {
+                        if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
+                            let disjoint_class_iri = IRI::new(resource)?;
+                            let axiom = DisjointClassesAxiom::new(vec![
+                                Arc::new(iri.clone()),
+                                Arc::new(disjoint_class_iri.clone()),
+                            ]);
+                            ontology.add_disjoint_classes_axiom(axiom)?;
+                        }
+                    }
+                    
+                    // Process equivalent classes
+                    if child.name == "equivalentClass" || child.name == "owl:equivalentClass" {
+                        if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
+                            let equivalent_class_iri = IRI::new(resource)?;
+                            let axiom = EquivalentClassesAxiom::new(vec![
+                                Arc::new(iri.clone()),
+                                Arc::new(equivalent_class_iri.clone()),
+                            ]);
+                            ontology.add_equivalent_classes_axiom(axiom)?;
+                        }
+                    }
+                    
+                    // Process subclass relationships
+                    if child.name == "subClassOf" || child.name == "rdfs:subClassOf" {
+                        if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
+                            let superclass_iri = IRI::new(resource)?;
+                            let subclass = Class::new(iri.clone());
+                            let superclass = Class::new(superclass_iri);
+                            let axiom = SubClassOfAxiom::new(
+                                ClassExpression::Class(subclass),
+                                ClassExpression::Class(superclass),
+                            );
+                            ontology.add_axiom(Axiom::SubClassOf(Box::new(axiom)))?;
+                        }
+                    }
+                }
+            } else {
+                // This is an individual description
+                let individual = NamedIndividual::new(iri);
+                ontology.add_named_individual(individual.clone())?;
 
-            // Process property assertions
-            for child in &element.children {
-                self.process_property_assertion(ontology, &individual, child)?;
+                // Process property assertions
+                for child in &element.children {
+                    self.process_property_assertion(ontology, &individual, child)?;
+                }
             }
         } else if let Some(node_id) = element.attributes.get("rdf:nodeID") {
             // Anonymous individual (blank node)

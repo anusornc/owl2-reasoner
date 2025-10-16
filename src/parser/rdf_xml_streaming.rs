@@ -294,13 +294,39 @@ impl RdfXmlStreamingParser {
     #[cfg(feature = "rio-xml")]
     fn handle_owl_property(
         &mut self,
-        _ontology: &mut Ontology,
-        _subject: &IRI,
-        _predicate: &IRI,
-        _object: &ProcessedObject,
+        ontology: &mut Ontology,
+        subject: &IRI,
+        predicate: &IRI,
+        object: &ProcessedObject,
     ) -> OwlResult<()> {
         // Handle various OWL properties like equivalentClass, disjointWith, etc.
-        // This is a simplified implementation
+        let predicate_str = predicate.as_str();
+        
+        // Handle owl:disjointWith
+        if predicate_str == format!("{}disjointWith", NS_OWL) {
+            if let Some(object_iri) = object.as_iri() {
+                let axiom = DisjointClassesAxiom::new(vec![
+                    Arc::new(subject.clone()),
+                    Arc::new(object_iri.clone()),
+                ]);
+                ontology.add_disjoint_classes_axiom(axiom)?;
+            }
+        }
+        
+        // Handle owl:equivalentClass
+        else if predicate_str == format!("{}equivalentClass", NS_OWL) {
+            if let Some(object_iri) = object.as_iri() {
+                let axiom = EquivalentClassesAxiom::new(vec![
+                    Arc::new(subject.clone()),
+                    Arc::new(object_iri.clone()),
+                ]);
+                ontology.add_equivalent_classes_axiom(axiom)?;
+            }
+        }
+        
+        // Handle other OWL properties as needed
+        // For now, we just ignore unknown OWL properties
+        
         Ok(())
     }
 
