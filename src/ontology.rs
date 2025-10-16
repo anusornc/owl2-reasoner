@@ -1482,6 +1482,40 @@ impl Default for Ontology {
     }
 }
 
+impl Ontology {
+    /// Get all object property domain axioms
+    pub fn object_property_domain_axioms(&self) -> Vec<&crate::axioms::ObjectPropertyDomainAxiom> {
+        self.object_property_domain_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
+
+    /// Get all object property range axioms
+    pub fn object_property_range_axioms(&self) -> Vec<&crate::axioms::ObjectPropertyRangeAxiom> {
+        self.object_property_range_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
+
+    /// Get all data property domain axioms
+    pub fn data_property_domain_axioms(&self) -> Vec<&crate::axioms::DataPropertyDomainAxiom> {
+        self.data_property_domain_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
+
+    /// Get all data property range axioms
+    pub fn data_property_range_axioms(&self) -> Vec<&crate::axioms::DataPropertyRangeAxiom> {
+        self.data_property_range_axioms
+            .iter()
+            .map(|axiom| axiom.as_ref())
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1561,3 +1595,4 @@ mod tests {
         assert_eq!(ontology.imports().len(), 1);
     }
 }
+

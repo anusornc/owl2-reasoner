@@ -72,6 +72,19 @@ pub struct ReasoningRules {
     pub equivalence_rules: Vec<EquivalentClassesAxiom>,
     pub disjointness_rules: Vec<DisjointClassesAxiom>,
     pub property_rules: Vec<SubObjectPropertyAxiom>,
+    // Property characteristics
+    pub transitive_properties: HashSet<Arc<IRI>>,
+    pub symmetric_properties: HashSet<Arc<IRI>>,
+    pub reflexive_properties: HashSet<Arc<IRI>>,
+    pub functional_properties: HashSet<Arc<IRI>>,
+    pub inverse_functional_properties: HashSet<Arc<IRI>>,
+    pub irreflexive_properties: HashSet<Arc<IRI>>,
+    pub asymmetric_properties: HashSet<Arc<IRI>>,
+    // Property hierarchy
+    pub property_hierarchy: Vec<SubObjectPropertyAxiom>,
+    pub property_domains: Vec<ObjectPropertyDomainAxiom>,
+    pub property_ranges: Vec<ObjectPropertyRangeAxiom>,
+    pub inverse_properties: Vec<InverseObjectPropertiesAxiom>,
 }
 
 impl ReasoningRules {
@@ -97,11 +110,90 @@ impl ReasoningRules {
             .map(|ax| (**ax).clone())
             .collect();
 
+        // Extract property characteristics
+        let transitive_properties = ontology
+            .transitive_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let symmetric_properties = ontology
+            .symmetric_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let reflexive_properties = ontology
+            .reflexive_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let functional_properties = ontology
+            .functional_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let inverse_functional_properties = ontology
+            .inverse_functional_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let irreflexive_properties = ontology
+            .irreflexive_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        let asymmetric_properties = ontology
+            .asymmetric_property_axioms()
+            .iter()
+            .map(|ax| ax.property().clone())
+            .collect();
+
+        // Extract property hierarchy axioms
+        let property_hierarchy = ontology
+            .subobject_property_axioms()
+            .iter()
+            .map(|ax| (**ax).clone())
+            .collect();
+
+        let property_domains = ontology
+            .object_property_domain_axioms()
+            .iter()
+            .map(|ax| (**ax).clone())
+            .collect();
+
+        let property_ranges = ontology
+            .object_property_range_axioms()
+            .iter()
+            .map(|ax| (**ax).clone())
+            .collect();
+
+        let inverse_properties = ontology
+            .inverse_object_properties_axioms()
+            .iter()
+            .map(|ax| (**ax).clone())
+            .collect();
+
         Self {
             subclass_rules,
             equivalence_rules,
             disjointness_rules,
             property_rules,
+            transitive_properties,
+            symmetric_properties,
+            reflexive_properties,
+            functional_properties,
+            inverse_functional_properties,
+            irreflexive_properties,
+            asymmetric_properties,
+            property_hierarchy,
+            property_domains,
+            property_ranges,
+            inverse_properties,
         }
     }
 
@@ -110,6 +202,17 @@ impl ReasoningRules {
         self.equivalence_rules.clear();
         self.disjointness_rules.clear();
         self.property_rules.clear();
+        self.transitive_properties.clear();
+        self.symmetric_properties.clear();
+        self.reflexive_properties.clear();
+        self.functional_properties.clear();
+        self.inverse_functional_properties.clear();
+        self.irreflexive_properties.clear();
+        self.asymmetric_properties.clear();
+        self.property_hierarchy.clear();
+        self.property_domains.clear();
+        self.property_ranges.clear();
+        self.inverse_properties.clear();
     }
 }
 
