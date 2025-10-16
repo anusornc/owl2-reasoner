@@ -18,6 +18,7 @@ pub mod rdf_xml;
 pub mod rdf_xml_common;
 pub mod rdf_xml_legacy;
 pub mod rdf_xml_streaming;
+pub mod restriction_parser;
 pub mod turtle;
 
 pub use arena::*;

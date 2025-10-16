@@ -104,6 +104,9 @@ pub mod parser;
 /// OWL2 reasoning engine with tableaux algorithm and rule-based inference
 pub mod reasoning;
 
+/// Datatype value space utilities for OWL2 datatype reasoning
+pub mod datatypes;
+
 /// OWL2 Profile validation (EL, QL, RL) with comprehensive checking
 pub mod profiles;
 

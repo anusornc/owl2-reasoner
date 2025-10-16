@@ -1110,6 +1110,12 @@ impl TableauxReasoner {
             }
         }
 
+        // Add all class assertions (individuals with their types)
+        for class_assertion in self.ontology.as_ref().class_assertions() {
+            // Add the class expression to the root node
+            graph.add_concept(root_id, class_assertion.class_expr().clone());
+        }
+
         Ok(())
     }
 

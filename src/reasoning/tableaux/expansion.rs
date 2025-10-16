@@ -743,9 +743,15 @@ impl ExpansionRules {
 
             for restriction in data_restrictions {
                 match &restriction {
-                    ClassExpression::DataSomeValuesFrom(_, _) => {
+                    ClassExpression::DataSomeValuesFrom(_, data_range) => {
                         // ∃D.R → create data value satisfying R
-                        // For now, we'll create a placeholder data value
+                        // Check if the data range is empty (unsatisfiable)
+                        if Self::is_empty_data_range(data_range) {
+                            // Empty data range → clash!
+                            // Cannot satisfy ∃D.R when R is empty
+                            return Err("Clash: DataSomeValuesFrom with empty data range".to_string());
+                        }
+                        // For non-empty ranges, create a placeholder data value
                         // In a full implementation, this would involve data range reasoning
                         let task = ExpansionTask {
                             node_id: context.current_node,
@@ -1722,6 +1728,53 @@ impl ExpansionRules {
         }
 
         Ok((tasks, change_log))
+    }
+
+    /// Check if a data range is empty (unsatisfiable)
+    fn is_empty_data_range(data_range: &crate::axioms::class_expressions::DataRange) -> bool {
+        use crate::axioms::class_expressions::DataRange;
+        use crate::datatypes::value_space::is_float_range_empty_exclusive;
+        
+        match data_range {
+            DataRange::DatatypeRestriction(datatype, facets) => {
+                // Check if this is an xsd:float datatype
+                if datatype.as_str().ends_with("#float") {
+                    // Extract minExclusive and maxExclusive facets
+                    let mut min_exclusive: Option<f32> = None;
+                    let mut max_exclusive: Option<f32> = None;
+                    
+                    for facet in facets {
+                        let facet_iri = facet.facet();
+                        let facet_name = facet_iri.as_str();
+                        
+                        if facet_name.ends_with("#minExclusive") {
+                            // Parse the literal value as f32
+                            let value_str = facet.value().lexical_form();
+                            if let Ok(value) = value_str.parse::<f32>() {
+                                min_exclusive = Some(value);
+                            }
+                        } else if facet_name.ends_with("#maxExclusive") {
+                            // Parse the literal value as f32
+                            let value_str = facet.value().lexical_form();
+                            if let Ok(value) = value_str.parse::<f32>() {
+                                max_exclusive = Some(value);
+                            }
+                        }
+                    }
+                    
+                    // Check if we have both bounds and if the range is empty
+                    if let (Some(min), Some(max)) = (min_exclusive, max_exclusive) {
+                        return is_float_range_empty_exclusive(min, max);
+                    }
+                }
+                // For other datatypes or incomplete facets, assume non-empty
+                false
+            }
+            _ => {
+                // For other data range types, assume non-empty
+                false
+            }
+        }
     }
 }
 
