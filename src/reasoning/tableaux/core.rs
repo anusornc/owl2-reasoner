@@ -900,6 +900,16 @@ impl TableauxReasoner {
         // Check if the class is satisfiable using tableaux reasoning
         // To check satisfiability of C, we check if ¬C leads to inconsistency
 
+        // Special cases
+        if class.as_str() == "http://www.w3.org/2002/07/owl#Thing" {
+            // owl:Thing is always satisfiable
+            return Ok(true);
+        }
+        if class.as_str() == "http://www.w3.org/2002/07/owl#Nothing" {
+            // owl:Nothing is never satisfiable
+            return Ok(false);
+        }
+
         // Create a new tableaux graph for satisfiability checking
         let mut graph = super::graph::TableauxGraph::new();
         let mut expansion_engine =
