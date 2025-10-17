@@ -1338,7 +1338,7 @@ impl ExpansionRules {
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let mut change_log = GraphChangeLog::new();
+        let change_log = GraphChangeLog::new();
         let tasks = Vec::new();
 
         // Get property range axioms from reasoning rules
@@ -1619,7 +1619,7 @@ impl ExpansionRules {
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let mut change_log = GraphChangeLog::new();
+        let change_log = GraphChangeLog::new();
         let tasks = Vec::new();
 
         // Get same individual axioms from reasoning rules
@@ -1644,7 +1644,7 @@ impl ExpansionRules {
             // For now, we'll mark them as equivalent by adding labels
             // A full implementation would merge the nodes and propagate all properties/concepts
             if nodes.len() >= 2 {
-                let (canonical_node, canonical_iri) = &nodes[0];
+                let (canonical_node, _canonical_iri) = &nodes[0];
                 
                 // Add all individual IRIs as labels to the canonical node
                 if let Some(node) = graph.nodes.get_mut(canonical_node.as_usize()) {
