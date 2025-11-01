@@ -2,7 +2,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::parser::turtle::TurtleParser;
-use owl2_reasoner::OntologyParser;
+use owl2_reasoner::parser::OntologyParser;
 
 /// Benchmark Turtle parsing performance
 pub fn bench_turtle_parsing(c: &mut Criterion) {

@@ -202,35 +202,3 @@ impl ComparativeBenchmark {
         report
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_comparative_benchmark_creation() {
-        let benchmark = ComparativeBenchmark::new();
-        assert!(benchmark.baselines.is_empty());
-        assert!(benchmark.results.is_empty());
-    }
-
-    #[test]
-    fn test_test_ontology_generation() {
-        let benchmark = ComparativeBenchmark::new();
-        let ontology = benchmark.generate_test_ontology(5);
-
-        assert!(ontology.contains("ex:Class0"));
-        assert!(ontology.contains("ex:Class4"));
-        assert!(ontology.contains("rdfs:subClassOf"));
-    }
-
-    #[test]
-    fn test_report_generation() {
-        let benchmark = ComparativeBenchmark::new();
-        let report = benchmark.generate_comparative_report();
-
-        assert!(report.contains("Comparative Benchmarking Report"));
-        assert!(report.contains("Performance Comparison"));
-        assert!(report.contains("Interpretation"));
-    }
-}

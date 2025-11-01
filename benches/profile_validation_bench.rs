@@ -6,8 +6,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
+use owl2_reasoner::parser::OntologyParser;
 use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator, ProfileValidator};
-use owl2_reasoner::OntologyParser;
 use std::sync::Arc;
 
 /// Benchmark data generators for different profiles

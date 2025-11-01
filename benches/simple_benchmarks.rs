@@ -7,9 +7,9 @@ use owl2_reasoner::axioms::{ClassExpression, SubClassOfAxiom};
 use owl2_reasoner::entities::{Class, NamedIndividual};
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
+use owl2_reasoner::parser::OntologyParser;
 use owl2_reasoner::reasoning::query::{PatternTerm, QueryEngine, QueryPattern, TriplePattern};
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::OntologyParser;
 
 fn benchmark_suite(c: &mut Criterion) {
     println!("Running OWL2 Reasoner Benchmark Suite...");

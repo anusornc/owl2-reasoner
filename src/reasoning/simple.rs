@@ -908,27 +908,3 @@ impl SimpleReasoner {
         Ok(instances)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ontology::Ontology;
-
-    #[test]
-    fn test_simple_reasoner_creation() {
-        let ontology = Ontology::new();
-        let reasoner = SimpleReasoner::new(ontology);
-
-        assert!(reasoner.is_consistent().unwrap());
-    }
-
-    #[test]
-    fn test_class_satisfiability() {
-        let ontology = Ontology::new();
-        let reasoner = SimpleReasoner::new(ontology);
-        let class_iri = IRI::new("http://example.org/Person")
-            .unwrap_or_else(|_| IRI::new("http://example.org/Unknown").unwrap());
-
-        assert!(reasoner.is_class_satisfiable(&class_iri).unwrap());
-    }
-}

@@ -295,7 +295,7 @@ pub struct Annotation {
 }
 
 /// Annotation values
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AnnotationValue {
     /// IRI reference
     IRI(String),

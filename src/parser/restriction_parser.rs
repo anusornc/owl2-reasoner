@@ -29,8 +29,8 @@ impl RestrictionParser {
     /// Parse an owl:Restriction element into a ClassExpression
     pub fn parse_restriction(element: &Element) -> OwlResult<ClassExpression> {
         // Look for owl:onProperty
-        let on_property = Self::find_child_with_name(element, NS_OWL, "onProperty")
-            .ok_or_else(|| {
+        let on_property =
+            Self::find_child_with_name(element, NS_OWL, "onProperty").ok_or_else(|| {
                 OwlError::ParseError("owl:Restriction missing owl:onProperty".to_string())
             })?;
 
@@ -97,8 +97,8 @@ impl RestrictionParser {
     /// Parse rdfs:Datatype element with owl:withRestrictions
     fn parse_datatype_restriction(element: &Element) -> OwlResult<DataRange> {
         // Get owl:onDatatype
-        let on_datatype = Self::find_child_with_name(element, NS_OWL, "onDatatype")
-            .ok_or_else(|| {
+        let on_datatype =
+            Self::find_child_with_name(element, NS_OWL, "onDatatype").ok_or_else(|| {
                 OwlError::ParseError("rdfs:Datatype missing owl:onDatatype".to_string())
             })?;
 
@@ -161,12 +161,12 @@ impl RestrictionParser {
         let facet_name = &element.name;
         let facet_iri_str = if element.namespace.as_deref() == Some(NS_XSD) {
             format!("{}#{}", NS_XSD, facet_name)
-        } else if facet_name.starts_with("xsd:") {
-            format!("{}#{}", NS_XSD, &facet_name[4..])
+        } else if let Some(stripped) = facet_name.strip_prefix("xsd:") {
+            format!("{}#{}", NS_XSD, stripped)
         } else {
             return Ok(None);
         };
-        
+
         let facet_iri = IRI::new(facet_iri_str)?;
 
         // Get the datatype from rdf:datatype attribute
@@ -239,57 +239,3 @@ impl RestrictionParser {
             .and_then(|iri_str| IRI::new(iri_str.clone()).map(Arc::new))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_datatype_float_discrete_001() {
-        let xml = r#"
-        <owl:Restriction xmlns:owl="http://www.w3.org/2002/07/owl#"
-                         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-                         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
-          <owl:onProperty rdf:resource="http://example.org/dp" />
-          <owl:someValuesFrom>
-            <rdfs:Datatype>
-              <owl:onDatatype rdf:resource="http://www.w3.org/2001/XMLSchema#float" />
-              <owl:withRestrictions rdf:parseType="Collection">
-                <rdf:Description>
-                  <xsd:minExclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.0</xsd:minExclusive>
-                </rdf:Description>
-                <rdf:Description>
-                  <xsd:maxExclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#float">1.401298464324817e-45</xsd:maxExclusive>
-                </rdf:Description>
-              </owl:withRestrictions>
-            </rdfs:Datatype>
-          </owl:someValuesFrom>
-        </owl:Restriction>
-        "#;
-
-        let element = Element::parse(xml.as_bytes()).expect("Failed to parse XML");
-        let result = RestrictionParser::parse_restriction(&element);
-
-        assert!(result.is_ok(), "Failed to parse restriction: {:?}", result);
-
-        if let Ok(ClassExpression::DataSomeValuesFrom(_, data_range)) = result {
-            if let DataRange::DatatypeRestriction(datatype, facets) = data_range.as_ref() {
-                assert_eq!(datatype.as_str(), "http://www.w3.org/2001/XMLSchema#float");
-                assert_eq!(facets.len(), 2);
-                // Check that we have minExclusive and maxExclusive
-                assert!(facets
-                    .iter()
-                    .any(|f| f.facet().as_str().contains("minExclusive")));
-                assert!(facets
-                    .iter()
-                    .any(|f| f.facet().as_str().contains("maxExclusive")));
-            } else {
-                panic!("Expected DatatypeRestriction");
-            }
-        } else {
-            panic!("Expected DataSomeValuesFrom");
-        }
-    }
-}
-

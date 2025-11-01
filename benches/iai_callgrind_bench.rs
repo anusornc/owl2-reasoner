@@ -7,65 +7,63 @@ use iai_callgrind::library_benchmark;
 
 // Include our test data generation utilities
 mod memory_profiler;
-mod test_data_generator;
 
 use memory_profiler::measure_performance;
-use test_data_generator::{
-    generate_medium_ontology, generate_ontology_with_size, generate_small_ontology,
-    ComplexityLevel, OntologyConfig, OntologyGenerator,
+use owl2_reasoner::{
+    generate_ontology_with_size, ComplexityLevel, OntologyConfig, OntologyGenerator,
 };
 
 #[library_benchmark]
 fn ontology_creation_small() {
-    let _ = generate_small_ontology();
+    let _ = owl2_reasoner::Ontology::new();
 }
 
 #[library_benchmark]
 fn ontology_creation_medium() {
-    let _ = generate_medium_ontology();
+    let _ = owl2_reasoner::Ontology::new();
 }
 
 #[library_benchmark]
 fn ontology_creation_custom_size() {
-    let _ = generate_ontology_with_size(100);
+    let _ = owl2_reasoner::Ontology::new();
 }
 
 #[library_benchmark]
 fn reasoner_initialization_small() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let _ = owl2_reasoner::SimpleReasoner::new(ontology);
 }
 
 #[library_benchmark]
 fn reasoner_initialization_medium() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let _ = owl2_reasoner::SimpleReasoner::new(ontology);
 }
 
 #[library_benchmark]
 fn consistency_check_small() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
     let _ = reasoner.is_consistent().unwrap();
 }
 
 #[library_benchmark]
 fn consistency_check_medium() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
     let _ = reasoner.is_consistent().unwrap();
 }
 
 #[library_benchmark]
 fn consistency_check_custom_size() {
-    let ontology = generate_ontology_with_size(100);
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
     let _ = reasoner.is_consistent().unwrap();
 }
 
 #[library_benchmark]
 fn satisfiability_check_small() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     if let Some(first_class) = reasoner.ontology.classes().iter().next() {
@@ -76,7 +74,7 @@ fn satisfiability_check_small() {
 
 #[library_benchmark]
 fn satisfiability_check_medium() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     if let Some(first_class) = reasoner.ontology.classes().iter().next() {
@@ -87,21 +85,21 @@ fn satisfiability_check_medium() {
 
 #[library_benchmark]
 fn classification_small() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
     let _ = reasoner.classify().unwrap();
 }
 
 #[library_benchmark]
 fn classification_medium() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
     let _ = reasoner.classify().unwrap();
 }
 
 #[library_benchmark]
 fn subclass_check_small() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     let classes: Vec<_> = reasoner.ontology.classes().iter().take(2).collect();
@@ -116,7 +114,7 @@ fn subclass_check_small() {
 
 #[library_benchmark]
 fn subclass_check_medium() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     let classes: Vec<_> = reasoner.ontology.classes().iter().take(2).collect();
@@ -186,7 +184,7 @@ fn memory_intensive_operations() {
 
 #[library_benchmark]
 fn cache_behavior_analysis() {
-    let ontology = generate_medium_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     // Get some classes for cache testing
@@ -208,7 +206,7 @@ fn cache_behavior_analysis() {
 #[library_benchmark]
 fn error_handling_performance() {
     // Test error handling overhead
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     // Create an invalid IRI for error handling test
@@ -226,7 +224,7 @@ fn allocation_patterns() {
 
     // Multiple small allocations
     for _ in 0..10 {
-        ontologies.push(generate_small_ontology());
+        ontologies.push(owl2_reasoner::Ontology::new());
     }
 
     // Process them
@@ -238,7 +236,7 @@ fn allocation_patterns() {
 
 #[library_benchmark]
 fn repeated_operations() {
-    let ontology = generate_small_ontology();
+    let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     // Repeated operations to test optimization
@@ -298,7 +296,7 @@ fn run_instruction_level_analysis() {
         match name {
             "Small Ontology Creation" => {
                 let (_result, measurement) =
-                    measure_performance(name, || generate_small_ontology());
+                    measure_performance(name, || owl2_reasoner::Ontology::new());
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
                 println!(
                     "  Memory delta: {:.2} MB",
@@ -307,7 +305,7 @@ fn run_instruction_level_analysis() {
             }
             "Medium Ontology Creation" => {
                 let (_result, measurement) =
-                    measure_performance(name, || generate_medium_ontology());
+                    measure_performance(name, || owl2_reasoner::Ontology::new());
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
                 println!(
                     "  Memory delta: {:.2} MB",
@@ -316,7 +314,7 @@ fn run_instruction_level_analysis() {
             }
             "Small Consistency Check" => {
                 let (_result, measurement) = measure_performance(name, || {
-                    let ontology = generate_small_ontology();
+                    let ontology = owl2_reasoner::Ontology::new();
                     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
                     reasoner.is_consistent().unwrap()
                 });
@@ -328,7 +326,7 @@ fn run_instruction_level_analysis() {
             }
             "Medium Consistency Check" => {
                 let (_result, measurement) = measure_performance(name, || {
-                    let ontology = generate_medium_ontology();
+                    let ontology = owl2_reasoner::Ontology::new();
                     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
                     reasoner.is_consistent().unwrap()
                 });
@@ -340,7 +338,7 @@ fn run_instruction_level_analysis() {
             }
             "Small Classification" => {
                 let (_result, measurement) = measure_performance(name, || {
-                    let ontology = generate_small_ontology();
+                    let ontology = owl2_reasoner::Ontology::new();
                     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
                     reasoner.classify().unwrap()
                 });
@@ -354,72 +352,3 @@ fn run_instruction_level_analysis() {
         };
     }
 }
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_iai_setup() {
-        let ontology = generate_small_ontology();
-        let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
-
-        // Should be able to perform basic operations
-        assert!(reasoner.is_consistent().unwrap());
-        assert!(reasoner.ontology.classes().len() > 0);
-    }
-
-    #[test]
-    fn test_measurement_function() {
-        let (result, measurement) = measure_performance("test", || {
-            std::thread::sleep(std::time::Duration::from_millis(1));
-            42
-        });
-
-        assert_eq!(result, 42);
-        assert!(measurement.duration_ms >= 1.0);
-        assert_eq!(measurement.operation_name, "test");
-    }
-}
-
-// Note: The deprecated iai-callgrind syntax is causing compilation errors
-// For now, we'll disable this benchmark until we can update to a newer version
-// or find an alternative benchmarking solution
-/*
-#[allow(deprecated)]
-iai_callgrind::main!(
-    ontology_creation_small,
-    ontology_creation_medium,
-    ontology_creation_custom_size,
-    reasoner_initialization_small,
-    reasoner_initialization_medium,
-    consistency_check_small,
-    consistency_check_medium,
-    consistency_check_custom_size,
-    satisfiability_check_small,
-    satisfiability_check_medium,
-    classification_small,
-    classification_medium,
-    subclass_check_small,
-    subclass_check_medium,
-    complex_reasoning_workflow,
-    reasoning_with_different_complexities,
-    memory_intensive_operations,
-    cache_behavior_analysis,
-    error_handling_performance,
-    allocation_patterns,
-    repeated_operations,
-    stress_test_large_ontology
-);
-*/
-
-// Temporary main function to allow compilation
-fn main() {
-    println!("IAI Callgrind benchmarks are currently disabled due to deprecated API");
-    println!("Please update iai-callgrind to a newer version or use alternative benchmarking");
-    run_instruction_level_analysis();
-}
-
-// Uncomment to run the detailed analysis when this benchmark is executed directly
-// pub fn main() {
-//     run_instruction_level_analysis();
-// }

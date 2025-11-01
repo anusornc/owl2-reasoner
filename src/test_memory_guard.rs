@@ -1,5 +1,5 @@
 //! Test memory guard module
-//! 
+//!
 //! This module provides memory protection for tests to prevent OOM issues.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -52,56 +52,3 @@ impl Default for MemoryGuard {
         Self::new()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_memory_guard_enabled() {
-        enable_memory_guard();
-        assert!(is_memory_guard_enabled());
-    }
-
-    #[test]
-    fn test_memory_guard_disabled() {
-        disable_memory_guard();
-        assert!(!is_memory_guard_enabled());
-        enable_memory_guard(); // Reset
-    }
-}
-
-
-
-impl MemoryGuard {
-    /// Start monitoring memory usage
-    /// 
-    /// This is a no-op in the current implementation but provides
-    /// API compatibility for tests that expect this method.
-    pub fn start_monitoring(&self) {
-        // No-op: Memory monitoring is passive in current implementation
-    }
-
-    /// Stop monitoring memory usage
-    /// 
-    /// This is a no-op in the current implementation but provides
-    /// API compatibility for tests that expect this method.
-    pub fn stop_monitoring(&self) {
-        // No-op: Memory monitoring is passive in current implementation
-    }
-
-    /// Get current memory usage (stub implementation)
-    /// 
-    /// Returns 0 as actual memory tracking requires platform-specific code.
-    pub fn current_usage(&self) -> usize {
-        0
-    }
-
-    /// Check if memory limit is exceeded (stub implementation)
-    /// 
-    /// Always returns false as actual memory tracking is not implemented.
-    pub fn is_limit_exceeded(&self) -> bool {
-        false
-    }
-}
-

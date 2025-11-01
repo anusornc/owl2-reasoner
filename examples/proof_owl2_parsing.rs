@@ -9,7 +9,7 @@
 //! - Nested expressions and advanced constructs
 
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
-use owl2_reasoner::OntologyParser;
+use owl2_reasoner::parser::OntologyParser;
 use std::io::Result;
 
 fn main() -> Result<()> {

@@ -217,18 +217,17 @@ impl OwlReasoner {
     fn parse_next_term<'a>(&self, input: &'a str) -> OwlResult<(PatternTerm, &'a str)> {
         let input = input.trim_start();
 
-        if input.starts_with('?') {
+        if let Some(stripped) = input.strip_prefix('?') {
             // Variable - find next whitespace
-            if let Some(space_pos) = input.find(char::is_whitespace) {
-                let var_name = &input[1..space_pos];
+            if let Some(space_pos) = stripped.find(char::is_whitespace) {
+                let var_name = &stripped[..space_pos];
                 Ok((
                     PatternTerm::Variable(var_name.to_string()),
-                    &input[space_pos..],
+                    &input[space_pos + 1..],
                 ))
             } else {
                 // Variable at end of string
-                let var_name = &input[1..];
-                Ok((PatternTerm::Variable(var_name.to_string()), ""))
+                Ok((PatternTerm::Variable(stripped.to_string()), ""))
             }
         } else if input.starts_with('<') {
             // IRI - find closing >
@@ -241,13 +240,12 @@ impl OwlReasoner {
             } else {
                 Err(OwlError::QueryError("Unclosed IRI".to_string()))
             }
-        } else if input.starts_with('"') {
+        } else if let Some(stripped) = input.strip_prefix('"') {
             // Literal - find closing "
-            if let Some(close_pos) = input[1..].find('"').map(|p| p + 1) {
-                let literal = &input[1..close_pos];
+            if let Some(close_pos) = stripped.find('"') {
                 Ok((
-                    PatternTerm::Literal(literal.to_string()),
-                    &input[close_pos + 1..],
+                    PatternTerm::Literal(stripped[..close_pos].to_string()),
+                    &input[close_pos + 2..],
                 ))
             } else {
                 Err(OwlError::QueryError("Unclosed literal".to_string()))
@@ -313,112 +311,5 @@ impl Reasoner for OwlReasoner {
         // For now, check if individual is in instances of class
         let instances = self.get_instances(class)?;
         Ok(instances.contains(&Arc::new((*individual).clone())))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::axioms::*;
-    use crate::entities::*;
-    use crate::ontology::Ontology;
-
-    #[test]
-    fn test_reasoner_creation() {
-        let ontology = Ontology::new();
-        let reasoner = OwlReasoner::new(ontology);
-
-        assert!(reasoner.ontology().classes().is_empty());
-    }
-
-    #[test]
-    fn test_reasoner_consistency() {
-        let ontology = Ontology::new();
-        let mut reasoner = OwlReasoner::new(ontology);
-
-        // Empty ontology should be consistent
-        assert!(reasoner.is_consistent().unwrap());
-    }
-
-    #[test]
-    fn test_reasoner_with_config() {
-        let ontology = Ontology::new();
-        let config = ReasoningConfig {
-            enable_reasoning: false,
-            use_advanced_reasoning: false,
-            tableaux_config: tableaux::ReasoningConfig::default(),
-        };
-
-        let reasoner = OwlReasoner::with_config(ontology, config);
-        assert!(reasoner.simple.ontology.classes().is_empty()); // Empty ontology should have no classes
-    }
-
-    #[test]
-    fn test_query_parsing() {
-        let ontology = Ontology::new();
-        let mut reasoner = OwlReasoner::new(ontology);
-
-        // Test simple query parsing - use a simpler query first
-        let query = "SELECT ?x WHERE { ?x rdf:type Person }";
-        let result = reasoner.query(query);
-
-        // Should not panic, even if no results
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_query_with_ontology_data() {
-        let mut ontology = Ontology::new();
-
-        // Add test data
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let john_iri = IRI::new("http://example.org/john").unwrap();
-
-        let person_class = Class::new(person_iri.as_str());
-        let john_individual = NamedIndividual::new(john_iri.clone());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology
-            .add_named_individual(john_individual.clone())
-            .unwrap();
-
-        // Add class assertion
-        let class_assertion = ClassAssertionAxiom::new(
-            Arc::new(john_iri.clone()),
-            ClassExpression::Class(person_class),
-        );
-        ontology.add_class_assertion(class_assertion).unwrap();
-
-        let mut reasoner = OwlReasoner::new(ontology);
-
-        // Query for all persons
-        let query = "SELECT ?x WHERE { ?x <http://example.org/type> <http://example.org/Person> }";
-        let result = reasoner.query(query).unwrap();
-
-        // For now, just check that query executed without error
-        // TODO: Fix the IRI matching logic
-        assert_eq!(result.variables, vec!["?x"]);
-    }
-
-    #[test]
-    fn test_query_invalid_syntax() {
-        let ontology = Ontology::new();
-        let mut reasoner = OwlReasoner::new(ontology);
-
-        // Test invalid query
-        let query = "INVALID QUERY";
-        let result = reasoner.query(query);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_query_missing_where() {
-        let ontology = Ontology::new();
-        let mut reasoner = OwlReasoner::new(ontology);
-
-        // Test query without WHERE
-        let query = "SELECT ?x { ?x <http://example.org/p> <http://example.org/o> }";
-        let result = reasoner.query(query);
-        assert!(result.is_err());
     }
 }

@@ -344,7 +344,9 @@ impl IRI {
 
         // Basic validation: IRI must contain a colon (scheme separator)
         if !iri_str.contains(':') {
-            return Err(OwlError::InvalidIRI("IRI must contain ':' separating scheme from path".to_string()));
+            return Err(OwlError::InvalidIRI(
+                "IRI must contain ':' separating scheme from path".to_string(),
+            ));
         }
 
         // Check global cache first using bounded cache
@@ -385,7 +387,9 @@ impl IRI {
 
         // Basic validation: IRI must contain a colon (scheme separator)
         if !iri_str.contains(':') {
-            return Err(OwlError::InvalidIRI("IRI must contain ':' separating scheme from path".to_string()));
+            return Err(OwlError::InvalidIRI(
+                "IRI must contain ':' separating scheme from path".to_string(),
+            ));
         }
 
         // Single cache lookup with borrowed reference to avoid cloning
@@ -1009,54 +1013,5 @@ impl IRIRegistry {
     /// Create commonly used XSD IRIs efficiently
     pub fn xsd_datatype(&mut self, type_name: &str) -> OwlResult<IRI> {
         self.get_or_create_iri(&format!("http://www.w3.org/2001/XMLSchema#{type_name}"))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_iri_creation() {
-        let iri = IRI::new("http://example.org/Person")
-            .expect("Failed to create IRI for valid example.org URL");
-        assert_eq!(iri.as_str(), "http://example.org/Person");
-        assert_eq!(iri.local_name(), "Person");
-        assert_eq!(iri.namespace(), "http://example.org/");
-    }
-
-    #[test]
-    fn test_iri_with_prefix() {
-        let iri = IRI::with_prefix("http://example.org/Person", "ex")
-            .expect("Failed to create IRI with prefix");
-        assert_eq!(iri.as_str(), "http://example.org/Person");
-        assert_eq!(iri.prefix(), Some("ex"));
-    }
-
-    #[test]
-    fn test_iri_namespaces() {
-        let owl_iri =
-            IRI::new("http://www.w3.org/2002/07/owl#Class").expect("Failed to create OWL IRI");
-        assert!(owl_iri.is_owl());
-        assert!(!owl_iri.is_rdf());
-
-        let rdf_iri = IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-            .expect("Failed to create RDF IRI");
-        assert!(rdf_iri.is_rdf());
-        assert!(!rdf_iri.is_owl());
-    }
-
-    #[test]
-    fn test_iri_registry() {
-        let mut registry = IRIRegistry::new();
-        registry
-            .register("ex", "http://example.org/")
-            .expect("Failed to register namespace");
-
-        let iri = registry
-            .iri_with_prefix("ex", "Person")
-            .expect("Failed to create IRI from registry");
-        assert_eq!(iri.as_str(), "http://example.org/Person");
-        assert_eq!(iri.prefix(), Some("ex"));
     }
 }

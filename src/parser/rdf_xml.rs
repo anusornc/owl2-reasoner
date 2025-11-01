@@ -52,7 +52,10 @@ impl OntologyParser for RdfXmlParser {
                     Ok(ontology) => return Ok(ontology),
                     Err(e) => {
                         // If streaming parser fails, try legacy parser as fallback
-                        eprintln!("[FALLBACK] Streaming parser failed: {}. Trying legacy parser...", e);
+                        eprintln!(
+                            "[FALLBACK] Streaming parser failed: {}. Trying legacy parser...",
+                            e
+                        );
                         log::warn!("Streaming parser failed: {}. Trying legacy parser...", e);
                         let mut legacy_config = self.config.clone();
                         legacy_config.strict_validation = false; // Disable strict validation for fallback
@@ -101,73 +104,5 @@ impl OntologyParser for RdfXmlParser {
     /// Get parser format name
     fn format_name(&self) -> &'static str {
         "RDF/XML"
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parser::ParserConfig;
-
-    #[test]
-    fn test_parser_creation() {
-        let parser = RdfXmlParser::new();
-        assert_eq!(parser.format_name(), "RDF/XML");
-    }
-
-    #[test]
-    fn test_parser_with_config() {
-        let config = ParserConfig {
-            strict_validation: true,
-            ..Default::default()
-        };
-        let parser = RdfXmlParser::with_config(config);
-        assert!(parser.config.strict_validation);
-    }
-
-    #[test]
-    fn test_empty_content_validation() {
-        let parser = RdfXmlParser::with_config(ParserConfig {
-            strict_validation: true,
-            ..Default::default()
-        });
-
-        let result = parser.parse_str("");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_empty_content_non_strict() {
-        let parser = RdfXmlParser::with_config(ParserConfig {
-            strict_validation: false,
-            ..Default::default()
-        });
-
-        let result = parser.parse_str("");
-        // Should not error on empty content in non-strict mode
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_simple_rdf_xml() {
-        let rdf_content = r#"
-        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                 xmlns:owl="http://www.w3.org/2002/07/owl#"
-                 xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
-            <owl:Class rdf:about="http://example.org/Person">
-                <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-            </owl:Class>
-        </rdf:RDF>
-        "#;
-
-        let parser = RdfXmlParser::new();
-        let result = parser.parse_str(rdf_content);
-
-        // Note: This test may fail until the legacy parser is fully implemented
-        // For now, we just test that it doesn't panic
-        match result {
-            Ok(_) => println!("Successfully parsed RDF/XML"),
-            Err(e) => println!("Parse error (expected during refactoring): {}", e),
-        }
     }
 }

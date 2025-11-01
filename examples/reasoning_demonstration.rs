@@ -4,11 +4,9 @@
 //! including consistency checking, classification, instance retrieval, and profile validation.
 
 use owl2_reasoner::parser::owl_functional::OwlFunctionalSyntaxParser;
-use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator};
-use owl2_reasoner::OntologyParser;
-use owl2_reasoner::OwlReasoner;
-use owl2_reasoner::ProfileValidator;
-use owl2_reasoner::Reasoner;
+use owl2_reasoner::parser::OntologyParser;
+use owl2_reasoner::profiles::{Owl2Profile, Owl2ProfileValidator, ProfileValidator};
+use owl2_reasoner::reasoning::{OwlReasoner, Reasoner};
 use std::io::Result;
 
 fn main() -> Result<()> {

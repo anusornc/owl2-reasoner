@@ -262,10 +262,10 @@ impl ElOptimizer {
 
         match expr {
             ClassExpression::Class(class) => {
-                entities.push(class.iri().clone());
+                entities.push((*class.iri()).clone().into());
             }
             ClassExpression::ObjectSomeValuesFrom(prop, class_expr) => {
-                entities.push(prop.iri().clone());
+                entities.extend(self.extract_iri_from_property_expression(prop)?);
                 entities.extend(self.extract_entities_from_expression(class_expr)?);
             }
             ClassExpression::ObjectIntersectionOf(classes) => {
@@ -278,6 +278,18 @@ impl ElOptimizer {
         }
 
         Ok(entities)
+    }
+
+    /// Extract IRI from ObjectPropertyExpression
+    fn extract_iri_from_property_expression(&self, prop: &crate::axioms::property_expressions::ObjectPropertyExpression) -> OwlResult<Vec<IRI>> {
+        use crate::axioms::property_expressions::ObjectPropertyExpression;
+
+        match prop {
+            ObjectPropertyExpression::ObjectProperty(obj_prop) => Ok(vec![(*obj_prop.iri()).clone().into()]),
+            ObjectPropertyExpression::ObjectInverseOf(obj_prop) => {
+                self.extract_iri_from_property_expression(obj_prop)
+            }
+        }
     }
 
     /// Count complex equivalent classes axioms

@@ -1,3 +1,7 @@
-mod backtracking_tests;
-mod json_ld_comprehensive_tests;
-mod property_tests;
+// Test module for OWL2 Reasoner
+pub mod basic_tests;
+pub mod parser_tests;
+pub mod profile_optimization_tests;
+pub mod equality_reasoning_tests;
+pub mod property_characteristics_test;
+pub mod comprehensive_integration_tests;

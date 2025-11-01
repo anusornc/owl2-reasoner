@@ -4,7 +4,14 @@
 //! gene-disease associations and protein interactions, showing more
 //! complex class expressions and reasoning patterns.
 
-use owl2_reasoner::*;
+use owl2_reasoner::{
+    axioms::*,
+    entities::*,
+    iri::IRI,
+    ontology::Ontology,
+    reasoning::{PatternTerm, QueryEngine, QueryPattern, SimpleReasoner, TriplePattern},
+    OwlResult,
+};
 
 fn main() -> OwlResult<()> {
     println!("=== Biomedical Ontology Example ===\n");

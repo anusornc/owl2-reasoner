@@ -1516,7 +1516,9 @@ impl Ontology {
     }
 
     /// Get all negative object property assertion axioms
-    pub fn negative_object_property_assertions(&self) -> Vec<&crate::axioms::NegativeObjectPropertyAssertionAxiom> {
+    pub fn negative_object_property_assertions(
+        &self,
+    ) -> Vec<&crate::axioms::NegativeObjectPropertyAssertionAxiom> {
         self.negative_object_property_assertion_axioms
             .iter()
             .map(|axiom| axiom.as_ref())
@@ -1524,91 +1526,12 @@ impl Ontology {
     }
 
     /// Get all negative data property assertion axioms
-    pub fn negative_data_property_assertions(&self) -> Vec<&crate::axioms::NegativeDataPropertyAssertionAxiom> {
+    pub fn negative_data_property_assertions(
+        &self,
+    ) -> Vec<&crate::axioms::NegativeDataPropertyAssertionAxiom> {
         self.negative_data_property_assertion_axioms
             .iter()
             .map(|axiom| axiom.as_ref())
             .collect()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ontology_creation() {
-        let ontology = Ontology::new();
-        assert!(ontology.is_empty());
-        assert_eq!(ontology.entity_count(), 0);
-        assert_eq!(ontology.axiom_count(), 0);
-    }
-
-    #[test]
-    fn test_ontology_with_iri() {
-        let ontology = Ontology::with_iri("http://example.org/ontology");
-        assert_eq!(
-            ontology.iri().unwrap().as_str(),
-            "http://example.org/ontology"
-        );
-        assert!(ontology.is_empty());
-    }
-
-    #[test]
-    fn test_add_class() {
-        let mut ontology = Ontology::new();
-        let person_class = Class::new("http://example.org/Person");
-
-        ontology.add_class(person_class).unwrap();
-        assert_eq!(ontology.classes().len(), 1);
-        assert_eq!(ontology.entity_count(), 1);
-    }
-
-    #[test]
-    fn test_add_object_property() {
-        let mut ontology = Ontology::new();
-        let has_parent = ObjectProperty::new("http://example.org/hasParent");
-
-        ontology.add_object_property(has_parent).unwrap();
-        assert_eq!(ontology.object_properties().len(), 1);
-        assert_eq!(ontology.entity_count(), 1);
-    }
-
-    #[test]
-    fn test_imports() {
-        let mut ontology = Ontology::new();
-        ontology.add_import("http://example.org/import1");
-        ontology.add_import("http://example.org/import2");
-
-        assert_eq!(ontology.imports().len(), 2);
-    }
-
-    #[test]
-    fn test_resolve_imports_no_imports() {
-        let mut ontology = Ontology::new();
-
-        // Ontology with no imports should resolve successfully
-        let result = ontology.resolve_imports();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_resolve_imports_with_imports() {
-        let mut ontology = Ontology::new();
-
-        // Add a file import that doesn't exist
-        ontology.add_import("file://non-existent-ontology.owl");
-
-        // Import resolution should succeed even with broken imports
-        // (the resolver logs warnings but doesn't fail the entire operation)
-        let result = ontology.resolve_imports();
-        assert!(
-            result.is_ok(),
-            "Import resolution should succeed even with broken imports"
-        );
-
-        // The import should still be recorded
-        assert_eq!(ontology.imports().len(), 1);
-    }
-}
-

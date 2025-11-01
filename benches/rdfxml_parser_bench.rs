@@ -2,7 +2,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::parser::rdf_xml::RdfXmlParser;
-use owl2_reasoner::OntologyParser;
+use owl2_reasoner::parser::OntologyParser;
 
 #[cfg(feature = "rio-xml")]
 const BACKEND: &str = "streaming";

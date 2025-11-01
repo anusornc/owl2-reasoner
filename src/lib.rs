@@ -109,10 +109,10 @@ pub mod datatypes;
 
 /// OWL2 Profile validation (EL, QL, RL) with comprehensive checking
 pub mod profiles;
+pub mod test_data_generator;
 
-// /// Empirical validation and benchmarking system for performance claims
-// pub mod validation; // Temporarily disabled for compilation
-
+/// Empirical validation and benchmarking system for performance claims
+pub mod validation;
 /// GS1 EPCIS ontology implementation for supply chain traceability
 pub mod epcis;
 
@@ -144,85 +144,15 @@ pub mod test_helpers;
 /// Performance utilities and optimizations
 pub mod utils;
 
-// pub mod test_suite_advanced; // TODO: Missing file
-/// OWL2 Test Suite integration for W3C compliance validation
-// pub mod test_suite_simple; // TODO: Missing file
-
-/// Comprehensive test suite with regression tests and performance benchmarks
-#[cfg(test)]
-pub mod tests;
-
-// Re-export common types for convenience
+// Re-exports for convenience
 pub use axioms::*;
-pub use cache::*;
-pub use constants::*;
 pub use entities::*;
-pub use epcis::*;
-pub use epcis_parser::{EPCISDocumentParser, EPCISDocumentWriter, EPCISParserConfig};
-pub use epcis_test_generator::*;
 pub use error::{OwlError, OwlResult};
-pub use iri::{IRIRef, IRI};
-pub use memory::{LeakDetectionReport, MemoryMonitor, MemoryMonitorConfig, MemoryStats};
-pub use ontology::*;
-// Re-export parser modules with specific naming to avoid conflicts
-pub use parser::arena::*;
-pub use parser::common as parser_common;
-pub use parser::import_resolver::*;
-pub use parser::manchester::{ManchesterAST, ManchesterParser};
-pub use parser::owl_functional::OwlFunctionalSyntaxParser;
-pub use parser::owl_xml::*;
-pub use parser::rdf_xml::*;
-pub use parser::turtle::*;
-pub use parser::{OntologyParser, ParserConfig, ParserFactory};
-
-// Re-export profile modules with specific naming to avoid conflicts
-pub use profiles::common::{
-    OntologyStats, OptimizationHint, OptimizationType, Owl2Profile, Owl2ProfileValidator,
-    ProfileAnalysisReport, ProfileValidationResult, ProfileValidator, ProfileViolation,
-    ProfileViolationType, ValidationStatistics, ViolationSeverity,
+pub use iri::IRI;
+pub use ontology::Ontology;
+pub use reasoning::{
+    OwlReasoner, PatternTerm, QueryEngine, QueryPattern, Reasoner, SimpleReasoner, TriplePattern,
 };
-// Re-export profile-specific validators with explicit naming
-pub use profiles::el::validator::ElValidator;
-pub use profiles::ql::validator::QlValidator;
-pub use profiles::rl::*;
-// cache types are already available through profiles::common above
-pub use reasoning::*;
-pub use storage::*;
-// pub use test_suite_advanced::*; // TODO: Missing file
-// pub use test_suite_simple::*; // TODO: Missing file
-
-#[cfg(feature = "web-service")]
-pub use web_service::start_web_service;
-
-/// Attempts to start the web service when the feature is not enabled.
-///
-/// This is a dummy implementation that always returns an error, indicating that
-/// the "web-service" feature must be enabled at compile time to use web service functionality.
-///
-/// # Parameters
-/// - `_port`: The port number to start the service on (unused in this dummy implementation)
-///
-/// # Returns
-/// Returns an `Err` with a message indicating the feature is not enabled.
-///
-/// # Errors
-/// Always returns an error since the web service feature is disabled.
-#[cfg(not(feature = "web-service"))]
-pub async fn start_web_service(_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    Err("Web service feature not enabled. Compile with --features web-service".into())
-}
-
-/// Version information
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Library name
-pub const NAME: &str = env!("CARGO_PKG_NAME");
-
-/// Library description
-pub const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
-
-/// Repository URL
-pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
-
-/// Homepage URL
-pub const HOMEPAGE: &str = env!("CARGO_PKG_HOMEPAGE");
+pub use test_data_generator::*;
+pub use epcis::*;
+pub use epcis_test_generator::*;

@@ -2,9 +2,8 @@
 //!
 //! Demonstrates how to parse JSON-LD format ontologies using the OWL2 reasoner.
 
-use owl2_reasoner::parser::JsonLdParser;
+use owl2_reasoner::parser::{JsonLdParser, OntologyParser};
 use owl2_reasoner::reasoning::SimpleReasoner;
-use owl2_reasoner::OntologyParser;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

@@ -3,7 +3,11 @@
 //! This example provides a simple consistency checking benchmark
 //! for external comparison with established reasoners.
 
-use owl2_reasoner::{OwlReasoner, OwlResult, ParserFactory, Reasoner};
+use owl2_reasoner::{
+    parser::{OntologyParser, ParserFactory},
+    reasoning::{OwlReasoner, Reasoner},
+    OwlResult,
+};
 use std::env;
 use std::path::Path;
 use std::time::Instant;

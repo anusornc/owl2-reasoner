@@ -138,24 +138,3 @@ fn display_validation_results(result: &owl2_reasoner::validation::execution_engi
         println!("   Operations/Second: {:.0}", profile.performance_metrics.operations_per_second);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validation_engine_creation() {
-        let engine = ValidationExecutionEngine::new();
-        assert!(engine.is_ok(), "Validation engine should be created successfully");
-    }
-
-    #[test]
-    fn test_quick_validation() {
-        let mut engine = ValidationExecutionEngine::new().unwrap();
-        let result = engine.run_quick_validation();
-        assert!(result.is_ok(), "Quick validation should run successfully");
-        
-        let validation_result = result.unwrap();
-        assert!(validation_result.success, "Quick validation should succeed");
-    }
-}

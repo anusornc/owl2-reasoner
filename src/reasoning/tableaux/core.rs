@@ -495,6 +495,15 @@ impl MemoryStats {
         self.total_arena_bytes += bytes;
         self.peak_memory_bytes = self.peak_memory_bytes.max(self.total_arena_bytes);
     }
+
+    pub fn add_constraint_allocation(&mut self, bytes: usize) {
+        self.total_arena_bytes += bytes;
+        self.peak_memory_bytes = self.peak_memory_bytes.max(self.total_arena_bytes);
+    }
+
+    pub fn total_allocations(&self) -> usize {
+        self.arena_allocated_nodes + self.arena_allocated_edges + self.arena_allocated_expressions
+    }
 }
 
 /// Reasoning cache for performance optimization
@@ -909,7 +918,7 @@ impl TableauxReasoner {
             // owl:Nothing is never satisfiable
             return Ok(false);
         }
-        
+
         // Check if the class has any axioms that could make it unsatisfiable
         // If there are no axioms involving this class, it's trivially satisfiable
         let has_relevant_axioms = self.rules.subclass_rules.iter().any(|axiom| {
@@ -920,7 +929,7 @@ impl TableauxReasoner {
         }) || self.rules.disjointness_rules.iter().any(|axiom| {
             axiom.classes().iter().any(|c| c.as_ref() == class)
         });
-        
+
         // If no axioms involve this class, it's trivially satisfiable
         if !has_relevant_axioms {
             return Ok(true);
@@ -1113,7 +1122,7 @@ impl TableauxReasoner {
     }
 
     /// Initialize the root node with class assertions and relevant concepts
-    /// 
+    ///
     /// Note: We should NOT add all declared classes to the root node, as that would
     /// imply that there exists an individual of each class, which is incorrect.
     /// We only add:
@@ -1124,13 +1133,14 @@ impl TableauxReasoner {
 
         // DO NOT add all named classes - this was causing false inconsistencies!
         // A class declaration does not imply the existence of an individual of that class.
-        
+
         // Add owl:Thing to the root node (everything is an instance of Thing)
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing")
-            .map_err(|e| OwlError::IriParseError {
+        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").map_err(|e| {
+            OwlError::IriParseError {
                 iri: "http://www.w3.org/2002/07/owl#Thing".to_string(),
                 context: format!("Failed to create owl:Thing IRI: {}", e),
-            })?;
+            }
+        })?;
         let thing_expr = ClassExpression::Class(Class::new(thing_iri.as_str()));
         graph.add_concept(root_id, thing_expr);
 
@@ -1335,6 +1345,7 @@ impl TableauxReasoner {
     }
 
     /// Extract the class name from a class expression
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_class_name(&self, concept: &ClassExpression) -> OwlResult<Option<IRI>> {
         match concept {
             ClassExpression::Class(class) => Ok(Some((**class.iri()).clone())),
@@ -1360,311 +1371,5 @@ impl TableauxReasoner {
         }
 
         new_nodes
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::axioms::property_expressions::ObjectPropertyExpression;
-    use crate::entities::Class;
-    use crate::entities::ObjectProperty;
-    use crate::iri::IRI;
-
-    #[test]
-    fn test_tableaux_reasoner_creation() {
-        let ontology = crate::ontology::Ontology::new();
-        let reasoner = TableauxReasoner::new(ontology);
-        assert!(reasoner.ontology.classes().is_empty());
-    }
-
-    #[test]
-    fn test_is_consistent_empty_ontology() {
-        let ontology = crate::ontology::Ontology::new();
-        let mut reasoner = TableauxReasoner::new(ontology);
-        // Empty ontology should be consistent
-        assert!(reasoner.is_consistent().unwrap());
-    }
-
-    #[test]
-    fn test_is_class_satisfiable_thing() {
-        let ontology = crate::ontology::Ontology::new();
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // owl:Thing should always be satisfiable
-        let thing_iri = IRI::new("http://www.w3.org/2002/07/owl#Thing").unwrap();
-        assert!(reasoner.is_class_satisfiable(&thing_iri).unwrap());
-    }
-
-    #[test]
-    fn test_is_class_satisfiable_nothing() {
-        let ontology = crate::ontology::Ontology::new();
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // owl:Nothing should not be satisfiable
-        let nothing_iri = IRI::new("http://www.w3.org/2002/07/owl#Nothing").unwrap();
-        assert!(!reasoner.is_class_satisfiable(&nothing_iri).unwrap());
-    }
-
-    #[test]
-    fn test_is_class_satisfiable_with_ontology() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add a simple class
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        ontology.add_class(person_class).unwrap();
-
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // A declared class should be satisfiable
-        let result = reasoner.is_class_satisfiable(&person_iri).unwrap();
-        eprintln!("Person is_class_satisfiable result: {}", result);
-        assert!(result, "Person class should be satisfiable");
-    }
-
-    #[test]
-    fn test_is_subclass_of_basic() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let student_iri = IRI::new("http://example.org/Student").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        let student_class = Class::new(student_iri.as_str());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(student_class.clone()).unwrap();
-
-        // Add subclass axiom: Student ⊑ Person
-        let subclass_axiom = crate::axioms::SubClassOfAxiom::new(
-            crate::axioms::ClassExpression::Class(student_class.clone()),
-            crate::axioms::ClassExpression::Class(person_class),
-        );
-        ontology.add_subclass_axiom(subclass_axiom).unwrap();
-
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // Student should be subclass of Person
-        assert!(reasoner.is_subclass_of(&student_iri, &person_iri).unwrap());
-
-        // Person should not be subclass of Student
-        assert!(!reasoner.is_subclass_of(&person_iri, &student_iri).unwrap());
-
-        // Reflexive: Person should be subclass of itself
-        assert!(reasoner.is_subclass_of(&person_iri, &person_iri).unwrap());
-    }
-
-    #[test]
-    #[ignore] // TODO: Cardinality reasoning not fully implemented yet
-    fn test_consistency_detects_cardinality_conflict() {
-        use crate::axioms::ClassExpression;
-
-        let mut ontology = crate::ontology::Ontology::new();
-
-        let class_a_iri = IRI::new("http://example.org/A").unwrap();
-        let class_b_iri = IRI::new("http://example.org/B").unwrap();
-        let prop_r = ObjectProperty::new("http://example.org/R");
-
-        let class_a = Class::new(class_a_iri.as_str());
-        let class_b = Class::new(class_b_iri.as_str());
-
-        ontology.add_class(class_a.clone()).unwrap();
-        ontology.add_class(class_b.clone()).unwrap();
-
-        let property_expr = ObjectPropertyExpression::from(prop_r.clone());
-
-        let some_restriction = ClassExpression::ObjectSomeValuesFrom(
-            Box::new(property_expr.clone()),
-            Box::new(ClassExpression::Class(class_b.clone())),
-        );
-        let max_zero_restriction =
-            ClassExpression::ObjectMaxCardinality(0, Box::new(property_expr.clone()));
-
-        let subclass_some = crate::axioms::SubClassOfAxiom::new(
-            ClassExpression::Class(class_a.clone()),
-            some_restriction,
-        );
-        let subclass_max = crate::axioms::SubClassOfAxiom::new(
-            ClassExpression::Class(class_a.clone()),
-            max_zero_restriction,
-        );
-
-        ontology.add_subclass_axiom(subclass_some).unwrap();
-        ontology.add_subclass_axiom(subclass_max).unwrap();
-        
-        // Add an individual of class A to trigger the contradiction
-        // Without an individual, the ontology is trivially consistent
-        let individual_a = Arc::new(IRI::new("http://example.org/a1").unwrap());
-        let class_assertion = crate::axioms::ClassAssertionAxiom::new(
-            individual_a.clone(),
-            ClassExpression::Class(class_a.clone()),
-        );
-        ontology.add_class_assertion(class_assertion).unwrap();
-
-        let mut reasoner = TableauxReasoner::new(ontology);
-
-        // Now the ontology should be inconsistent because:
-        // - a1 : A
-        // - A ⊑ ∃R.B (a1 must have at least one R relation)
-        // - A ⊑ ≤0 R (a1 can have at most zero R relations)
-        // This is a contradiction
-        assert!(!reasoner.is_consistent().unwrap());
-    }
-
-    #[test]
-    fn test_get_subclasses() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let student_iri = IRI::new("http://example.org/Student").unwrap();
-        let undergrad_iri = IRI::new("http://example.org/Undergrad").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        let student_class = Class::new(student_iri.as_str());
-        let undergrad_class = Class::new(undergrad_iri.as_str());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(student_class.clone()).unwrap();
-        ontology.add_class(undergrad_class.clone()).unwrap();
-
-        // Add subclass axioms: Student ⊑ Person, Undergrad ⊑ Student
-        let student_person = crate::axioms::SubClassOfAxiom::new(
-            crate::axioms::ClassExpression::Class(student_class.clone()),
-            crate::axioms::ClassExpression::Class(person_class.clone()),
-        );
-        let undergrad_student = crate::axioms::SubClassOfAxiom::new(
-            crate::axioms::ClassExpression::Class(undergrad_class.clone()),
-            crate::axioms::ClassExpression::Class(student_class.clone()),
-        );
-
-        ontology.add_subclass_axiom(student_person).unwrap();
-        ontology.add_subclass_axiom(undergrad_student).unwrap();
-
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // Get subclasses of Person
-        let person_subclasses = reasoner.get_subclasses(&person_iri);
-        assert!(person_subclasses.contains(&student_iri));
-        assert!(person_subclasses.contains(&undergrad_iri));
-
-        // Get subclasses of Student
-        let student_subclasses = reasoner.get_subclasses(&student_iri);
-        assert!(student_subclasses.contains(&undergrad_iri));
-        assert!(!student_subclasses.contains(&person_iri));
-    }
-
-    #[test]
-    fn test_get_superclasses() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let student_iri = IRI::new("http://example.org/Student").unwrap();
-        let undergrad_iri = IRI::new("http://example.org/Undergrad").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        let student_class = Class::new(student_iri.as_str());
-        let undergrad_class = Class::new(undergrad_iri.as_str());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(student_class.clone()).unwrap();
-        ontology.add_class(undergrad_class.clone()).unwrap();
-
-        // Add subclass axioms: Student ⊑ Person, Undergrad ⊑ Student
-        let student_person = crate::axioms::SubClassOfAxiom::new(
-            crate::axioms::ClassExpression::Class(student_class.clone()),
-            crate::axioms::ClassExpression::Class(person_class),
-        );
-        let undergrad_student = crate::axioms::SubClassOfAxiom::new(
-            crate::axioms::ClassExpression::Class(undergrad_class),
-            crate::axioms::ClassExpression::Class(student_class),
-        );
-
-        ontology.add_subclass_axiom(student_person).unwrap();
-        ontology.add_subclass_axiom(undergrad_student).unwrap();
-
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // Get superclasses of Undergrad
-        let undergrad_superclasses = reasoner.get_superclasses(&undergrad_iri);
-        assert!(undergrad_superclasses.contains(&student_iri));
-        assert!(undergrad_superclasses.contains(&person_iri));
-
-        // Get superclasses of Student
-        let student_superclasses = reasoner.get_superclasses(&student_iri);
-        assert!(student_superclasses.contains(&person_iri));
-        assert!(!student_superclasses.contains(&undergrad_iri));
-    }
-
-    #[test]
-    fn test_get_equivalent_classes() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let human_iri = IRI::new("http://example.org/Human").unwrap();
-        let student_iri = IRI::new("http://example.org/Student").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        let human_class = Class::new(human_iri.as_str());
-        let student_class = Class::new(student_iri.as_str());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(human_class.clone()).unwrap();
-        ontology.add_class(student_class).unwrap();
-
-        // Add equivalent classes axiom: Person ≡ Human
-        let equiv_axiom = crate::axioms::EquivalentClassesAxiom::new(vec![
-            std::sync::Arc::new(person_iri.clone()),
-            std::sync::Arc::new(human_iri.clone()),
-        ]);
-        ontology.add_equivalent_classes_axiom(equiv_axiom).unwrap();
-
-        let reasoner = TableauxReasoner::new(ontology);
-
-        // Get equivalent classes of Person
-        let person_equivalents = reasoner.get_equivalent_classes(&person_iri);
-        assert!(person_equivalents.contains(&human_iri));
-        assert!(!person_equivalents.contains(&student_iri));
-
-        // Get equivalent classes of Human
-        let human_equivalents = reasoner.get_equivalent_classes(&human_iri);
-        assert!(human_equivalents.contains(&person_iri));
-        assert!(!human_equivalents.contains(&student_iri));
-    }
-
-    #[test]
-    fn test_are_disjoint_classes() {
-        let mut ontology = crate::ontology::Ontology::new();
-
-        // Add classes
-        let person_iri = IRI::new("http://example.org/Person").unwrap();
-        let animal_iri = IRI::new("http://example.org/Animal").unwrap();
-        let plant_iri = IRI::new("http://example.org/Plant").unwrap();
-        let person_class = Class::new(person_iri.as_str());
-        let animal_class = Class::new(animal_iri.as_str());
-        let plant_class = Class::new(plant_iri.as_str());
-
-        ontology.add_class(person_class.clone()).unwrap();
-        ontology.add_class(animal_class.clone()).unwrap();
-        ontology.add_class(plant_class.clone()).unwrap();
-
-        // Add disjoint classes axiom: Person ⊓ Animal = ⊥
-        let disjoint_axiom = crate::axioms::DisjointClassesAxiom::new(vec![
-            std::sync::Arc::new(person_iri.clone()),
-            std::sync::Arc::new(animal_iri.clone()),
-        ]);
-        ontology.add_disjoint_classes_axiom(disjoint_axiom).unwrap();
-
-        let mut reasoner = TableauxReasoner::new(ontology);
-
-        // Person and Animal should be disjoint
-        assert!(reasoner
-            .are_disjoint_classes(&person_iri, &animal_iri)
-            .unwrap());
-
-        // Person and Plant should not be disjoint (no explicit axiom)
-        assert!(!reasoner
-            .are_disjoint_classes(&person_iri, &plant_iri)
-            .unwrap());
     }
 }

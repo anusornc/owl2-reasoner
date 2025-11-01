@@ -596,7 +596,9 @@ impl DependencyManager {
         self.choice_points.push(choice_point);
 
         // SAFETY: We just pushed a choice_point above, so last_mut() cannot be None
-        self.choice_points.last_mut().expect("Choice point must exist after push")
+        self.choice_points
+            .last_mut()
+            .expect("Choice point must exist after push")
     }
 
     pub fn get_dependencies(&self, node_id: NodeId) -> &[Dependency] {

@@ -347,7 +347,7 @@ impl Owl2ProfileValidator {
     }
 
     /// Core validation logic with caching
-    fn validate_profile(&mut self, profile: Owl2Profile) -> OwlResult<ProfileValidationResult> {
+    fn validate_profile_internal(&mut self, profile: Owl2Profile) -> OwlResult<ProfileValidationResult> {
         let start_time = Instant::now();
 
         // Check cache first
@@ -563,7 +563,7 @@ impl Owl2ProfileValidator {
 
 impl ProfileValidator for Owl2ProfileValidator {
     fn validate_profile(&mut self, profile: Owl2Profile) -> OwlResult<ProfileValidationResult> {
-        self.validate_profile(profile)
+        self.validate_profile_internal(profile)
     }
 
     fn is_el_profile(&self) -> bool {

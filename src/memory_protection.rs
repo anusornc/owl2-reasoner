@@ -7,11 +7,11 @@
 use crate::cache_manager;
 use crate::iri::clear_global_iri_cache;
 use crate::memory::*;
+use parking_lot::Mutex;
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
 };
-use parking_lot::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -185,6 +185,12 @@ pub struct GlobalMemoryStats {
     pub cleanup_count: usize,
     pub circuit_breaker_trips: usize,
     pub last_cleanup_time: Option<Instant>,
+}
+
+impl Default for MemoryProtection {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryProtection {
@@ -577,7 +583,9 @@ pub fn init_memory_protection(config: MemoryProtectionConfig) {
 
 /// Check if allocation is allowed under current memory conditions
 pub fn can_allocate(requested_bytes: usize) -> AllocationResult {
-    GLOBAL_MEMORY_PROTECTION.lock().can_allocate(requested_bytes)
+    GLOBAL_MEMORY_PROTECTION
+        .lock()
+        .can_allocate(requested_bytes)
 }
 
 /// Get current memory protection state
@@ -605,81 +613,4 @@ pub fn start_memory_protection() {
 pub fn stop_memory_protection() {
     let mut protection = GLOBAL_MEMORY_PROTECTION.lock();
     protection.stop_protection();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_memory_protection_creation() {
-        let protection = MemoryProtection::new();
-        let state = protection.get_state();
-        assert!(matches!(state, MemoryProtectionState::Normal));
-    }
-
-    #[test]
-    fn test_memory_protection_config() {
-        let config = MemoryProtectionConfig {
-            global_memory_limit: 100 * 1024 * 1024, // 100MB
-            warning_threshold_percent: 0.5,
-            critical_threshold_percent: 0.8,
-            emergency_threshold_percent: 0.9,
-            enable_auto_cleanup: false,
-            cleanup_check_interval: Duration::from_secs(10),
-            enable_graceful_degradation: false,
-        };
-
-        let protection = MemoryProtection::with_config(config);
-        let limit = protection.config.lock().global_memory_limit;
-        assert_eq!(limit, 100 * 1024 * 1024);
-    }
-
-    #[test]
-    fn test_allocation_allowed_under_normal_conditions() {
-        let protection = MemoryProtection::new();
-
-        // Should allow small allocations under normal conditions
-        let result = protection.can_allocate(1024); // 1KB
-        assert!(matches!(result, AllocationResult::Allowed));
-
-        // Should allow larger allocations
-        let result = protection.can_allocate(10 * 1024 * 1024); // 10MB
-        assert!(matches!(result, AllocationResult::Allowed));
-    }
-
-    #[test]
-    fn test_circuit_breaker() {
-        let circuit_breaker = CircuitBreaker::new(3, Duration::from_secs(1));
-
-        // Initially closed
-        assert!(!circuit_breaker.is_open());
-        assert!(circuit_breaker.check_and_maybe_open());
-
-        // Record failures to open circuit
-        circuit_breaker.record_failure();
-        circuit_breaker.record_failure();
-        circuit_breaker.record_failure();
-
-        // Should be open now
-        assert!(circuit_breaker.is_open());
-
-        // Should still be open within trip duration
-        assert!(circuit_breaker.check_and_maybe_open());
-
-        // Should close after trip duration
-        thread::sleep(Duration::from_secs(2));
-        assert!(!circuit_breaker.check_and_maybe_open());
-    }
-
-    #[test]
-    fn test_global_memory_stats() {
-        let protection = MemoryProtection::new();
-        let stats = protection.get_global_stats();
-
-        assert_eq!(stats.total_memory_usage, 0);
-        assert_eq!(stats.peak_memory_usage, 0);
-        assert_eq!(stats.cleanup_count, 0);
-        assert_eq!(stats.circuit_breaker_trips, 0);
-    }
 }

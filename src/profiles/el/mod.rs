@@ -4,8 +4,8 @@
 //! and optimization for OWL2 ontologies.
 
 pub mod validator;
-// pub mod optimization; // TODO: Fix optimization module
+pub mod optimization; // TODO: Fix optimization module
 
 // Re-export EL profile types and functions
 pub use validator::*;
-// pub use optimization::*;
+pub use optimization::*;

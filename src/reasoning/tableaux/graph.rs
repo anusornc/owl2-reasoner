@@ -68,7 +68,7 @@ pub enum GraphChange {
     },
     AddConcept {
         node_id: NodeId,
-        concept: ClassExpression,
+        concept: Box<ClassExpression>,
     },
     AddEdge {
         from: NodeId,
@@ -345,7 +345,10 @@ impl TableauxGraph {
                 return false;
             }
             node.add_concept(concept.clone());
-            log.record(GraphChange::AddConcept { node_id, concept });
+            log.record(GraphChange::AddConcept {
+                node_id,
+                concept: Box::new(concept),
+            });
             return true;
         }
         false

@@ -352,16 +352,20 @@ impl RdfXmlLegacyParser {
         // Handle generic RDF descriptions
         if let Some(about) = element.attributes.get(RDF_ABOUT) {
             let iri = IRI::new(about)?;
-            
+
             // Check if this is a class axiom by examining child elements
             let has_class_axioms = element.children.iter().any(|child| {
-                matches!(child.name.as_str(),
-                    "disjointWith" | "owl:disjointWith" |
-                    "equivalentClass" | "owl:equivalentClass" |
-                    "subClassOf" | "rdfs:subClassOf"
+                matches!(
+                    child.name.as_str(),
+                    "disjointWith"
+                        | "owl:disjointWith"
+                        | "equivalentClass"
+                        | "owl:equivalentClass"
+                        | "subClassOf"
+                        | "rdfs:subClassOf"
                 )
             });
-            
+
             if has_class_axioms {
                 // This is a class description, not an individual
                 // Process class axioms
@@ -377,7 +381,7 @@ impl RdfXmlLegacyParser {
                             ontology.add_disjoint_classes_axiom(axiom)?;
                         }
                     }
-                    
+
                     // Process equivalent classes
                     if child.name == "equivalentClass" || child.name == "owl:equivalentClass" {
                         if let Some(resource) = child.attributes.get(RDF_RESOURCE) {
@@ -389,7 +393,7 @@ impl RdfXmlLegacyParser {
                             ontology.add_equivalent_classes_axiom(axiom)?;
                         }
                     }
-                    
+
                     // Process subclass relationships
                     if child.name == "subClassOf" || child.name == "rdfs:subClassOf" {
                         if let Some(resource) = child.attributes.get(RDF_RESOURCE) {

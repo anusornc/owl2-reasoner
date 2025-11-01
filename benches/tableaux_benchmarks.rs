@@ -12,9 +12,9 @@ use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::tableaux::dependency::{
     ChoiceType, DependencySource, DependencyType,
 };
-use owl2_reasoner::reasoning::tableaux::*;
 use owl2_reasoner::reasoning::tableaux::graph::GraphChangeLog;
 use owl2_reasoner::reasoning::tableaux::memory::MemoryChangeLog;
+use owl2_reasoner::reasoning::tableaux::*;
 use std::sync::Arc;
 
 /// Benchmark core tableaux reasoner performance
@@ -284,7 +284,13 @@ pub fn bench_tableaux_expansion(c: &mut Criterion) {
                     let max_depth = 50;
                     let mut graph_change_log = GraphChangeLog::new();
                     let mut memory_change_log = MemoryChangeLog::new();
-                    let result = test_engine.expand(&mut graph, &mut memory_manager, max_depth, &mut graph_change_log, &mut memory_change_log);
+                    let result = test_engine.expand(
+                        &mut graph,
+                        &mut memory_manager,
+                        max_depth,
+                        &mut graph_change_log,
+                        &mut memory_change_log,
+                    );
                     let _ = black_box(result);
                 })
             },

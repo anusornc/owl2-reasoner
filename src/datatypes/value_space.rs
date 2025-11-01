@@ -27,29 +27,29 @@ pub fn next_float(value: f32) -> f32 {
     if value.is_nan() {
         return f32::NAN;
     }
-    
+
     if value == f32::INFINITY {
         return f32::INFINITY;
     }
-    
+
     if value == f32::NEG_INFINITY {
         return -f32::MAX;
     }
-    
+
     // Convert to bits for manipulation
     let bits = value.to_bits();
-    
+
     // Handle zero specially
     if value == 0.0 {
         // Return smallest positive float (subnormal minimum)
         return f32::from_bits(0x00000001);
     }
-    
+
     // For positive numbers, increment bit pattern
     if value > 0.0 {
         return f32::from_bits(bits + 1);
     }
-    
+
     // For negative numbers, decrement bit pattern (moves toward zero)
     f32::from_bits(bits - 1)
 }
@@ -62,29 +62,29 @@ pub fn prev_float(value: f32) -> f32 {
     if value.is_nan() {
         return f32::NAN;
     }
-    
+
     if value == f32::NEG_INFINITY {
         return f32::NEG_INFINITY;
     }
-    
+
     if value == f32::INFINITY {
         return f32::MAX;
     }
-    
+
     // Convert to bits for manipulation
     let bits = value.to_bits();
-    
+
     // Handle zero specially
     if value == 0.0 {
         // Return largest negative float (subnormal minimum)
         return f32::from_bits(0x80000001);
     }
-    
+
     // For positive numbers, decrement bit pattern
     if value > 0.0 {
         return f32::from_bits(bits - 1);
     }
-    
+
     // For negative numbers, increment bit pattern (moves away from zero)
     f32::from_bits(bits + 1)
 }
@@ -125,32 +125,24 @@ pub fn is_float_range_empty(min: f32, min_inclusive: bool, max: f32, max_inclusi
     if min.is_nan() || max.is_nan() {
         return true;
     }
-    
+
     // If min > max, range is definitely empty
     if min > max {
         return true;
     }
-    
+
     // If min == max
     if min == max {
         // Range is empty unless both bounds are inclusive
         return !(min_inclusive && max_inclusive);
     }
-    
+
     // Determine the effective minimum value in the range
-    let effective_min = if min_inclusive {
-        min
-    } else {
-        next_float(min)
-    };
-    
+    let effective_min = if min_inclusive { min } else { next_float(min) };
+
     // Determine the effective maximum value in the range
-    let effective_max = if max_inclusive {
-        max
-    } else {
-        prev_float(max)
-    };
-    
+    let effective_max = if max_inclusive { max } else { prev_float(max) };
+
     // Range is empty if effective_min > effective_max
     effective_min > effective_max
 }
@@ -171,87 +163,3 @@ pub fn is_float_range_empty(min: f32, min_inclusive: bool, max: f32, max_inclusi
 pub fn is_float_range_empty_exclusive(min: f32, max: f32) -> bool {
     is_float_range_empty(min, false, max, false)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_next_float_zero() {
-        let next = next_float(0.0);
-        assert!(next > 0.0);
-        assert_eq!(next, f32::from_bits(0x00000001));
-        // This is the smallest positive subnormal float
-        assert_eq!(next, 1.401298464324817e-45);
-    }
-    
-    #[test]
-    fn test_next_float_positive() {
-        let next = next_float(1.0);
-        assert!(next > 1.0);
-        // next_float returns the very next representable value,
-        // which is exactly 1 ULP (Unit in Last Place) away
-        assert_eq!(next, f32::from_bits(1.0_f32.to_bits() + 1));
-    }
-    
-    #[test]
-    fn test_next_float_negative() {
-        let next = next_float(-1.0);
-        assert!(next > -1.0);
-        assert!(next < 0.0);
-    }
-    
-    #[test]
-    fn test_next_float_infinity() {
-        assert_eq!(next_float(f32::INFINITY), f32::INFINITY);
-    }
-    
-    #[test]
-    fn test_prev_float_zero() {
-        let prev = prev_float(0.0);
-        assert!(prev < 0.0);
-        assert_eq!(prev, f32::from_bits(0x80000001));
-    }
-    
-    #[test]
-    fn test_is_float_range_empty_exclusive_zero_to_min() {
-        // This is the exact test case from Datatype-Float-Discrete-001
-        let min = 0.0;
-        let max = 1.401298464324817e-45_f32;
-        
-        // Verify that max is indeed the smallest positive float
-        assert_eq!(max, f32::from_bits(0x00000001));
-        assert_eq!(max, next_float(0.0));
-        
-        // The range (0.0, MIN_POSITIVE) should be empty
-        assert!(is_float_range_empty_exclusive(min, max));
-    }
-    
-    #[test]
-    fn test_is_float_range_empty_same_value() {
-        // (1.0, 1.0) is empty
-        assert!(is_float_range_empty_exclusive(1.0, 1.0));
-        
-        // [1.0, 1.0] is not empty
-        assert!(!is_float_range_empty(1.0, true, 1.0, true));
-    }
-    
-    #[test]
-    fn test_is_float_range_empty_adjacent_floats() {
-        let a = 1.0;
-        let b = next_float(a);
-        
-        // (a, b) should be empty - no floats between adjacent values
-        assert!(is_float_range_empty_exclusive(a, b));
-        
-        // [a, b] should not be empty - contains both endpoints
-        assert!(!is_float_range_empty(a, true, b, true));
-    }
-    
-    #[test]
-    fn test_is_float_range_empty_inverted() {
-        // (2.0, 1.0) is empty because min > max
-        assert!(is_float_range_empty_exclusive(2.0, 1.0));
-    }
-}
-

@@ -165,24 +165,6 @@ impl RlOptimizer {
         let mut violations = Vec::new();
 
         match expr {
-            // Data range violations
-            ClassExpression::DataComplementOf(_) => {
-                violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::DataComplementOf,
-                    message: "Data complement of is not allowed in RL profile".to_string(),
-                    affected_entities: self.extract_entities_from_expression(expr)?,
-                    severity: crate::profiles::common::ViolationSeverity::Error,
-                });
-            }
-            ClassExpression::DataOneOf(_) => {
-                violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::DataOneOf,
-                    message: "Data one of is restricted in RL profile".to_string(),
-                    affected_entities: self.extract_entities_from_expression(expr)?,
-                    severity: crate::profiles::common::ViolationSeverity::Warning,
-                });
-            }
-
             // Object expression violations
             ClassExpression::ObjectComplementOf(_) => {
                 violations.push(ProfileViolation {
@@ -214,6 +196,14 @@ impl RlOptimizer {
                 }
             }
 
+            // Check data range violations in data property restrictions
+            ClassExpression::DataSomeValuesFrom(_, data_range) => {
+                violations.extend(self.check_data_range_for_rl(data_range)?);
+            }
+            ClassExpression::DataAllValuesFrom(_, data_range) => {
+                violations.extend(self.check_data_range_for_rl(data_range)?);
+            }
+
             // Recursively check nested expressions
             ClassExpression::ObjectSomeValuesFrom(_, class_expr) => {
                 violations.extend(self.check_class_expression_for_rl(class_expr)?);
@@ -237,26 +227,47 @@ impl RlOptimizer {
         Ok(violations)
     }
 
+    /// Check data range for RL compliance
+    fn check_data_range_for_rl(&self, data_range: &DataRange) -> OwlResult<Vec<ProfileViolation>> {
+        let mut violations = Vec::new();
+
+        match data_range {
+            DataRange::DataComplementOf(_) => {
+                violations.push(ProfileViolation {
+                    violation_type: crate::profiles::common::ProfileViolationType::DataComplementOf,
+                    message: "Data complement of is not allowed in RL profile".to_string(),
+                    affected_entities: vec![], // Simplified - would need data range entity extraction
+                    severity: crate::profiles::common::ViolationSeverity::Error,
+                });
+            }
+            DataRange::DataOneOf(_) => {
+                violations.push(ProfileViolation {
+                    violation_type: crate::profiles::common::ProfileViolationType::DataOneOf,
+                    message: "Data one of is restricted in RL profile".to_string(),
+                    affected_entities: vec![], // Simplified - would need data range entity extraction
+                    severity: crate::profiles::common::ViolationSeverity::Warning,
+                });
+            }
+            _ => {}
+        }
+
+        Ok(violations)
+    }
+
     /// Extract entities from class expression
-    fn extract_entities_from_expression(&self, expr: &ClassExpression) -> OwlResult<Vec<Arc<IRI>>> {
+    fn extract_entities_from_expression(&self, expr: &ClassExpression) -> OwlResult<Vec<IRI>> {
         let mut entities = Vec::new();
 
         match expr {
             ClassExpression::Class(class) => {
-                entities.push(class.iri().clone());
+                entities.push((*class.iri()).clone().into());
             }
             ClassExpression::ObjectSomeValuesFrom(prop, class_expr) => {
-                // Handle ObjectPropertyExpression - need to check if it has iri method
-                if let Some(iri) = self.extract_iri_from_property_expression(prop) {
-                    entities.push(iri);
-                }
+                entities.extend(self.extract_iri_from_property_expression(prop)?);
                 entities.extend(self.extract_entities_from_expression(class_expr)?);
             }
             ClassExpression::ObjectAllValuesFrom(prop, class_expr) => {
-                // Handle ObjectPropertyExpression - need to check if it has iri method
-                if let Some(iri) = self.extract_iri_from_property_expression(prop) {
-                    entities.push(iri);
-                }
+                entities.extend(self.extract_iri_from_property_expression(prop)?);
                 entities.extend(self.extract_entities_from_expression(class_expr)?);
             }
             ClassExpression::ObjectIntersectionOf(classes) => {
@@ -276,10 +287,14 @@ impl RlOptimizer {
     }
 
     /// Extract IRI from ObjectPropertyExpression
-    fn extract_iri_from_property_expression(&self, prop: &ObjectPropertyExpression) -> Option<Arc<IRI>> {
+    fn extract_iri_from_property_expression(&self, prop: &ObjectPropertyExpression) -> OwlResult<Vec<IRI>> {
+        use crate::axioms::property_expressions::ObjectPropertyExpression;
+
         match prop {
-            ObjectPropertyExpression::ObjectProperty(prop) => Some(prop.iri().clone()),
-            ObjectPropertyExpression::ObjectInverseOf(prop) => self.extract_iri_from_property_expression(prop),
+            ObjectPropertyExpression::ObjectProperty(obj_prop) => Ok(vec![(*obj_prop.iri()).clone().into()]),
+            ObjectPropertyExpression::ObjectInverseOf(obj_prop) => {
+                self.extract_iri_from_property_expression(obj_prop)
+            }
         }
     }
 
