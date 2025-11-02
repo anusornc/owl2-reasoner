@@ -3,14 +3,14 @@
 //! This module provides comprehensive benchmarks to measure the overhead
 //! of memory tracking in the OWL2 tableaux reasoning system.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use owl2_reasoner::reasoning::tableaux::memory::{
-    MemoryManager, MemoryChangeLog, ArenaType, MemoryChange, MemorySnapshot
-};
-use owl2_reasoner::reasoning::core::TableauxNode;
-use owl2_reasoner::reasoning::tableaux::core::NodeId;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use owl2_reasoner::axioms::class_expressions::ClassExpression;
 use owl2_reasoner::entities::Class;
+use owl2_reasoner::reasoning::core::TableauxNode;
+use owl2_reasoner::reasoning::tableaux::core::NodeId;
+use owl2_reasoner::reasoning::tableaux::memory::{
+    ArenaType, MemoryChange, MemoryChangeLog, MemoryManager, MemorySnapshot,
+};
 
 /// Benchmark memory allocation without tracking
 fn bench_allocation_without_tracking(c: &mut Criterion) {
@@ -170,11 +170,14 @@ fn bench_rollback_performance(c: &mut Criterion) {
                         let _allocated = memory_manager.allocate_node(node).unwrap();
 
                         // Add some string interning instead of complex expressions
-                        let _interned = memory_manager.intern_string(&format!("string_{}", i)).unwrap();
+                        let _interned = memory_manager
+                            .intern_string(&format!("string_{}", i))
+                            .unwrap();
                     }
 
                     // Rollback
-                    let _rollback_result = memory_manager.rollback_to_checkpoint(black_box(checkpoint_id));
+                    let _rollback_result =
+                        memory_manager.rollback_to_checkpoint(black_box(checkpoint_id));
                 });
             },
         );
@@ -313,7 +316,9 @@ fn bench_reasoning_workload(c: &mut Criterion) {
                 let _allocated_node = memory_manager.allocate_node(node).unwrap();
 
                 // Intern strings
-                let _interned = memory_manager.intern_string(&format!("label_{}", i)).unwrap();
+                let _interned = memory_manager
+                    .intern_string(&format!("label_{}", i))
+                    .unwrap();
             }
         });
     });
@@ -330,7 +335,9 @@ fn bench_reasoning_workload(c: &mut Criterion) {
                 let _allocated_node = memory_manager.allocate_node(node).unwrap();
 
                 // Intern strings
-                let _interned = memory_manager.intern_string(&format!("label_{}", i)).unwrap();
+                let _interned = memory_manager
+                    .intern_string(&format!("label_{}", i))
+                    .unwrap();
             }
 
             // Get statistics

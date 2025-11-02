@@ -1,4 +1,5 @@
 //! OWL2 EL Profile Optimizer
+#![allow(clippy::only_used_in_recursion)]
 //!
 //! This module implements optimizations for ontologies to make them compliant
 //! with the OWL2 EL profile. It provides suggestions and transformations for:
@@ -114,8 +115,10 @@ impl ElOptimizer {
         for axiom in self.ontology.equivalent_classes_axioms() {
             if axiom.classes().len() > 2 {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::EquivalentClassesAxiom,
-                    message: "Complex equivalent classes axioms are not allowed in EL profile".to_string(),
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::EquivalentClassesAxiom,
+                    message: "Complex equivalent classes axioms are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: axiom.classes().iter().map(|iri| (**iri).clone()).collect(),
                     severity: crate::profiles::common::ViolationSeverity::Error,
                 });
@@ -166,7 +169,8 @@ impl ElOptimizer {
             // Not allowed in EL
             ClassExpression::ObjectAllValuesFrom(_, _) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
                     message: "Universal restrictions are not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -174,7 +178,8 @@ impl ElOptimizer {
             }
             ClassExpression::ObjectHasValue(_, _) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
                     message: "Has-value restrictions are not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -192,7 +197,8 @@ impl ElOptimizer {
             }
             ClassExpression::ObjectUnionOf(_) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
                     message: "Union of classes is not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -200,7 +206,8 @@ impl ElOptimizer {
             }
             ClassExpression::ObjectComplementOf(_) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
                     message: "Object complement is not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -208,7 +215,8 @@ impl ElOptimizer {
             }
             ClassExpression::ObjectOneOf(_) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexClassExpressions,
                     message: "Enumeration of individuals is not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -216,7 +224,8 @@ impl ElOptimizer {
             }
             ClassExpression::ObjectHasSelf(_) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
                     message: "Has-self restrictions are not allowed in EL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -227,16 +236,20 @@ impl ElOptimizer {
             ClassExpression::DataSomeValuesFrom(_, _) => {} // Allowed
             ClassExpression::DataAllValuesFrom(_, _) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
-                    message: "Universal data restrictions are not allowed in EL profile".to_string(),
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
+                    message: "Universal data restrictions are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
                 });
             }
             ClassExpression::DataHasValue(_, _) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
-                    message: "Has-value data restrictions are not allowed in EL profile".to_string(),
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions,
+                    message: "Has-value data restrictions are not allowed in EL profile"
+                        .to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
                 });
@@ -281,11 +294,17 @@ impl ElOptimizer {
     }
 
     /// Extract IRI from ObjectPropertyExpression
-    fn extract_iri_from_property_expression(&self, prop: &crate::axioms::property_expressions::ObjectPropertyExpression) -> OwlResult<Vec<IRI>> {
+    #[allow(clippy::only_used_in_recursion)]
+    fn extract_iri_from_property_expression(
+        &self,
+        prop: &crate::axioms::property_expressions::ObjectPropertyExpression,
+    ) -> OwlResult<Vec<IRI>> {
         use crate::axioms::property_expressions::ObjectPropertyExpression;
 
         match prop {
-            ObjectPropertyExpression::ObjectProperty(obj_prop) => Ok(vec![(*obj_prop.iri()).clone().into()]),
+            ObjectPropertyExpression::ObjectProperty(obj_prop) => {
+                Ok(vec![(*obj_prop.iri()).clone().into()])
+            }
             ObjectPropertyExpression::ObjectInverseOf(obj_prop) => {
                 self.extract_iri_from_property_expression(obj_prop)
             }
@@ -317,6 +336,7 @@ impl ElOptimizer {
     }
 
     /// Check if class expression has complex restrictions not allowed in EL
+    #[allow(clippy::only_used_in_recursion)]
     fn has_complex_restrictions(&self, expr: &ClassExpression) -> OwlResult<bool> {
         match expr {
             ClassExpression::Class(_) => Ok(false),
@@ -356,7 +376,10 @@ impl ElOptimizer {
     }
 
     /// Categorize violations by type
-    fn categorize_violations(&self, violations: &[ProfileViolation]) -> std::collections::HashMap<String, usize> {
+    fn categorize_violations(
+        &self,
+        violations: &[ProfileViolation],
+    ) -> std::collections::HashMap<String, usize> {
         let mut categories = std::collections::HashMap::new();
 
         for violation in violations {
@@ -369,13 +392,16 @@ impl ElOptimizer {
 
     /// Estimate optimization effort
     fn estimate_optimization_effort(&self, violations: &[ProfileViolation]) -> OptimizationEffort {
-        let high_effort_violations = violations.iter().filter(|v| {
-            matches!(
-                v.violation_type,
-                crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions
-                    | crate::profiles::common::ProfileViolationType::ComplexClassExpressions
-            )
-        }).count();
+        let high_effort_violations = violations
+            .iter()
+            .filter(|v| {
+                matches!(
+                    v.violation_type,
+                    crate::profiles::common::ProfileViolationType::ComplexPropertyRestrictions
+                        | crate::profiles::common::ProfileViolationType::ComplexClassExpressions
+                )
+            })
+            .count();
 
         if high_effort_violations > 10 {
             OptimizationEffort::High
@@ -397,9 +423,9 @@ impl ElOptimizer {
 /// Optimization effort levels
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OptimizationEffort {
-    Low,   // Simple changes, minor restructuring
+    Low,    // Simple changes, minor restructuring
     Medium, // Moderate restructuring required
-    High,  // Major restructuring, semantic changes needed
+    High,   // Major restructuring, semantic changes needed
 }
 
 /// EL Optimization Report

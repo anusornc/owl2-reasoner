@@ -16,9 +16,7 @@ pub struct PerformanceProfiler {
 impl PerformanceProfiler {
     /// Create a new performance profiler
     pub fn new() -> OwlResult<Self> {
-        Ok(Self {
-            profile_count: 10,
-        })
+        Ok(Self { profile_count: 10 })
     }
 
     /// Profile performance
@@ -39,5 +37,7 @@ pub struct PerformanceProfile {
 pub struct ProfilingSession;
 pub struct ProfilerConfiguration;
 impl Default for ProfilerConfiguration {
-    fn default() -> Self { Self }
+    fn default() -> Self {
+        Self
+    }
 }

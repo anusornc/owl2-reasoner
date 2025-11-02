@@ -47,25 +47,32 @@ pub struct CompetitionResults {
 
 /// Compliance level
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ComplianceLevel {
+    #[default]
     FullyCompliant,
     PartiallyCompliant,
     NeedsWork,
 }
 
-impl Default for ComplianceLevel {
-    fn default() -> Self {
-        ComplianceLevel::FullyCompliant
-    }
-}
 
 // Supporting placeholder types
 pub struct BenchmarkOntology;
 pub struct OREEvaluationMetrics;
 impl Default for OREEvaluationMetrics {
-    fn default() -> Self { Self }
+    fn default() -> Self {
+        Self
+    }
 }
 pub struct ResultCollector;
+impl Default for ResultCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResultCollector {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }

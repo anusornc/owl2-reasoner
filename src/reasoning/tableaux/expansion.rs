@@ -191,16 +191,51 @@ impl ExpansionRules {
             ExpansionRule::Nominal,
             ExpansionRule::DataRange,
             ExpansionRule::SubclassAxiom,
+            // Property characteristic rules
+            ExpansionRule::TransitiveProperty,
+            ExpansionRule::SymmetricProperty,
+            ExpansionRule::ReflexiveProperty,
+            ExpansionRule::FunctionalProperty,
+            ExpansionRule::InverseFunctionalProperty,
+            ExpansionRule::IrreflexiveProperty,
+            ExpansionRule::AsymmetricProperty,
+            // Property hierarchy and domain/range rules
+            ExpansionRule::PropertyHierarchy,
+            ExpansionRule::PropertyDomain,
+            ExpansionRule::PropertyRange,
+            ExpansionRule::InverseProperty,
+            // ABox reasoning rules
+            ExpansionRule::PropertyAssertion,
+            ExpansionRule::NegativePropertyAssertion,
+            ExpansionRule::SameIndividual,
+            ExpansionRule::DifferentIndividuals,
         ];
 
         let rule_order = vec![
-            ExpansionRule::SubclassAxiom, // Apply subclass axioms first
+            ExpansionRule::SubclassAxiom,     // Apply subclass axioms first
+            ExpansionRule::PropertyHierarchy, // Property hierarchies early
             ExpansionRule::Conjunction,
             ExpansionRule::ExistentialRestriction,
+            // Property characteristics after basic expansion but before disjunction
+            ExpansionRule::TransitiveProperty,
+            ExpansionRule::SymmetricProperty,
+            ExpansionRule::ReflexiveProperty,
+            ExpansionRule::FunctionalProperty,
+            ExpansionRule::InverseFunctionalProperty,
+            ExpansionRule::IrreflexiveProperty,
+            ExpansionRule::AsymmetricProperty,
+            ExpansionRule::PropertyDomain,
+            ExpansionRule::PropertyRange,
+            ExpansionRule::InverseProperty,
             ExpansionRule::UniversalRestriction,
             ExpansionRule::Disjunction,
             ExpansionRule::Nominal,
             ExpansionRule::DataRange,
+            // ABox reasoning last
+            ExpansionRule::PropertyAssertion,
+            ExpansionRule::NegativePropertyAssertion,
+            ExpansionRule::SameIndividual,
+            ExpansionRule::DifferentIndividuals,
         ];
 
         let max_applications: HashMap<_, _> = rules.iter().map(|rule| (*rule, 1000)).collect();
@@ -278,9 +313,7 @@ impl ExpansionRules {
             ExpansionRule::PropertyDomain => {
                 self.apply_property_domain_rule(graph, memory, context)
             }
-            ExpansionRule::PropertyRange => {
-                self.apply_property_range_rule(graph, memory, context)
-            }
+            ExpansionRule::PropertyRange => self.apply_property_range_rule(graph, memory, context),
             ExpansionRule::InverseProperty => {
                 self.apply_inverse_property_rule(graph, memory, context)
             }
@@ -613,15 +646,20 @@ impl ExpansionRules {
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
         let mut change_log = GraphChangeLog::new();
-        
+
         // Handle two types of nominals:
         // 1. ObjectOneOf: {a, b, c} → enumerated individuals
         // 2. ObjectHasValue: ∃R.{a} → property with specific individual value
-        
+
         // First, collect the nominals without holding a mutable borrow
         let nominals: Vec<_> = if let Some(node) = graph.get_node(context.current_node) {
             node.concepts_iter()
-                .filter(|c| matches!(c, ClassExpression::ObjectOneOf(_) | ClassExpression::ObjectHasValue(_, _)))
+                .filter(|c| {
+                    matches!(
+                        c,
+                        ClassExpression::ObjectOneOf(_) | ClassExpression::ObjectHasValue(_, _)
+                    )
+                })
                 .cloned()
                 .collect()
         } else {
@@ -632,7 +670,7 @@ impl ExpansionRules {
             match nominal {
                 ClassExpression::ObjectOneOf(individuals) => {
                     // For each individual in the nominal, ensure they have corresponding nodes
-                    for individual in individuals.iter() {
+                    if let Some(individual) = individuals.iter().next() {
                         // Check if we already have a node for this individual
                         let individual_node =
                             self.find_or_create_individual_node(graph, individual, &mut change_log);
@@ -653,10 +691,10 @@ impl ExpansionRules {
                 ClassExpression::ObjectHasValue(property, individual) => {
                     // ObjectHasValue(R, a) is equivalent to ∃R.{a}
                     // Create a node for the individual and connect it with property R
-                    
+
                     let individual_node =
                         self.find_or_create_individual_node(graph, &individual, &mut change_log);
-                    
+
                     // Get property IRI
                     let property_iri = match property.as_ref() {
                         ObjectPropertyExpression::ObjectProperty(prop) => prop.iri(),
@@ -664,7 +702,9 @@ impl ExpansionRules {
                             // For inverse properties, we reverse the edge direction
                             // ∃R⁻.{a} means: a R current_node
                             // Extract the base property from the inverse
-                            if let ObjectPropertyExpression::ObjectProperty(prop) = inner_prop.as_ref() {
+                            if let ObjectPropertyExpression::ObjectProperty(prop) =
+                                inner_prop.as_ref()
+                            {
                                 graph.add_edge_logged(
                                     individual_node,
                                     prop.iri(),
@@ -675,7 +715,7 @@ impl ExpansionRules {
                             return Ok((vec![], change_log));
                         }
                     };
-                    
+
                     // Add edge: current_node --R--> individual_node
                     graph.add_edge_logged(
                         context.current_node,
@@ -683,7 +723,7 @@ impl ExpansionRules {
                         individual_node,
                         &mut change_log,
                     );
-                    
+
                     return Ok((vec![], change_log));
                 }
                 _ => {}
@@ -749,7 +789,9 @@ impl ExpansionRules {
                         if Self::is_empty_data_range(data_range) {
                             // Empty data range → clash!
                             // Cannot satisfy ∃D.R when R is empty
-                            return Err("Clash: DataSomeValuesFrom with empty data range".to_string());
+                            return Err(
+                                "Clash: DataSomeValuesFrom with empty data range".to_string()
+                            );
                         }
                         // For non-empty ranges, create a placeholder data value
                         // In a full implementation, this would involve data range reasoning
@@ -787,7 +829,7 @@ impl ExpansionRules {
                         // ≥n D → at least n distinct data values
                         if *cardinality > 0 {
                             // Create additional data values to satisfy minimum cardinality
-                            for _ in 0..*cardinality {
+                            if (0..*cardinality).next().is_some() {
                                 let task = ExpansionTask {
                                     node_id: context.current_node,
                                     concept: restriction.clone(),
@@ -813,7 +855,7 @@ impl ExpansionRules {
                         // =n D → exactly n distinct data values
                         if *cardinality > 0 {
                             // Create exactly n data values
-                            for _ in 0..*cardinality {
+                            if (0..*cardinality).next().is_some() {
                                 let task = ExpansionTask {
                                     node_id: context.current_node,
                                     concept: restriction.clone(),
@@ -1035,7 +1077,7 @@ impl ExpansionRules {
             // For each node in the graph, ensure it has a reflexive edge
             for node_id in 0..graph.nodes.len() {
                 let node_id = NodeId::new(node_id);
-                
+
                 // Check if (node,node) already exists
                 let already_exists = graph
                     .get_targets(node_id, property)
@@ -1073,14 +1115,17 @@ impl ExpansionRules {
         for property in functional_properties {
             // Get all edges with this property
             let all_edges = graph.edges.get_all_edges();
-            
+
             // Group edges by source node
-            let mut edges_by_source: std::collections::HashMap<NodeId, Vec<NodeId>> = 
+            let mut edges_by_source: std::collections::HashMap<NodeId, Vec<NodeId>> =
                 std::collections::HashMap::new();
-            
+
             for (from, p, to) in all_edges {
                 if p == property.as_ref() {
-                    edges_by_source.entry(*from).or_insert_with(Vec::new).push(*to);
+                    edges_by_source
+                        .entry(*from)
+                        .or_default()
+                        .push(*to);
                 }
             }
 
@@ -1091,7 +1136,7 @@ impl ExpansionRules {
                     // In a complete implementation, we should check if targets are known to be different
                     // For now, we assume different NodeIds might be the same individual (via equality)
                     // So we don't immediately clash, but this is a simplification
-                    
+
                     // TODO: Implement proper equality reasoning to detect actual clashes
                     // For now, we just detect the potential violation but don't crash
                     eprintln!(
@@ -1126,14 +1171,17 @@ impl ExpansionRules {
         for property in inverse_functional_properties {
             // Get all edges with this property
             let all_edges = graph.edges.get_all_edges();
-            
+
             // Group edges by target node
-            let mut edges_by_target: std::collections::HashMap<NodeId, Vec<NodeId>> = 
+            let mut edges_by_target: std::collections::HashMap<NodeId, Vec<NodeId>> =
                 std::collections::HashMap::new();
-            
+
             for (from, p, to) in all_edges {
                 if p == property.as_ref() {
-                    edges_by_target.entry(*to).or_insert_with(Vec::new).push(*from);
+                    edges_by_target
+                        .entry(*to)
+                        .or_default()
+                        .push(*from);
                 }
             }
 
@@ -1142,7 +1190,7 @@ impl ExpansionRules {
                 if sources.len() > 1 {
                     // Inverse functional property violation: same target has multiple different sources
                     // Similar to functional property, we need equality reasoning for proper clash detection
-                    
+
                     // TODO: Implement proper equality reasoning to detect actual clashes
                     eprintln!(
                         "Warning: Inverse functional property {:?} has multiple sources to node {:?}: {:?}",
@@ -1176,7 +1224,7 @@ impl ExpansionRules {
         for property in irreflexive_properties {
             // Get all edges with this property
             let all_edges = graph.edges.get_all_edges();
-            
+
             // Check for reflexive edges (x,x)
             for (from, p, to) in all_edges {
                 if p == property.as_ref() && from == to {
@@ -1218,7 +1266,7 @@ impl ExpansionRules {
                 .filter(|(_, p, _)| p == property.as_ref())
                 .map(|(from, _, to)| (*from, *to))
                 .collect();
-            
+
             // Check for asymmetric violations: (x,y) and (y,x)
             for (x, y) in &edges_with_property {
                 for (x2, y2) in &edges_with_property {
@@ -1396,13 +1444,13 @@ impl ExpansionRules {
         // For each inverse property axiom
         for axiom in inverse_properties {
             use crate::axioms::property_expressions::ObjectPropertyExpression;
-            
+
             // Extract IRIs from property expressions
             let prop1_iri = match axiom.property1() {
                 ObjectPropertyExpression::ObjectProperty(obj_prop) => obj_prop.iri(),
                 ObjectPropertyExpression::ObjectInverseOf(_) => continue, // Skip complex cases for now
             };
-            
+
             let prop2_iri = match axiom.property2() {
                 ObjectPropertyExpression::ObjectProperty(obj_prop) => obj_prop.iri(),
                 ObjectPropertyExpression::ObjectInverseOf(_) => continue, // Skip complex cases for now
@@ -1422,7 +1470,7 @@ impl ExpansionRules {
             } else {
                 continue;
             };
-            
+
             let prop2_arc = if let Ok(iri) = crate::iri::IRI::new(prop2_iri.as_str()) {
                 std::sync::Arc::new(iri)
             } else {
@@ -1430,13 +1478,14 @@ impl ExpansionRules {
             };
 
             // Collect edges to add (to avoid borrow checker issues)
-            let mut edges_to_add: Vec<(NodeId, std::sync::Arc<crate::iri::IRI>, NodeId)> = Vec::new();
+            let mut edges_to_add: Vec<(NodeId, std::sync::Arc<crate::iri::IRI>, NodeId)> =
+                Vec::new();
 
             // For each (x,y) via prop1, check if we need to infer (y,x) via prop2
             for (x, y) in &edges_with_prop1 {
-                let already_exists = all_edges
-                    .iter()
-                    .any(|(from, p, to)| *from == *y && *to == *x && p.as_str() == prop2_iri.as_str());
+                let already_exists = all_edges.iter().any(|(from, p, to)| {
+                    *from == *y && *to == *x && p.as_str() == prop2_iri.as_str()
+                });
 
                 if !already_exists {
                     edges_to_add.push((*y, prop2_arc.clone(), *x));
@@ -1451,9 +1500,9 @@ impl ExpansionRules {
                 .collect();
 
             for (x, y) in &edges_with_prop2 {
-                let already_exists = all_edges
-                    .iter()
-                    .any(|(from, p, to)| *from == *y && *to == *x && p.as_str() == prop1_iri.as_str());
+                let already_exists = all_edges.iter().any(|(from, p, to)| {
+                    *from == *y && *to == *x && p.as_str() == prop1_iri.as_str()
+                });
 
                 if !already_exists {
                     edges_to_add.push((*y, prop1_arc.clone(), *x));
@@ -1490,20 +1539,14 @@ impl ExpansionRules {
         for axiom in property_assertions {
             let subject_iri = axiom.subject();
             let property_iri = axiom.property();
-            
+
             // Get object IRI (skip anonymous individuals for now)
             if let Some(object_iri) = axiom.object_iri() {
                 // Find or create nodes for subject and object
-                let subject_node = self.find_or_create_individual_node_by_iri(
-                    graph,
-                    subject_iri,
-                    &mut change_log,
-                );
-                let object_node = self.find_or_create_individual_node_by_iri(
-                    graph,
-                    object_iri,
-                    &mut change_log,
-                );
+                let subject_node =
+                    self.find_or_create_individual_node_by_iri(graph, subject_iri, &mut change_log);
+                let object_node =
+                    self.find_or_create_individual_node_by_iri(graph, object_iri, &mut change_log);
 
                 // Check if edge already exists
                 let all_edges = graph.edges.get_all_edges();
@@ -1631,7 +1674,7 @@ impl ExpansionRules {
         // For each same individual axiom
         for axiom in same_individual_axioms {
             let individuals = axiom.individuals();
-            
+
             // Find nodes for all individuals in the axiom
             let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
             for individual_iri in individuals {
@@ -1645,7 +1688,7 @@ impl ExpansionRules {
             // A full implementation would merge the nodes and propagate all properties/concepts
             if nodes.len() >= 2 {
                 let (canonical_node, _canonical_iri) = &nodes[0];
-                
+
                 // Add all individual IRIs as labels to the canonical node
                 if let Some(node) = graph.nodes.get_mut(canonical_node.as_usize()) {
                     for (_, iri) in &nodes[1..] {
@@ -1687,7 +1730,7 @@ impl ExpansionRules {
         // For each different individuals axiom
         for axiom in different_individuals_axioms {
             let individuals = axiom.individuals();
-            
+
             // Find nodes for all individuals in the axiom
             let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
             for individual_iri in individuals {
@@ -1702,7 +1745,7 @@ impl ExpansionRules {
                 for j in (i + 1)..nodes.len() {
                     let (node_i, iri_i) = &nodes[i];
                     let (node_j, iri_j) = &nodes[j];
-                    
+
                     // If two different individuals map to the same node, we have a clash
                     if node_i == node_j {
                         return Err(format!(
@@ -1734,7 +1777,7 @@ impl ExpansionRules {
     fn is_empty_data_range(data_range: &crate::axioms::class_expressions::DataRange) -> bool {
         use crate::axioms::class_expressions::DataRange;
         use crate::datatypes::value_space::is_float_range_empty_exclusive;
-        
+
         match data_range {
             DataRange::DatatypeRestriction(datatype, facets) => {
                 // Check if this is an xsd:float datatype
@@ -1742,11 +1785,11 @@ impl ExpansionRules {
                     // Extract minExclusive and maxExclusive facets
                     let mut min_exclusive: Option<f32> = None;
                     let mut max_exclusive: Option<f32> = None;
-                    
+
                     for facet in facets {
                         let facet_iri = facet.facet();
                         let facet_name = facet_iri.as_str();
-                        
+
                         if facet_name.ends_with("#minExclusive") {
                             // Parse the literal value as f32
                             let value_str = facet.value().lexical_form();
@@ -1761,7 +1804,7 @@ impl ExpansionRules {
                             }
                         }
                     }
-                    
+
                     // Check if we have both bounds and if the range is empty
                     if let (Some(min), Some(max)) = (min_exclusive, max_exclusive) {
                         return is_float_range_empty_exclusive(min, max);

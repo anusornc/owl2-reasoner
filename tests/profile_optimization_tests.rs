@@ -124,8 +124,8 @@ fn test_optimization_report_structure() {
 
     // Check that all required fields are present
     assert!(report.violations_by_type.is_empty()); // Should be empty for empty ontology
-    // Note: can_be_fully_optimized may be false for empty ontologies due to the current implementation
-    // This is expected behavior and not a test failure
+                                                   // Note: can_be_fully_optimized may be false for empty ontologies due to the current implementation
+                                                   // This is expected behavior and not a test failure
 
     // Check that optimization hints have the expected structure
     for hint in &report.optimization_hints {

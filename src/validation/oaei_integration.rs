@@ -15,9 +15,7 @@ pub struct OAEIBenchmarkSuite {
 impl OAEIBenchmarkSuite {
     /// Create a new OAEI benchmark suite instance
     pub fn new() -> OwlResult<Self> {
-        Ok(Self {
-            track_count: 5,
-        })
+        Ok(Self { track_count: 5 })
     }
 
     /// Run all OAEI benchmark tracks
@@ -37,11 +35,15 @@ pub struct OAEIResults {
 // Supporting placeholder types
 pub struct OAEIConfiguration;
 impl Default for OAEIConfiguration {
-    fn default() -> Self { Self }
+    fn default() -> Self {
+        Self
+    }
 }
 
 pub struct OAEITestCase;
 pub struct AlignmentEngine;
 impl AlignmentEngine {
-    pub fn new() -> OwlResult<Self> { Ok(Self) }
+    pub fn new() -> OwlResult<Self> {
+        Ok(Self)
+    }
 }

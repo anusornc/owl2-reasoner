@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Create reasoner
-    let reasoner = SimpleReasoner::new(ontology);
+    let _reasoner = SimpleReasoner::new(ontology);
 
     // Perform requested operation
     let start_time = Instant::now();

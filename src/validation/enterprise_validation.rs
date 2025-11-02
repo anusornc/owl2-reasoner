@@ -15,9 +15,7 @@ pub struct EnterpriseValidator {
 impl EnterpriseValidator {
     /// Create a new enterprise validator
     pub fn new() -> OwlResult<Self> {
-        Ok(Self {
-            config_count: 10,
-        })
+        Ok(Self { config_count: 10 })
     }
 
     /// Validate enterprise readiness
@@ -36,32 +34,26 @@ pub struct EnterpriseReadinessReport {
 
 /// Scalability rating
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ScalabilityRating {
     Excellent,
+    #[default]
     Good,
     Fair,
     Poor,
 }
 
-impl Default for ScalabilityRating {
-    fn default() -> Self {
-        ScalabilityRating::Good
-    }
-}
 
 /// Security compliance
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SecurityCompliance {
+    #[default]
     FullyCompliant,
     PartiallyCompliant,
     NonCompliant,
 }
 
-impl Default for SecurityCompliance {
-    fn default() -> Self {
-        SecurityCompliance::FullyCompliant
-    }
-}
 
 // Supporting placeholder types with Copy trait to fix borrow checker issues
 #[derive(Debug, Clone, Copy)]
@@ -72,15 +64,33 @@ pub struct RecoveryScenario;
 
 pub struct EnterpriseConfig;
 impl Default for EnterpriseConfig {
-    fn default() -> Self { Self }
+    fn default() -> Self {
+        Self
+    }
 }
 
 pub struct MonitoringSystem;
+impl Default for MonitoringSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MonitoringSystem {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 pub struct SecurityFramework;
+impl Default for SecurityFramework {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SecurityFramework {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }

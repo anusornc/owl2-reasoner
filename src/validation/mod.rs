@@ -51,6 +51,12 @@ pub struct ValidationReport {
     pub validation_passed: bool,
 }
 
+impl Default for ValidationReport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValidationReport {
     pub fn new() -> Self {
         Self {

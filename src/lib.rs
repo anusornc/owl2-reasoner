@@ -111,10 +111,10 @@ pub mod datatypes;
 pub mod profiles;
 pub mod test_data_generator;
 
-/// Empirical validation and benchmarking system for performance claims
-pub mod validation;
 /// GS1 EPCIS ontology implementation for supply chain traceability
 pub mod epcis;
+/// Empirical validation and benchmarking system for performance claims
+pub mod validation;
 
 /// EPCIS document parser for XML and JSON formats
 pub mod epcis_parser;
@@ -147,6 +147,8 @@ pub mod utils;
 // Re-exports for convenience
 pub use axioms::*;
 pub use entities::*;
+pub use epcis::*;
+pub use epcis_test_generator::*;
 pub use error::{OwlError, OwlResult};
 pub use iri::IRI;
 pub use ontology::Ontology;
@@ -154,5 +156,3 @@ pub use reasoning::{
     OwlReasoner, PatternTerm, QueryEngine, QueryPattern, Reasoner, SimpleReasoner, TriplePattern,
 };
 pub use test_data_generator::*;
-pub use epcis::*;
-pub use epcis_test_generator::*;

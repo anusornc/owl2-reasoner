@@ -37,6 +37,12 @@ pub struct AcademicValidationReport {
     pub recommendations: Vec<String>,
 }
 
+impl Default for AcademicValidationReport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AcademicValidationReport {
     pub fn new() -> Self {
         Self {
@@ -67,18 +73,46 @@ pub enum PublicationReadinessLevel {
 
 // Supporting placeholder types
 pub struct PublicationRequirements;
+impl Default for PublicationRequirements {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PublicationRequirements {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 pub struct ReproducibilityValidator;
+impl Default for ReproducibilityValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReproducibilityValidator {
-    pub fn new() -> Self { Self }
-    pub fn validate_reproducibility(&self) -> OwlResult<f64> { Ok(0.85) }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn validate_reproducibility(&self) -> OwlResult<f64> {
+        Ok(0.85)
+    }
 }
 
 pub struct NoveltyAssessor;
+impl Default for NoveltyAssessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoveltyAssessor {
-    pub fn new() -> Self { Self }
-    pub fn assess_novelty(&self) -> OwlResult<f64> { Ok(0.90) }
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn assess_novelty(&self) -> OwlResult<f64> {
+        Ok(0.90)
+    }
 }

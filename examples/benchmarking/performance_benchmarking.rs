@@ -135,7 +135,7 @@ fn main() -> OwlResult<()> {
         let creation_time = start.elapsed();
 
         let start = Instant::now();
-        let reasoner = SimpleReasoner::new(ontology);
+        let _reasoner = SimpleReasoner::new(ontology);
         let _is_consistent = reasoner.is_consistent()?;
         let reasoning_time = start.elapsed();
 

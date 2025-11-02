@@ -198,9 +198,24 @@ impl RdfXmlStreamingParser {
                 // Create a unique identifier for the reified statement
                 let reified_id = format!(
                     "_:reified_{}_{}_{}",
-                    subject_iri.as_str().replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_"),
-                    predicate_iri.as_str().replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_"),
-                    object_str.replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_").replace("\"", "")
+                    subject_iri
+                        .as_str()
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_"),
+                    predicate_iri
+                        .as_str()
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_"),
+                    object_str
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_")
+                        .replace("\"", "")
                 );
 
                 // Truncate if too long to avoid unreasonable IRIs
@@ -255,9 +270,24 @@ impl RdfXmlStreamingParser {
                 // Create a unique identifier for the reified statement
                 let reified_id = format!(
                     "_:reified_triple_term_{}_{}_{}",
-                    subject_iri.as_str().replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_"),
-                    predicate_iri.as_str().replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_"),
-                    object_str.replace("http://", "").replace("https://", "").replace("/", "_").replace("#", "_").replace("\"", "")
+                    subject_iri
+                        .as_str()
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_"),
+                    predicate_iri
+                        .as_str()
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_"),
+                    object_str
+                        .replace("http://", "")
+                        .replace("https://", "")
+                        .replace("/", "_")
+                        .replace("#", "_")
+                        .replace("\"", "")
                 );
 
                 // Truncate if too long to avoid unreasonable IRIs
@@ -519,11 +549,18 @@ mod tests {
 </rdf:RDF>"#;
 
         let result = parser.parse_content(rdf_xml_content);
-        assert!(result.is_ok(), "Failed to parse basic RDF/XML content: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Failed to parse basic RDF/XML content: {:?}",
+            result.err()
+        );
 
         if let Ok(ontology) = result {
             let classes = ontology.classes();
-            assert!(!classes.is_empty(), "No classes were parsed from the content");
+            assert!(
+                !classes.is_empty(),
+                "No classes were parsed from the content"
+            );
         }
     }
 
@@ -534,7 +571,9 @@ mod tests {
         let parser = RdfXmlStreamingParser::new(config);
 
         use rio_api::model::NamedNode;
-        let named_node = NamedNode { iri: "http://example.org/test" };
+        let named_node = NamedNode {
+            iri: "http://example.org/test",
+        };
         let subject = Subject::NamedNode(named_node);
 
         let result = parser.subject_to_iri(&subject);
@@ -564,7 +603,9 @@ mod tests {
         let parser = RdfXmlStreamingParser::new(config);
 
         use rio_api::model::NamedNode;
-        let named_node = NamedNode { iri: "http://example.org/object" };
+        let named_node = NamedNode {
+            iri: "http://example.org/object",
+        };
         let term = Term::NamedNode(named_node);
 
         let result = parser.process_object(&term);

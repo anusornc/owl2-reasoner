@@ -4,9 +4,11 @@
 //! These tests verify that features work correctly both in isolation and in combination,
 //! using real-world OWL2 ontologies and reasoning scenarios.
 
-use owl2_reasoner::*;
 use owl2_reasoner::parser::OntologyParser;
+use owl2_reasoner::parser::RdfXmlParser;
 use owl2_reasoner::reasoning::tableaux::TableauxReasoner;
+use owl2_reasoner::validation::ValidationFramework;
+use owl2_reasoner::*;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -54,9 +56,8 @@ fn create_complex_test_ontology() -> Ontology {
         // Add some subclass relationships
         if i > 0 {
             let parent_iri = format!("http://example.org/Class{}", i / 2);
-            let parent = ClassExpression::Class(
-                Class::new(Arc::new(IRI::new(&parent_iri).unwrap()))
-            );
+            let parent =
+                ClassExpression::Class(Class::new(Arc::new(IRI::new(&parent_iri).unwrap())));
             let child = ClassExpression::Class(class);
             let subclass_axiom = SubClassOfAxiom::new(child, parent);
             ontology.add_subclass_axiom(subclass_axiom).unwrap();
@@ -100,7 +101,8 @@ fn create_test_rdf_xml_content() -> String {
         <rdf:type rdf:resource="http://example.org/Course"/>
     </owl:NamedIndividual>
 
-</rdf:RDF>"#.to_string()
+</rdf:RDF>"#
+        .to_string()
 }
 
 // ==================== BASIC FUNCTIONALITY TESTS ====================
@@ -115,8 +117,14 @@ fn test_basic_ontology_operations() {
     let person_iri = IRI::new("http://example.org/Person").unwrap();
     let student_iri = IRI::new("http://example.org/Student").unwrap();
 
-    let person_exists = ontology.classes().iter().any(|c| c.iri().as_str() == person_iri.as_str());
-    let student_exists = ontology.classes().iter().any(|c| c.iri().as_str() == student_iri.as_str());
+    let person_exists = ontology
+        .classes()
+        .iter()
+        .any(|c| c.iri().as_str() == person_iri.as_str());
+    let student_exists = ontology
+        .classes()
+        .iter()
+        .any(|c| c.iri().as_str() == student_iri.as_str());
 
     assert!(person_exists, "Person class should exist");
     assert!(student_exists, "Student class should exist");
@@ -134,7 +142,10 @@ fn test_simple_reasoning() {
     // Test consistency
     let is_consistent = reasoner.is_consistent();
     assert!(is_consistent.is_ok(), "Consistency check should work");
-    assert!(is_consistent.unwrap(), "Simple ontology should be consistent");
+    assert!(
+        is_consistent.unwrap(),
+        "Simple ontology should be consistent"
+    );
 
     // Test subclass relationships
     let person_iri = IRI::new("http://example.org/Person").unwrap();
@@ -191,7 +202,10 @@ fn test_tableaux_reasoning() {
     // Test that the reasoner correctly handles property characteristics
     let is_consistent = reasoner.check_consistency();
     assert!(is_consistent.is_ok(), "Consistency check failed");
-    assert!(is_consistent.unwrap(), "Complex ontology should be consistent");
+    assert!(
+        is_consistent.unwrap(),
+        "Complex ontology should be consistent"
+    );
 
     println!("✓ Tableaux Reasoning test passed");
 }
@@ -207,11 +221,19 @@ fn test_memory_tracking() {
 
     // Test memory stats
     let memory_stats = reasoner.get_memory_stats();
-    assert!(memory_stats.peak_memory_bytes >= 0, "Should track peak memory");
-    assert!(memory_stats.total_arena_bytes >= 0, "Should track total memory");
+    assert!(
+        memory_stats.peak_memory_bytes >= 0,
+        "Should track peak memory"
+    );
+    assert!(
+        memory_stats.total_arena_bytes >= 0,
+        "Should track total memory"
+    );
 
-    println!("Memory stats - Peak: {} bytes, Total: {} bytes",
-             memory_stats.peak_memory_bytes, memory_stats.total_arena_bytes);
+    println!(
+        "Memory stats - Peak: {} bytes, Total: {} bytes",
+        memory_stats.peak_memory_bytes, memory_stats.total_arena_bytes
+    );
 
     println!("✓ Memory Tracking test passed");
 }
@@ -229,8 +251,14 @@ fn test_ontology_memory_usage() {
 
     // Test memory statistics after operations
     let memory_stats = reasoner.get_memory_stats();
-    assert!(memory_stats.peak_memory_bytes >= 0, "Should track peak memory after reasoning");
-    assert!(memory_stats.total_arena_bytes >= 0, "Should track total memory after reasoning");
+    assert!(
+        memory_stats.peak_memory_bytes >= 0,
+        "Should track peak memory after reasoning"
+    );
+    assert!(
+        memory_stats.total_arena_bytes >= 0,
+        "Should track total memory after reasoning"
+    );
 
     println!("✓ Ontology Memory Usage test passed");
 }
@@ -245,7 +273,7 @@ fn test_validation_framework() {
     let _ontology = create_test_ontology();
 
     // Create validation framework
-    let mut validation_framework = match crate::validation::ValidationFramework::new() {
+    let mut validation_framework = match ValidationFramework::new() {
         Ok(vf) => vf,
         Err(e) => {
             println!("Validation framework not available: {:?}", e);
@@ -258,9 +286,15 @@ fn test_validation_framework() {
     let validation_result = validation_framework.run_basic_validation();
     match validation_result {
         Ok(report) => {
-            assert!(report.w3c_compliance_score >= 0.0, "Compliance score should be valid");
-            println!("Validation completed with score: {:.2}", report.w3c_compliance_score);
-        },
+            assert!(
+                report.w3c_compliance_score >= 0.0,
+                "Compliance score should be valid"
+            );
+            println!(
+                "Validation completed with score: {:.2}",
+                report.w3c_compliance_score
+            );
+        }
         Err(e) => {
             println!("Basic validation not available: {:?}", e);
             // This is acceptable for integration testing
@@ -279,19 +313,25 @@ fn test_rdf_xml_parsing() {
     let rdf_content = create_test_rdf_xml_content();
 
     // Test RDF/XML parsing functionality
-    match crate::parser::RdfXmlParser::new().parse_str(&rdf_content) {
+    match RdfXmlParser::new().parse_str(&rdf_content) {
         Ok(ontology) => {
             // Verify that classes were parsed correctly
             let person_iri = IRI::new("http://example.org/Person").unwrap();
             let student_iri = IRI::new("http://example.org/Student").unwrap();
 
-            let person_exists = ontology.classes().iter().any(|c| c.iri().as_str() == person_iri.as_str());
-            let student_exists = ontology.classes().iter().any(|c| c.iri().as_str() == student_iri.as_str());
+            let person_exists = ontology
+                .classes()
+                .iter()
+                .any(|c| c.iri().as_str() == person_iri.as_str());
+            let student_exists = ontology
+                .classes()
+                .iter()
+                .any(|c| c.iri().as_str() == student_iri.as_str());
 
             assert!(person_exists, "Person class not found");
             assert!(student_exists, "Student class not found");
             println!("✓ RDF/XML parsing successful");
-        },
+        }
         Err(e) => {
             println!("RDF/XML parsing not fully available: {:?}", e);
             // This is acceptable for integration testing
@@ -321,8 +361,14 @@ fn test_performance_benchmarks() {
     assert!(is_consistent, "Large ontology should be consistent");
 
     // Performance assertions (these are conservative estimates)
-    assert!(creation_time < Duration::from_secs(10), "Ontology creation should be fast");
-    assert!(consistency_time < Duration::from_secs(15), "Consistency checking should be fast");
+    assert!(
+        creation_time < Duration::from_secs(10),
+        "Ontology creation should be fast"
+    );
+    assert!(
+        consistency_time < Duration::from_secs(15),
+        "Consistency checking should be fast"
+    );
 
     println!("Performance Benchmark Results:");
     println!("  Ontology creation: {:?}", creation_time);
@@ -353,9 +399,14 @@ fn test_error_handling() {
 
     let query_pattern = QueryPattern::BasicGraphPattern(vec![triple_pattern]);
     let query_result = query_engine.execute_query(&query_pattern);
-    assert!(query_result.is_ok(), "Query should handle non-existent classes gracefully");
-    assert!(query_result.unwrap().bindings.is_empty(),
-           "Query for non-existent class should return empty results");
+    assert!(
+        query_result.is_ok(),
+        "Query should handle non-existent classes gracefully"
+    );
+    assert!(
+        query_result.unwrap().bindings.is_empty(),
+        "Query for non-existent class should return empty results"
+    );
 
     println!("✓ Error Handling test passed");
 }
@@ -395,13 +446,19 @@ fn test_end_to_end_workflow() {
     let query_pattern = QueryPattern::BasicGraphPattern(vec![triple_pattern]);
     let result1 = query_engine.execute_query(&query_pattern).unwrap();
     let result2 = query_engine.execute_query(&query_pattern).unwrap(); // Should use cache
-    assert_eq!(result1.bindings.len(), result2.bindings.len(),
-              "Cached results should be identical");
+    assert_eq!(
+        result1.bindings.len(),
+        result2.bindings.len(),
+        "Cached results should be identical"
+    );
 
     // Step 5: Test memory tracking
     let tableaux_reasoner = TableauxReasoner::new(create_test_ontology());
     let memory_stats = tableaux_reasoner.get_memory_stats();
-    assert!(memory_stats.total_arena_bytes >= 0, "Should track memory usage");
+    assert!(
+        memory_stats.total_arena_bytes >= 0,
+        "Should track memory usage"
+    );
 
     println!("End-to-End Workflow Results:");
     println!("  Ontology consistent: {}", is_consistent);
@@ -465,7 +522,10 @@ fn test_comprehensive_integration_summary() {
     }
 
     // Final assertion to ensure the test passes
-    assert!(success_rate >= 80.0, "At least 80% of integration tests should pass");
+    assert!(
+        success_rate >= 80.0,
+        "At least 80% of integration tests should pass"
+    );
 
     println!("\n=== END OF COMPREHENSIVE INTEGRATION TESTS ===\n");
 }

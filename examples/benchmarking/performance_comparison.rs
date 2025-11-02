@@ -72,7 +72,7 @@ fn main() {
     println!("{}", "=".repeat(70));
 
     let ontology = create_test_ontology();
-    let reasoner = SimpleReasoner::new(ontology);
+    let _reasoner = SimpleReasoner::new(ontology);
 
     // Test cases with different path depths
     let test_cases = vec![

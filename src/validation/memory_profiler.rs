@@ -15,9 +15,7 @@ pub struct MemoryProfiler {
 impl MemoryProfiler {
     /// Create a new memory profiler
     pub fn new() -> OwlResult<Self> {
-        Ok(Self {
-            sample_count: 10,
-        })
+        Ok(Self { sample_count: 10 })
     }
 
     /// Profile memory usage
@@ -60,17 +58,13 @@ impl Default for MemoryAnalysisReport {
         Self {
             timestamp: std::time::SystemTime::now(),
             total_memory_mb: 21.0,
-            entity_profiles: vec![
-                EntityMemoryProfile {
-                    entity_type: "Class".to_string(),
-                    count: 1000,
-                    total_memory_mb: 0.161,
-                    average_memory_bytes: 161,
-                },
-            ],
-            recommendations: vec![
-                "Memory usage is optimal for current workload".to_string(),
-            ],
+            entity_profiles: vec![EntityMemoryProfile {
+                entity_type: "Class".to_string(),
+                count: 1000,
+                total_memory_mb: 0.161,
+                average_memory_bytes: 161,
+            }],
+            recommendations: vec!["Memory usage is optimal for current workload".to_string()],
         }
     }
 }

@@ -45,7 +45,10 @@ fn create_import_example() -> OwlResult<()> {
     ontology.add_import("http://example.org/vocabulary");
 
     println!("Created ontology with imports:");
-    println!("  - Ontology IRI: {}", ontology.iri().map(|iri| iri.as_str()).unwrap_or("unnamed"));
+    println!(
+        "  - Ontology IRI: {}",
+        ontology.iri().map(|iri| iri.as_str()).unwrap_or("unnamed")
+    );
     println!("  - Classes: {}", ontology.classes().len());
     println!("  - Imports: {}", ontology.imports().len());
 

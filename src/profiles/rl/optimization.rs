@@ -1,12 +1,13 @@
 //! OWL2 RL Profile Optimizer
 //!
 //! This module implements optimizations for ontologies to make them compliant
+#![allow(clippy::only_used_in_recursion)]
 //! with the OWL2 RL (Rule Language) profile. It provides suggestions and transformations for:
 //! - Removing disallowed data range constructs
 //! - Simplifying object expressions
 //! - Optimizing for rule-based reasoning
 
-use crate::axioms::{ClassExpression, DataRange, property_expressions::ObjectPropertyExpression};
+use crate::axioms::{property_expressions::ObjectPropertyExpression, ClassExpression, DataRange};
 use crate::error::OwlResult;
 use crate::iri::IRI;
 use crate::ontology::Ontology;
@@ -151,9 +152,9 @@ impl RlOptimizer {
         let mut violations = Vec::new();
 
         for class_iri in axiom.classes() {
-            let class_expr = crate::axioms::ClassExpression::Class(
-                crate::entities::Class::new(class_iri.as_str()),
-            );
+            let class_expr = crate::axioms::ClassExpression::Class(crate::entities::Class::new(
+                class_iri.as_str(),
+            ));
             violations.extend(self.check_class_expression_for_rl(&class_expr)?);
         }
 
@@ -161,14 +162,18 @@ impl RlOptimizer {
     }
 
     /// Check class expression for RL compliance
-    fn check_class_expression_for_rl(&self, expr: &ClassExpression) -> OwlResult<Vec<ProfileViolation>> {
+    fn check_class_expression_for_rl(
+        &self,
+        expr: &ClassExpression,
+    ) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
         match expr {
             // Object expression violations
             ClassExpression::ObjectComplementOf(_) => {
                 violations.push(ProfileViolation {
-                    violation_type: crate::profiles::common::ProfileViolationType::ObjectComplementOf,
+                    violation_type:
+                        crate::profiles::common::ProfileViolationType::ObjectComplementOf,
                     message: "Object complement of is not allowed in RL profile".to_string(),
                     affected_entities: self.extract_entities_from_expression(expr)?,
                     severity: crate::profiles::common::ViolationSeverity::Error,
@@ -228,6 +233,7 @@ impl RlOptimizer {
     }
 
     /// Check data range for RL compliance
+    #[allow(clippy::only_used_in_recursion)]
     fn check_data_range_for_rl(&self, data_range: &DataRange) -> OwlResult<Vec<ProfileViolation>> {
         let mut violations = Vec::new();
 
@@ -255,6 +261,7 @@ impl RlOptimizer {
     }
 
     /// Extract entities from class expression
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_entities_from_expression(&self, expr: &ClassExpression) -> OwlResult<Vec<IRI>> {
         let mut entities = Vec::new();
 
@@ -287,11 +294,16 @@ impl RlOptimizer {
     }
 
     /// Extract IRI from ObjectPropertyExpression
-    fn extract_iri_from_property_expression(&self, prop: &ObjectPropertyExpression) -> OwlResult<Vec<IRI>> {
+    fn extract_iri_from_property_expression(
+        &self,
+        prop: &ObjectPropertyExpression,
+    ) -> OwlResult<Vec<IRI>> {
         use crate::axioms::property_expressions::ObjectPropertyExpression;
 
         match prop {
-            ObjectPropertyExpression::ObjectProperty(obj_prop) => Ok(vec![(*obj_prop.iri()).clone().into()]),
+            ObjectPropertyExpression::ObjectProperty(obj_prop) => {
+                Ok(vec![(*obj_prop.iri()).clone().into()])
+            }
             ObjectPropertyExpression::ObjectInverseOf(obj_prop) => {
                 self.extract_iri_from_property_expression(obj_prop)
             }
@@ -320,6 +332,7 @@ impl RlOptimizer {
     }
 
     /// Count data complement in expression
+    #[allow(clippy::only_used_in_recursion)]
     fn count_data_complement_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
         let mut count = 0;
 
@@ -371,6 +384,7 @@ impl RlOptimizer {
     }
 
     /// Count data one of in expression
+    #[allow(clippy::only_used_in_recursion)]
     fn count_data_one_of_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
         let mut count = 0;
 
@@ -431,6 +445,7 @@ impl RlOptimizer {
     }
 
     /// Count object complement in expression
+    #[allow(clippy::only_used_in_recursion)]
     fn count_object_complement_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
         let mut count = 0;
 
@@ -484,6 +499,7 @@ impl RlOptimizer {
     }
 
     /// Count object has self in expression
+    #[allow(clippy::only_used_in_recursion)]
     fn count_object_has_self_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
         let mut count = 0;
 
@@ -528,7 +544,10 @@ impl RlOptimizer {
     }
 
     /// Count complex object one of in expression
-    fn count_complex_object_one_of_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
+    fn count_complex_object_one_of_in_expression(
+        &self,
+        expr: &ClassExpression,
+    ) -> OwlResult<usize> {
         let mut count = 0;
 
         if let ClassExpression::ObjectOneOf(individuals) = expr {
@@ -562,7 +581,10 @@ impl RlOptimizer {
     }
 
     /// Categorize violations by type
-    fn categorize_violations(&self, violations: &[ProfileViolation]) -> std::collections::HashMap<String, usize> {
+    fn categorize_violations(
+        &self,
+        violations: &[ProfileViolation],
+    ) -> std::collections::HashMap<String, usize> {
         let mut categories = std::collections::HashMap::new();
 
         for violation in violations {
@@ -574,14 +596,18 @@ impl RlOptimizer {
     }
 
     /// Estimate optimization effort
+    #[allow(clippy::only_used_in_recursion)]
     fn estimate_optimization_effort(&self, violations: &[ProfileViolation]) -> OptimizationEffort {
-        let high_effort_violations = violations.iter().filter(|v| {
-            matches!(
-                v.violation_type,
-                crate::profiles::common::ProfileViolationType::DataComplementOf
-                    | crate::profiles::common::ProfileViolationType::ObjectComplementOf
-            )
-        }).count();
+        let high_effort_violations = violations
+            .iter()
+            .filter(|v| {
+                matches!(
+                    v.violation_type,
+                    crate::profiles::common::ProfileViolationType::DataComplementOf
+                        | crate::profiles::common::ProfileViolationType::ObjectComplementOf
+                )
+            })
+            .count();
 
         if high_effort_violations > 8 {
             OptimizationEffort::High
@@ -593,6 +619,7 @@ impl RlOptimizer {
     }
 
     /// Check if ontology can be fully optimized for RL
+    #[allow(clippy::only_used_in_recursion)]
     fn can_be_fully_optimized(&self, violations: &[ProfileViolation]) -> bool {
         // Most RL violations can be resolved through transformation
         // Some semantic constraints might prevent full optimization
@@ -603,9 +630,9 @@ impl RlOptimizer {
 /// Optimization effort levels
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OptimizationEffort {
-    Low,   // Simple changes, minor restructuring
+    Low,    // Simple changes, minor restructuring
     Medium, // Moderate restructuring required
-    High,  // Major restructuring, semantic changes needed
+    High,   // Major restructuring, semantic changes needed
 }
 
 /// RL Optimization Report

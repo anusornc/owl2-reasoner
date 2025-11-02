@@ -1,9 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use owl2_reasoner::axioms::*;
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::query::*;
-use owl2_reasoner::axioms::*;
-use owl2_reasoner::{Class, NamedIndividual, ObjectProperty, DataProperty};
+use owl2_reasoner::{Class, DataProperty, NamedIndividual, ObjectProperty};
 use std::sync::Arc;
 
 fn create_test_ontology(size: usize) -> Ontology {
@@ -16,10 +16,18 @@ fn create_test_ontology(size: usize) -> Ontology {
     let department_class = IRI::new("http://example.org/Department").unwrap();
 
     // Add class declarations
-    ontology.add_class(Class::new(Arc::new(person_class.clone()))).unwrap();
-    ontology.add_class(Class::new(Arc::new(employee_class.clone()))).unwrap();
-    ontology.add_class(Class::new(Arc::new(manager_class.clone()))).unwrap();
-    ontology.add_class(Class::new(Arc::new(department_class.clone()))).unwrap();
+    ontology
+        .add_class(Class::new(Arc::new(person_class.clone())))
+        .unwrap();
+    ontology
+        .add_class(Class::new(Arc::new(employee_class.clone())))
+        .unwrap();
+    ontology
+        .add_class(Class::new(Arc::new(manager_class.clone())))
+        .unwrap();
+    ontology
+        .add_class(Class::new(Arc::new(department_class.clone())))
+        .unwrap();
 
     // Create test properties
     let works_for_prop = IRI::new("http://example.org/worksFor").unwrap();
@@ -27,9 +35,15 @@ fn create_test_ontology(size: usize) -> Ontology {
     let reports_to_prop = IRI::new("http://example.org/reportsTo").unwrap();
 
     // Add property declarations
-    ontology.add_object_property(ObjectProperty::new(Arc::new(works_for_prop.clone()))).unwrap();
-    ontology.add_object_property(ObjectProperty::new(Arc::new(manages_prop.clone()))).unwrap();
-    ontology.add_object_property(ObjectProperty::new(Arc::new(reports_to_prop.clone()))).unwrap();
+    ontology
+        .add_object_property(ObjectProperty::new(Arc::new(works_for_prop.clone())))
+        .unwrap();
+    ontology
+        .add_object_property(ObjectProperty::new(Arc::new(manages_prop.clone())))
+        .unwrap();
+    ontology
+        .add_object_property(ObjectProperty::new(Arc::new(reports_to_prop.clone())))
+        .unwrap();
 
     // Add individuals and assertions
     for i in 0..size {
@@ -40,40 +54,33 @@ fn create_test_ontology(size: usize) -> Ontology {
         // Add class assertions (mix of types)
         if i % 3 == 0 {
             let class_expr = ClassExpression::Class(Class::new(Arc::new(person_class.clone())));
-            let axiom = ClassAssertionAxiom::new(
-                Arc::new(individual_iri.clone()),
-                class_expr
-            );
+            let axiom = ClassAssertionAxiom::new(Arc::new(individual_iri.clone()), class_expr);
             ontology.add_class_assertion(axiom).unwrap();
         }
         if i % 4 == 0 {
             let class_expr = ClassExpression::Class(Class::new(Arc::new(employee_class.clone())));
-            let axiom = ClassAssertionAxiom::new(
-                Arc::new(individual_iri.clone()),
-                class_expr
-            );
+            let axiom = ClassAssertionAxiom::new(Arc::new(individual_iri.clone()), class_expr);
             ontology.add_class_assertion(axiom).unwrap();
         }
         if i % 10 == 0 {
             let class_expr = ClassExpression::Class(Class::new(Arc::new(manager_class.clone())));
-            let axiom = ClassAssertionAxiom::new(
-                Arc::new(individual_iri.clone()),
-                class_expr
-            );
+            let axiom = ClassAssertionAxiom::new(Arc::new(individual_iri.clone()), class_expr);
             ontology.add_class_assertion(axiom).unwrap();
         }
 
         // Add property assertions
         if i > 0 && i % 5 == 0 {
-            let department_iri = IRI::new(&format!("http://example.org/department{}", i / 5)).unwrap();
+            let department_iri =
+                IRI::new(&format!("http://example.org/department{}", i / 5)).unwrap();
             let department_individual = NamedIndividual::new(Arc::new(department_iri.clone()));
-            ontology.add_named_individual(department_individual).unwrap();
+            ontology
+                .add_named_individual(department_individual)
+                .unwrap();
 
-            let department_class_expr = ClassExpression::Class(Class::new(Arc::new(department_class.clone())));
-            let dept_axiom = ClassAssertionAxiom::new(
-                Arc::new(department_iri.clone()),
-                department_class_expr
-            );
+            let department_class_expr =
+                ClassExpression::Class(Class::new(Arc::new(department_class.clone())));
+            let dept_axiom =
+                ClassAssertionAxiom::new(Arc::new(department_iri.clone()), department_class_expr);
             ontology.add_class_assertion(dept_axiom).unwrap();
 
             let prop_axiom = PropertyAssertionAxiom::new(
@@ -101,42 +108,41 @@ fn create_test_ontology(size: usize) -> Ontology {
 fn create_query_patterns() -> Vec<QueryPattern> {
     vec![
         // Simple type query
-        QueryPattern::BasicGraphPattern(vec![
-            TriplePattern {
-                subject: PatternTerm::Variable("?person".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
-                object: PatternTerm::IRI(IRI::new("http://example.org/Person").unwrap()),
-            }
-        ]),
-
+        QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("?person".to_string()),
+            predicate: PatternTerm::IRI(
+                IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+            ),
+            object: PatternTerm::IRI(IRI::new("http://example.org/Person").unwrap()),
+        }]),
         // Property query
-        QueryPattern::BasicGraphPattern(vec![
-            TriplePattern {
-                subject: PatternTerm::Variable("?emp".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://example.org/worksFor").unwrap()),
-                object: PatternTerm::Variable("?dept".to_string()),
-            }
-        ]),
-
+        QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("?emp".to_string()),
+            predicate: PatternTerm::IRI(IRI::new("http://example.org/worksFor").unwrap()),
+            object: PatternTerm::Variable("?dept".to_string()),
+        }]),
         // Multi-triple pattern with join
         QueryPattern::BasicGraphPattern(vec![
             TriplePattern {
                 subject: PatternTerm::Variable("?emp".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
+                predicate: PatternTerm::IRI(
+                    IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                ),
                 object: PatternTerm::IRI(IRI::new("http://example.org/Employee").unwrap()),
             },
             TriplePattern {
                 subject: PatternTerm::Variable("?emp".to_string()),
                 predicate: PatternTerm::IRI(IRI::new("http://example.org/worksFor").unwrap()),
                 object: PatternTerm::Variable("?dept".to_string()),
-            }
+            },
         ]),
-
         // Complex multi-triple pattern
         QueryPattern::BasicGraphPattern(vec![
             TriplePattern {
                 subject: PatternTerm::Variable("?person".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
+                predicate: PatternTerm::IRI(
+                    IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                ),
                 object: PatternTerm::IRI(IRI::new("http://example.org/Person").unwrap()),
             },
             TriplePattern {
@@ -146,19 +152,18 @@ fn create_query_patterns() -> Vec<QueryPattern> {
             },
             TriplePattern {
                 subject: PatternTerm::Variable("?manager".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
+                predicate: PatternTerm::IRI(
+                    IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+                ),
                 object: PatternTerm::IRI(IRI::new("http://example.org/Manager").unwrap()),
-            }
+            },
         ]),
-
         // Variable predicate query
-        QueryPattern::BasicGraphPattern(vec![
-            TriplePattern {
-                subject: PatternTerm::Variable("?subject".to_string()),
-                predicate: PatternTerm::Variable("?predicate".to_string()),
-                object: PatternTerm::Variable("?object".to_string()),
-            }
-        ]),
+        QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("?subject".to_string()),
+            predicate: PatternTerm::Variable("?predicate".to_string()),
+            object: PatternTerm::Variable("?object".to_string()),
+        }]),
     ]
 }
 
@@ -273,7 +278,8 @@ fn benchmark_cache_performance(c: &mut Criterion) {
     // Same query without cache
     group.bench_function("repeated_query_without_cache", |b| {
         b.iter(|| {
-            let mut engine = QueryEngine::with_config(ontology.clone(), config_without_cache.clone());
+            let mut engine =
+                QueryEngine::with_config(ontology.clone(), config_without_cache.clone());
             let result = engine.execute_query(black_box(pattern)).unwrap();
             black_box(result)
         })
@@ -291,22 +297,22 @@ fn benchmark_index_performance(c: &mut Criterion) {
         let ontology = create_test_ontology(size);
 
         // Query with specific type (should use index)
-        let indexed_query = QueryPattern::BasicGraphPattern(vec![
-            TriplePattern {
-                subject: PatternTerm::Variable("?person".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
-                object: PatternTerm::IRI(IRI::new("http://example.org/Employee").unwrap()),
-            }
-        ]);
+        let indexed_query = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("?person".to_string()),
+            predicate: PatternTerm::IRI(
+                IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+            ),
+            object: PatternTerm::IRI(IRI::new("http://example.org/Employee").unwrap()),
+        }]);
 
         // Query with variable type (should not use index efficiently)
-        let non_indexed_query = QueryPattern::BasicGraphPattern(vec![
-            TriplePattern {
-                subject: PatternTerm::Variable("?person".to_string()),
-                predicate: PatternTerm::IRI(IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap()),
-                object: PatternTerm::Variable("?type".to_string()),
-            }
-        ]);
+        let non_indexed_query = QueryPattern::BasicGraphPattern(vec![TriplePattern {
+            subject: PatternTerm::Variable("?person".to_string()),
+            predicate: PatternTerm::IRI(
+                IRI::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap(),
+            ),
+            object: PatternTerm::Variable("?type".to_string()),
+        }]);
 
         group.bench_with_input(
             BenchmarkId::new("indexed_query", size),

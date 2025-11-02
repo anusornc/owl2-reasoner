@@ -15,9 +15,9 @@ use lru::LruCache;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 /// Helper function to avoid unnecessary (**arc_iri).clone() operations
 #[inline(always)]
@@ -210,13 +210,10 @@ pub enum FilterExpression {
 const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 
 /// Cached RDF type IRI to avoid repeated creation
-static RDF_TYPE_IRI: Lazy<IRI> = Lazy::new(|| {
-    IRI::new(RDF_TYPE).expect("Failed to create cached rdf:type IRI")
-});
+static RDF_TYPE_IRI: Lazy<IRI> =
+    Lazy::new(|| IRI::new(RDF_TYPE).expect("Failed to create cached rdf:type IRI"));
 
-static RDF_TYPE_TERM: Lazy<PatternTerm> = Lazy::new(|| {
-    PatternTerm::IRI(RDF_TYPE_IRI.clone())
-});
+static RDF_TYPE_TERM: Lazy<PatternTerm> = Lazy::new(|| PatternTerm::IRI(RDF_TYPE_IRI.clone()));
 
 /// Query cache key for result caching
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -260,9 +257,7 @@ enum ExecutionPlan {
         optional: Box<ExecutionPlan>,
     },
     /// Union pattern with parallel execution
-    Union {
-        plans: Vec<ExecutionPlan>,
-    },
+    Union { plans: Vec<ExecutionPlan> },
     /// Filter pattern with early filtering
     Filter {
         base: Box<ExecutionPlan>,
@@ -409,7 +404,8 @@ impl QueryEngine {
 
         // Initialize query cache
         let cache_size = config.cache_size.unwrap_or(1000);
-        let cache_size = NonZeroUsize::new(cache_size).unwrap_or_else(|| NonZeroUsize::new(1000).expect("Failed to create cache size"));
+        let cache_size = NonZeroUsize::new(cache_size)
+            .unwrap_or_else(|| NonZeroUsize::new(1000).expect("Failed to create cache size"));
         let query_cache = Arc::new(RwLock::new(LruCache::new(cache_size)));
 
         // Initialize pattern cache
@@ -450,7 +446,7 @@ impl QueryEngine {
                 let class_iri = class.iri().clone();
                 self.type_index
                     .entry(class_iri)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(Arc::new(axiom.clone()));
             }
         }
@@ -460,7 +456,7 @@ impl QueryEngine {
             let prop_iri = axiom.property().clone();
             self.property_index
                 .entry(prop_iri)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(Arc::new(axiom.clone()));
         }
     }
@@ -697,12 +693,10 @@ impl QueryEngine {
             .collect();
 
         // Sort by estimated selectivity (type queries first, then property queries)
-        patterns.sort_by(|a, b| {
-            match (&a.2, &b.2) {
-                (QueryType::TypeQuery, QueryType::PropertyQuery) => std::cmp::Ordering::Less,
-                (QueryType::PropertyQuery, QueryType::TypeQuery) => std::cmp::Ordering::Greater,
-                _ => std::cmp::Ordering::Equal,
-            }
+        patterns.sort_by(|a, b| match (&a.2, &b.2) {
+            (QueryType::TypeQuery, QueryType::PropertyQuery) => std::cmp::Ordering::Less,
+            (QueryType::PropertyQuery, QueryType::TypeQuery) => std::cmp::Ordering::Greater,
+            _ => std::cmp::Ordering::Equal,
         });
 
         let join_order: Vec<usize> = patterns.iter().map(|(i, _, _)| *i).collect();
@@ -714,22 +708,19 @@ impl QueryEngine {
     /// Execute compiled pattern with optimized plan
     fn execute_compiled_pattern(&self, compiled: &CompiledPattern) -> OwlResult<Vec<QueryBinding>> {
         match &compiled.execution_plan {
-            ExecutionPlan::SingleTriple { query_type, pattern } => {
-                self.match_triple_pattern_optimized_type(pattern, query_type)
-            }
+            ExecutionPlan::SingleTriple {
+                query_type,
+                pattern,
+            } => self.match_triple_pattern_optimized_type(pattern, query_type),
             ExecutionPlan::MultiTriple {
                 patterns,
                 join_order,
                 access_paths,
-            } => {
-                self.evaluate_multi_triple_optimized(patterns, join_order, access_paths)
-            }
+            } => self.evaluate_multi_triple_optimized(patterns, join_order, access_paths),
             ExecutionPlan::Optional { base, optional } => {
                 self.evaluate_optional_optimized(base, optional)
             }
-            ExecutionPlan::Union { plans } => {
-                self.evaluate_union_optimized(plans)
-            }
+            ExecutionPlan::Union { plans } => self.evaluate_union_optimized(plans),
             ExecutionPlan::Filter { base, filter_expr } => {
                 let bindings = self.execute_compiled_filter(base)?;
                 self.apply_filter(&bindings, filter_expr)
@@ -834,17 +825,13 @@ impl QueryEngine {
 
         // Start with the most selective pattern
         let first_idx = join_order[0];
-        let mut bindings = self.match_triple_pattern_optimized_type(
-            &patterns[first_idx],
-            &access_paths[0]
-        )?;
+        let mut bindings =
+            self.match_triple_pattern_optimized_type(&patterns[first_idx], &access_paths[0])?;
 
         // Join with remaining patterns
         for &idx in join_order.iter().skip(1) {
-            let pattern_bindings = self.match_triple_pattern_optimized_type(
-                &patterns[idx],
-                &access_paths[idx]
-            )?;
+            let pattern_bindings =
+                self.match_triple_pattern_optimized_type(&patterns[idx], &access_paths[idx])?;
             bindings = self.hash_join_bindings_optimized(&bindings, &pattern_bindings)?;
 
             if bindings.is_empty() {
@@ -935,9 +922,10 @@ impl QueryEngine {
     /// Execute compiled filter pattern
     fn execute_compiled_filter(&self, plan: &ExecutionPlan) -> OwlResult<Vec<QueryBinding>> {
         match plan {
-            ExecutionPlan::SingleTriple { query_type, pattern } => {
-                self.match_triple_pattern_optimized_type(pattern, query_type)
-            }
+            ExecutionPlan::SingleTriple {
+                query_type,
+                pattern,
+            } => self.match_triple_pattern_optimized_type(pattern, query_type),
             _ => {
                 // For complex patterns, fall back to the original method
                 self.evaluate_basic_graph_pattern(&[])

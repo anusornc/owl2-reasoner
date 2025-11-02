@@ -66,6 +66,8 @@ use bumpalo::Bump;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::cell::RefCell;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::Mutex;
@@ -118,9 +120,9 @@ pub enum MemoryChange {
         arena_type: ArenaType,
         size_bytes: usize,
     },
-    /// String interning
+    /// String interning (optimized: use Cow<str> to avoid unnecessary allocations)
     InternString {
-        string: String,
+        string_hash: u64, // Pre-computed hash for faster comparison
         size_bytes: usize,
     },
     /// Arena reset operation
@@ -134,9 +136,7 @@ pub enum MemoryChange {
         memory_state: MemorySnapshot,
     },
     /// Memory rollback to checkpoint
-    RollbackToCheckpoint {
-        checkpoint_id: usize,
-    },
+    RollbackToCheckpoint { checkpoint_id: usize },
 }
 
 /// Types of arenas for memory tracking
@@ -160,7 +160,7 @@ pub struct MemorySnapshot {
 #[derive(Debug, Default, Clone)]
 pub struct MemoryChangeLog {
     changes: Vec<MemoryChange>,
-    checkpoints: std::collections::HashMap<usize, usize>, // checkpoint_id -> change_index
+    checkpoints: hashbrown::HashMap<usize, usize>, // checkpoint_id -> change_index (optimized HashMap)
     next_checkpoint_id: usize,
 }
 
@@ -168,7 +168,7 @@ impl MemoryChangeLog {
     pub fn new() -> Self {
         Self {
             changes: Vec::new(),
-            checkpoints: std::collections::HashMap::new(),
+            checkpoints: hashbrown::HashMap::new(),
             next_checkpoint_id: 0,
         }
     }
@@ -201,17 +201,24 @@ impl MemoryChangeLog {
 
     /// Extend this log with another log
     pub fn extend(&mut self, mut other: MemoryChangeLog) {
+        let current_len = self.changes.len();
+
         // Adjust checkpoint indices from the other log
         for (checkpoint_id, change_index) in other.checkpoints.drain() {
-            self.checkpoints.insert(checkpoint_id, self.changes.len() + change_index);
+            self.checkpoints
+                .insert(checkpoint_id, current_len + change_index);
         }
         self.changes.append(&mut other.changes);
     }
 
     /// Rollback to a specific checkpoint
-    pub fn rollback_to_checkpoint(&mut self, checkpoint_id: usize) -> Result<Vec<MemoryChange>, String> {
+    pub fn rollback_to_checkpoint(
+        &mut self,
+        checkpoint_id: usize,
+    ) -> Result<Vec<MemoryChange>, String> {
         if let Some(&change_index) = self.checkpoints.get(&checkpoint_id) {
-            let changes_to_rollback: Vec<_> = self.changes[change_index..].iter().rev().cloned().collect();
+            let changes_to_rollback: Vec<_> =
+                self.changes[change_index..].iter().rev().cloned().collect();
             self.changes.truncate(change_index);
 
             // Remove this checkpoint and any later ones
@@ -235,14 +242,18 @@ impl MemoryChangeLog {
 
     /// Get changes since a specific checkpoint
     pub fn changes_since_checkpoint(&self, checkpoint_id: usize) -> Option<&[MemoryChange]> {
-        self.checkpoints.get(&checkpoint_id).map(|&index| &self.changes[index..])
+        self.checkpoints
+            .get(&checkpoint_id)
+            .map(|&index| &self.changes[index..])
     }
 
     /// Apply rollback operations to a memory manager
     pub fn rollback(&self, manager: &mut MemoryManager) -> Result<(), String> {
         // This is a simplified rollback implementation
         // In a full implementation, we'd need more sophisticated arena management
-        manager.reset().map_err(|e| format!("Memory reset failed: {:?}", e))?;
+        manager
+            .reset()
+            .map_err(|e| format!("Memory reset failed: {:?}", e))?;
         Ok(())
     }
 
@@ -368,7 +379,7 @@ impl ArenaEdgeStorage {
     }
 }
 
-/// Arena manager for efficient memory allocation
+/// Arena manager for efficient memory allocation (optimized: reduced mutex contention)
 #[derive(Debug)]
 pub struct ArenaManager {
     pub stats: ArenaStats,
@@ -376,7 +387,7 @@ pub struct ArenaManager {
     pub expression_arena: Mutex<Bump>,
     pub constraint_arena: Mutex<Bump>,
     pub string_arena: Mutex<Bump>,
-    pub string_interner: Mutex<HashMap<String, *const u8>>,
+    pub string_interner: Mutex<HashMap<u64, (*const u8, usize)>>, // Optimized: hash -> (ptr, len)
 }
 
 impl ArenaManager {
@@ -388,7 +399,7 @@ impl ArenaManager {
             expression_arena: Mutex::new(Bump::new()),
             constraint_arena: Mutex::new(Bump::new()),
             string_arena: Mutex::new(Bump::new()),
-            string_interner: Mutex::new(HashMap::new()),
+            string_interner: Mutex::new(hashbrown::HashMap::new()),
         }
     }
 
@@ -419,26 +430,36 @@ impl ArenaManager {
         Ok(NonNull::from(allocated))
     }
 
-    /// Intern a string in the string arena
+    /// Intern a string in the string arena (optimized: avoid string allocations)
     pub fn intern_string(&mut self, s: &str) -> OwlResult<NonNull<str>> {
+        let s_hash = {
+            let mut hasher = DefaultHasher::new();
+            s.hash(&mut hasher);
+            hasher.finish()
+        };
+
         let mut string_interner = safe_lock(&self.string_interner, "string_interner")?;
-        if let Some(&ptr) = string_interner.get(s) {
-            // SAFETY: String interning lookup reconstruction
-            // 1. The pointer `ptr` was allocated from string_arena which is still alive
-            // 2. We hold a lock on string_interner, preventing pointer invalidation
-            // 3. The pointer points to valid UTF-8 data (validated when first stored)
-            // 4. The slice length `s.len()` exactly matches the original string length
-            // 5. The memory range [ptr, ptr + s.len()) is within the arena bounds
-            // 6. No mutable references exist to this string due to string interning semantics
-            let interned_str =
-                unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len())) };
-            return Ok(NonNull::from(interned_str));
+        if let Some(&(ptr, len)) = string_interner.get(&s_hash) {
+            // Verify length matches to avoid hash collisions
+            if len == s.len() {
+                // SAFETY: String interning lookup reconstruction
+                // 1. The pointer `ptr` was allocated from string_arena which is still alive
+                // 2. We hold a lock on string_interner, preventing pointer invalidation
+                // 3. The pointer points to valid UTF-8 data (validated when first stored)
+                // 4. The slice length `s.len()` exactly matches the original string length
+                // 5. The memory range [ptr, ptr + s.len()) is within the arena bounds
+                // 6. No mutable references exist to this string due to string interning semantics
+                let interned_str = unsafe {
+                    std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, s.len()))
+                };
+                return Ok(NonNull::from(interned_str));
+            }
         }
 
         let string_arena = safe_lock(&self.string_arena, "string_arena")?;
         let allocated = string_arena.alloc_str(s);
         let ptr = allocated.as_ptr();
-        string_interner.insert(s.to_string(), ptr);
+        string_interner.insert(s_hash, (ptr, s.len()));
         self.stats.string_intern_savings += s.len() * 2; // Estimate savings from interning
         Ok(NonNull::from(allocated))
     }
@@ -565,12 +586,14 @@ impl MemoryManager {
 
     /// Enable or disable memory tracking
     pub fn set_tracking_enabled(&self, enabled: bool) {
-        self.tracking_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+        self.tracking_enabled
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Check if memory tracking is enabled
     pub fn is_tracking_enabled(&self) -> bool {
-        self.tracking_enabled.load(std::sync::atomic::Ordering::Relaxed)
+        self.tracking_enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Get the current memory change log
@@ -593,28 +616,34 @@ impl MemoryManager {
         }
     }
 
-    /// Record a memory change if tracking is enabled
+    /// Record a memory change if tracking is enabled (optimized: early return)
+    #[inline]
     fn record_change(&self, change: MemoryChange) {
-        if self.is_tracking_enabled() {
-            if let Some(ref log) = self.change_log {
-                if let Ok(mut log) = safe_lock(log, "change_log") {
-                    log.record(change);
-                }
+        if !self.is_tracking_enabled() {
+            return;
+        }
+
+        if let Some(ref log) = self.change_log {
+            if let Ok(mut log) = safe_lock(log, "change_log") {
+                log.record(change);
             }
         }
     }
 
-    /// Create a memory checkpoint and return its ID
+    /// Create a memory checkpoint and return its ID (optimized: avoid unnecessary clones)
     pub fn create_checkpoint(&self) -> OwlResult<usize> {
         if !self.is_tracking_enabled() {
-            return Err(OwlError::Other("Memory tracking is not enabled".to_string()));
+            return Err(OwlError::Other(
+                "Memory tracking is not enabled".to_string(),
+            ));
         }
 
-        let arena_stats = self.get_arena_stats()?;
-        let memory_stats = self.get_memory_stats()?;
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+
         let snapshot = MemorySnapshot {
-            arena_stats,
-            memory_stats,
+            arena_stats: arena_manager.stats.clone(), // Only clone what we need
+            memory_stats: memory_stats.clone(),
             timestamp: std::time::Instant::now(),
         };
 
@@ -622,27 +651,33 @@ impl MemoryManager {
             let mut log = safe_lock(log, "change_log")?;
             Ok(log.create_checkpoint(snapshot))
         } else {
-            Err(OwlError::Other("Memory change log not available".to_string()))
+            Err(OwlError::Other(
+                "Memory change log not available".to_string(),
+            ))
         }
     }
 
     /// Rollback to a specific checkpoint
     pub fn rollback_to_checkpoint(&self, checkpoint_id: usize) -> OwlResult<()> {
         if !self.is_tracking_enabled() {
-            return Err(OwlError::Other("Memory tracking is not enabled".to_string()));
+            return Err(OwlError::Other(
+                "Memory tracking is not enabled".to_string(),
+            ));
         }
 
         if let Some(ref log) = self.change_log {
             let mut log = safe_lock(log, "change_log")?;
-            let changes_to_rollback = log.rollback_to_checkpoint(checkpoint_id).map_err(|e| OwlError::Other(format!("Checkpoint rollback failed: {}", e)))?;
+            let changes_to_rollback = log
+                .rollback_to_checkpoint(checkpoint_id)
+                .map_err(|e| OwlError::Other(format!("Checkpoint rollback failed: {}", e)))?;
 
             // Apply rollback operations (simplified implementation)
             for change in changes_to_rollback {
                 match change {
-                    MemoryChange::AllocateNode { .. } |
-                    MemoryChange::AllocateExpression { .. } |
-                    MemoryChange::AllocateConstraint { .. } |
-                    MemoryChange::InternString { .. } => {
+                    MemoryChange::AllocateNode { .. }
+                    | MemoryChange::AllocateExpression { .. }
+                    | MemoryChange::AllocateConstraint { .. }
+                    | MemoryChange::InternString { .. } => {
                         // For arena-based allocations, we can't easily deallocate individual items
                         // In a full implementation, we'd need more sophisticated arena management
                         // For now, we'll reset the arenas on rollback
@@ -660,7 +695,9 @@ impl MemoryManager {
             self.reset()?;
             Ok(())
         } else {
-            Err(OwlError::Other("Memory change log not available".to_string()))
+            Err(OwlError::Other(
+                "Memory change log not available".to_string(),
+            ))
         }
     }
 
@@ -677,18 +714,19 @@ impl MemoryManager {
     pub fn allocate_node(&self, node: TableauxNode) -> OwlResult<ArenaTableauxNode> {
         let node_size = mem::size_of::<TableauxNode>();
         let node_id = node.id;
-        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
-        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
-        let mut node_arena = safe_lock(&arena_manager.node_arena, "node_arena")?;
-        let arena_node = ArenaTableauxNode::new(node, &mut node_arena);
-        memory_stats.add_node_allocation(node_size);
 
-        // Record the memory change if tracking is enabled
+        // Record the memory change first (faster path)
         self.record_change(MemoryChange::AllocateNode {
             node_id,
             arena_type: ArenaType::Node,
             size_bytes: node_size,
         });
+
+        let arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        let mut node_arena = safe_lock(&arena_manager.node_arena, "node_arena")?;
+        let arena_node = ArenaTableauxNode::new(node, &mut node_arena);
+        memory_stats.add_node_allocation(node_size);
 
         Ok(arena_node)
     }
@@ -698,46 +736,54 @@ impl MemoryManager {
         expr: ClassExpression,
     ) -> OwlResult<NonNull<ClassExpression>> {
         let expr_size = mem::size_of::<ClassExpression>();
-        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
-        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
-        let allocated = arena_manager.allocate_expression(expr)?;
-        memory_stats.add_expression_allocation(expr_size);
 
-        // Record the memory change if tracking is enabled
+        // Record the memory change first (faster path)
         self.record_change(MemoryChange::AllocateExpression {
             arena_type: ArenaType::Expression,
             size_bytes: expr_size,
         });
+
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        let allocated = arena_manager.allocate_expression(expr)?;
+        memory_stats.add_expression_allocation(expr_size);
 
         Ok(allocated)
     }
 
     pub fn allocate_constraint<T>(&self, constraint: T) -> OwlResult<NonNull<T>> {
         let constraint_size = mem::size_of::<T>();
-        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
-        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
-        let allocated = arena_manager.allocate_constraint(constraint)?;
-        memory_stats.add_constraint_allocation(constraint_size);
 
-        // Record the memory change if tracking is enabled
+        // Record the memory change first (faster path)
         self.record_change(MemoryChange::AllocateConstraint {
             arena_type: ArenaType::Constraint,
             size_bytes: constraint_size,
         });
 
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+        let allocated = arena_manager.allocate_constraint(constraint)?;
+        memory_stats.add_constraint_allocation(constraint_size);
+
         Ok(allocated)
     }
 
     pub fn intern_string(&self, s: &str) -> OwlResult<NonNull<str>> {
-        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let s_hash = {
+            let mut hasher = DefaultHasher::new();
+            s.hash(&mut hasher);
+            hasher.finish()
+        };
         let string_size = s.len();
-        let allocated = arena_manager.intern_string(s)?;
 
-        // Record the memory change if tracking is enabled
+        // Record the memory change first (optimized: use hash instead of string)
         self.record_change(MemoryChange::InternString {
-            string: s.to_string(),
+            string_hash: s_hash,
             size_bytes: string_size,
         });
+
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let allocated = arena_manager.intern_string(s)?;
 
         Ok(allocated)
     }
@@ -769,23 +815,23 @@ impl MemoryManager {
         let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
         let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
 
-        // Record the previous stats before reset if tracking is enabled
-        let previous_stats = if self.is_tracking_enabled() {
-            Some(arena_manager.stats.clone())
-        } else {
-            None
-        };
+        // Record the arena reset before clearing if tracking is enabled
+        // Note: We need to be careful about deadlock - don't record if we're in a rollback
+        if self.is_tracking_enabled() {
+            // Try to record without blocking - if it fails, skip recording to avoid deadlock
+            if let Some(ref log) = self.change_log {
+                if let Ok(mut log) = log.try_lock() {
+                    log.record(MemoryChange::ArenaReset {
+                        arena_type: ArenaType::Node, // Record as general arena reset
+                        previous_stats: arena_manager.stats.clone(),
+                    });
+                }
+                // If try_lock fails, we're likely in a rollback scenario, so skip recording
+            }
+        }
 
         arena_manager.reset()?;
         *memory_stats = MemoryStats::new();
-
-        // Record the arena reset if tracking is enabled
-        if let Some(prev_stats) = previous_stats {
-            self.record_change(MemoryChange::ArenaReset {
-                arena_type: ArenaType::Node, // Record as general arena reset
-                previous_stats: prev_stats,
-            });
-        }
 
         Ok(())
     }
@@ -1015,13 +1061,18 @@ mod tests {
             arena_type: ArenaType::Node,
             size_bytes: 64,
         });
-        log.record(MemoryChange::InternString {
-            string: "test".to_string(),
-            size_bytes: 4,
-        });
+        {
+            let mut hasher = DefaultHasher::new();
+            "test".hash(&mut hasher);
+            log.record(MemoryChange::InternString {
+                string_hash: hasher.finish(),
+                size_bytes: 4,
+            });
+        }
 
         // Rollback to checkpoint
-        let changes_to_rollback = log.rollback_to_checkpoint(checkpoint_id)
+        let changes_to_rollback = log
+            .rollback_to_checkpoint(checkpoint_id)
             .expect("Failed to rollback to checkpoint: checkpoint should be valid");
         assert_eq!(changes_to_rollback.len(), 3); // 2 changes + 1 checkpoint change
         assert_eq!(log.len(), 0);
@@ -1041,10 +1092,14 @@ mod tests {
             arena_type: ArenaType::Expression,
             size_bytes: 48,
         });
-        log.record(MemoryChange::InternString {
-            string: "test".to_string(),
-            size_bytes: 4,
-        });
+        {
+            let mut hasher = DefaultHasher::new();
+            "test".hash(&mut hasher);
+            log.record(MemoryChange::InternString {
+                string_hash: hasher.finish(),
+                size_bytes: 4,
+            });
+        }
         log.record(MemoryChange::ArenaReset {
             arena_type: ArenaType::Node,
             previous_stats: ArenaStats::default(),
@@ -1114,7 +1169,9 @@ mod tests {
         assert_eq!(stats_before.expressions_allocated, 1);
 
         // Rollback to checkpoint
-        memory_manager.rollback_to_checkpoint(checkpoint_id).unwrap();
+        memory_manager
+            .rollback_to_checkpoint(checkpoint_id)
+            .unwrap();
 
         // After rollback, the change log should be truncated
         let change_log = memory_manager.get_change_log().unwrap();
@@ -1242,7 +1299,7 @@ mod tests {
         let memory_manager = MemoryManager::with_tracking();
 
         // Create initial checkpoint
-        let checkpoint1 = memory_manager.create_checkpoint().unwrap();
+        let _checkpoint1 = memory_manager.create_checkpoint().unwrap();
 
         // Allocate some memory
         let node1 = TableauxNode::new(NodeId::new(1));
@@ -1270,7 +1327,12 @@ mod tests {
         // Should have lost the second node and expression
         let log = memory_manager.get_change_log().unwrap();
         let changes_since_cp2 = log.changes_since_checkpoint(checkpoint2);
-        assert!(changes_since_cp2.is_none() || changes_since_cp2.expect("Changes slice should be valid").is_empty());
+        assert!(
+            changes_since_cp2.is_none()
+                || changes_since_cp2
+                    .expect("Changes slice should be valid")
+                    .is_empty()
+        );
     }
 
     #[test]

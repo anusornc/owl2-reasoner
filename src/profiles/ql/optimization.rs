@@ -1,6 +1,7 @@
 //! OWL2 QL Profile Optimizer
 //!
 //! This module implements optimizations for ontologies to make them compliant
+#![allow(clippy::only_used_in_recursion)]
 //! with the OWL2 QL profile. It provides suggestions and transformations for:
 //! - Removing disallowed property characteristics
 //! - Simplifying cardinality restrictions
@@ -29,7 +30,10 @@ impl QlOptimizer {
         let mut hints = Vec::new();
 
         // Check for transitive properties (restricted in QL)
-        let transitive_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::TransitiveProperty).len();
+        let transitive_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::TransitiveProperty)
+            .len();
         if transitive_count > 0 {
             hints.push(OptimizationHint {
                 hint_type: OptimizationType::RemoveUnsupportedConstructs,
@@ -42,7 +46,10 @@ impl QlOptimizer {
         }
 
         // Check for asymmetric properties (not allowed in QL)
-        let asymmetric_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::AsymmetricProperty).len();
+        let asymmetric_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::AsymmetricProperty)
+            .len();
         if asymmetric_count > 0 {
             hints.push(OptimizationHint {
                 hint_type: OptimizationType::RemoveUnsupportedConstructs,
@@ -55,7 +62,10 @@ impl QlOptimizer {
         }
 
         // Check for irreflexive properties (not allowed in QL)
-        let irreflexive_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::IrreflexiveProperty).len();
+        let irreflexive_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::IrreflexiveProperty)
+            .len();
         if irreflexive_count > 0 {
             hints.push(OptimizationHint {
                 hint_type: OptimizationType::RemoveUnsupportedConstructs,
@@ -115,33 +125,52 @@ impl QlOptimizer {
         let mut violations = Vec::new();
 
         // Check transitive properties - simplified for now
-        let transitive_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::TransitiveProperty).len();
+        let transitive_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::TransitiveProperty)
+            .len();
         if transitive_count > 0 {
             violations.push(ProfileViolation {
                 violation_type: crate::profiles::common::ProfileViolationType::TransitiveProperties,
-                message: format!("Found {} transitive property axioms (restricted in QL profile)", transitive_count),
+                message: format!(
+                    "Found {} transitive property axioms (restricted in QL profile)",
+                    transitive_count
+                ),
                 affected_entities: vec![], // Simplified - no specific entities for now
                 severity: crate::profiles::common::ViolationSeverity::Error,
             });
         }
 
         // Check asymmetric properties - simplified for now
-        let asymmetric_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::AsymmetricProperty).len();
+        let asymmetric_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::AsymmetricProperty)
+            .len();
         if asymmetric_count > 0 {
             violations.push(ProfileViolation {
                 violation_type: crate::profiles::common::ProfileViolationType::AsymmetricProperties,
-                message: format!("Found {} asymmetric property axioms (not allowed in QL profile)", asymmetric_count),
+                message: format!(
+                    "Found {} asymmetric property axioms (not allowed in QL profile)",
+                    asymmetric_count
+                ),
                 affected_entities: vec![], // Simplified - no specific entities for now
                 severity: crate::profiles::common::ViolationSeverity::Error,
             });
         }
 
         // Check irreflexive properties - simplified for now
-        let irreflexive_count = self.ontology.axioms_by_type(crate::axioms::AxiomType::IrreflexiveProperty).len();
+        let irreflexive_count = self
+            .ontology
+            .axioms_by_type(crate::axioms::AxiomType::IrreflexiveProperty)
+            .len();
         if irreflexive_count > 0 {
             violations.push(ProfileViolation {
-                violation_type: crate::profiles::common::ProfileViolationType::IrreflexiveProperties,
-                message: format!("Found {} irreflexive property axioms (not allowed in QL profile)", irreflexive_count),
+                violation_type:
+                    crate::profiles::common::ProfileViolationType::IrreflexiveProperties,
+                message: format!(
+                    "Found {} irreflexive property axioms (not allowed in QL profile)",
+                    irreflexive_count
+                ),
                 affected_entities: vec![], // Simplified - no specific entities for now
                 severity: crate::profiles::common::ViolationSeverity::Error,
             });
@@ -157,7 +186,10 @@ impl QlOptimizer {
         if complex_chains > 0 {
             violations.push(ProfileViolation {
                 violation_type: crate::profiles::common::ProfileViolationType::PropertyChainAxioms,
-                message: format!("Found {} complex property chains (not allowed in QL profile)", complex_chains),
+                message: format!(
+                    "Found {} complex property chains (not allowed in QL profile)",
+                    complex_chains
+                ),
                 affected_entities: vec![], // Simplified - no specific entities for now
                 severity: crate::profiles::common::ViolationSeverity::Error,
             });
@@ -274,6 +306,7 @@ impl QlOptimizer {
     }
 
     /// Extract entities from class expression
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_entities_from_expression(&self, expr: &ClassExpression) -> OwlResult<Vec<IRI>> {
         let mut entities = Vec::new();
 
@@ -306,11 +339,17 @@ impl QlOptimizer {
     }
 
     /// Extract IRI from ObjectPropertyExpression
-    fn extract_iri_from_property_expression(&self, prop: &crate::axioms::property_expressions::ObjectPropertyExpression) -> OwlResult<Vec<IRI>> {
+    #[allow(clippy::only_used_in_recursion)]
+    fn extract_iri_from_property_expression(
+        &self,
+        prop: &crate::axioms::property_expressions::ObjectPropertyExpression,
+    ) -> OwlResult<Vec<IRI>> {
         use crate::axioms::property_expressions::ObjectPropertyExpression;
 
         match prop {
-            ObjectPropertyExpression::ObjectProperty(obj_prop) => Ok(vec![(*obj_prop.iri()).clone().into()]),
+            ObjectPropertyExpression::ObjectProperty(obj_prop) => {
+                Ok(vec![(*obj_prop.iri()).clone().into()])
+            }
             ObjectPropertyExpression::ObjectInverseOf(obj_prop) => {
                 self.extract_iri_from_property_expression(obj_prop)
             }
@@ -330,7 +369,10 @@ impl QlOptimizer {
     }
 
     /// Count cardinality restrictions in expression
-    fn count_cardinality_restrictions_in_expression(&self, expr: &ClassExpression) -> OwlResult<usize> {
+    fn count_cardinality_restrictions_in_expression(
+        &self,
+        expr: &ClassExpression,
+    ) -> OwlResult<usize> {
         let mut count = 0;
 
         match expr {
@@ -391,7 +433,10 @@ impl QlOptimizer {
     }
 
     /// Categorize violations by type
-    fn categorize_violations(&self, violations: &[ProfileViolation]) -> std::collections::HashMap<String, usize> {
+    fn categorize_violations(
+        &self,
+        violations: &[ProfileViolation],
+    ) -> std::collections::HashMap<String, usize> {
         let mut categories = std::collections::HashMap::new();
 
         for violation in violations {
@@ -403,14 +448,18 @@ impl QlOptimizer {
     }
 
     /// Estimate optimization effort
+    #[allow(clippy::only_used_in_recursion)]
     fn estimate_optimization_effort(&self, violations: &[ProfileViolation]) -> OptimizationEffort {
-        let high_effort_violations = violations.iter().filter(|v| {
-            matches!(
-                v.violation_type,
-                crate::profiles::common::ProfileViolationType::ComplexCardinalityRestrictions
-                    | crate::profiles::common::ProfileViolationType::TransitiveProperties
-            )
-        }).count();
+        let high_effort_violations = violations
+            .iter()
+            .filter(|v| {
+                matches!(
+                    v.violation_type,
+                    crate::profiles::common::ProfileViolationType::ComplexCardinalityRestrictions
+                        | crate::profiles::common::ProfileViolationType::TransitiveProperties
+                )
+            })
+            .count();
 
         if high_effort_violations > 5 {
             OptimizationEffort::High
@@ -422,6 +471,7 @@ impl QlOptimizer {
     }
 
     /// Check if ontology can be fully optimized for QL
+    #[allow(clippy::only_used_in_recursion)]
     fn can_be_fully_optimized(&self, violations: &[ProfileViolation]) -> bool {
         // Most QL violations can be resolved through transformation
         // Some semantic constraints might prevent full optimization
@@ -432,9 +482,9 @@ impl QlOptimizer {
 /// Optimization effort levels
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OptimizationEffort {
-    Low,   // Simple changes, minor restructuring
+    Low,    // Simple changes, minor restructuring
     Medium, // Moderate restructuring required
-    High,  // Major restructuring, semantic changes needed
+    High,   // Major restructuring, semantic changes needed
 }
 
 /// QL Optimization Report

@@ -11,12 +11,16 @@ pub struct RealtimeMonitoring {
     session_count: usize,
 }
 
+impl Default for RealtimeMonitoring {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RealtimeMonitoring {
     /// Create a new real-time monitoring system
     pub fn new() -> Self {
-        Self {
-            session_count: 0,
-        }
+        Self { session_count: 0 }
     }
 
     /// Start monitoring
@@ -33,13 +37,22 @@ pub struct MonitoringSession {
     pub start_time: std::time::Instant,
 }
 
+impl Default for MonitoringSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MonitoringSession {
     pub fn new() -> Self {
         Self {
-            session_id: format!("session_{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()),
+            session_id: format!(
+                "session_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            ),
             start_time: std::time::Instant::now(),
         }
     }
@@ -56,8 +69,16 @@ pub struct ValidationEvent {
 // Supporting placeholder types
 pub struct DashboardData;
 pub struct MetricsCollector;
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
     pub fn collect_metrics(&self) -> OwlResult<Vec<MonitoringMetric>> {
         Ok(vec![])
     }

@@ -5,8 +5,9 @@
 //! OWL2 specifications and Manchester Syntax rules.
 
 use super::syntax::{
-    Annotation, AnnotationValue, ClassExpression, DataPropertyExpression, DataRange, IndividualExpression, ManchesterAST,
-    ObjectPropertyExpression, PropertyAssertion, PropertyCharacteristic,
+    Annotation, AnnotationValue, ClassExpression, DataPropertyExpression, DataRange,
+    IndividualExpression, ManchesterAST, ObjectPropertyExpression, PropertyAssertion,
+    PropertyCharacteristic,
 };
 use crate::error::{OwlError, OwlResult};
 use crate::utils::smallvec::sizes;
@@ -268,10 +269,7 @@ impl SyntaxValidator {
             } => {
                 self.validate_same_individuals(individuals, &mut result);
             }
-            ManchesterAST::AnnotationDeclaration {
-                name,
-                annotations,
-            } => {
+            ManchesterAST::AnnotationDeclaration { name, annotations } => {
                 self.validate_annotation_declaration(name, annotations, &mut result);
             }
             ManchesterAST::RuleDeclaration {
@@ -699,7 +697,7 @@ impl SyntaxValidator {
                 // Check for well-formed literal syntax
                 if literal.starts_with('"') && literal.ends_with('"') {
                     // Quoted literal - check for language tags or datatype
-                    let content = &literal[1..literal.len()-1];
+                    let content = &literal[1..literal.len() - 1];
                     if content.is_empty() {
                         result.warnings.push(ValidationWarning {
                             message: "Empty quoted literal".to_string(),
@@ -724,7 +722,12 @@ impl SyntaxValidator {
     }
 
     /// Validate a rule atom (class expression used in SWRL rule)
-    fn validate_rule_atom(&self, atom: &ClassExpression, is_body: bool, result: &mut ValidationResult) {
+    fn validate_rule_atom(
+        &self,
+        atom: &ClassExpression,
+        is_body: bool,
+        result: &mut ValidationResult,
+    ) {
         match atom {
             ClassExpression::NamedClass(class_name) => {
                 // Validate class reference
@@ -733,7 +736,10 @@ impl SyntaxValidator {
                 // Check for special OWL classes that might not be appropriate in rules
                 if class_name == "owl:Thing" || class_name == "owl:Nothing" {
                     result.warnings.push(ValidationWarning {
-                        message: format!("Use of {} in rule atom may not be meaningful", class_name),
+                        message: format!(
+                            "Use of {} in rule atom may not be meaningful",
+                            class_name
+                        ),
                         location: None,
                         code: WarningCode::ComplexExpression,
                     });
@@ -764,7 +770,8 @@ impl SyntaxValidator {
             ClassExpression::ObjectIntersection(operands) => {
                 if operands.is_empty() {
                     result.errors.push(ValidationError {
-                        message: "ObjectIntersection in rule requires at least 1 operand".to_string(),
+                        message: "ObjectIntersection in rule requires at least 1 operand"
+                            .to_string(),
                         location: None,
                         code: ErrorCode::MissingRequiredComponent,
                     });
@@ -791,7 +798,9 @@ impl SyntaxValidator {
                 // Negation is only allowed in rule body in SWRL
                 if !is_body {
                     result.errors.push(ValidationError {
-                        message: "Negation (ObjectComplement) is only allowed in rule body, not head".to_string(),
+                        message:
+                            "Negation (ObjectComplement) is only allowed in rule body, not head"
+                                .to_string(),
                         location: None,
                         code: ErrorCode::TypeMismatch,
                     });
@@ -812,15 +821,15 @@ impl SyntaxValidator {
                 });
                 // Still validate the components
                 match atom {
-                    ClassExpression::ObjectMinCardinality(prop, card) |
-                    ClassExpression::ObjectMaxCardinality(prop, card) |
-                    ClassExpression::ObjectExactCardinality(prop, card) => {
+                    ClassExpression::ObjectMinCardinality(prop, card)
+                    | ClassExpression::ObjectMaxCardinality(prop, card)
+                    | ClassExpression::ObjectExactCardinality(prop, card) => {
                         self.validate_object_property_expression(prop, result);
                         self.validate_cardinality(*card, result);
                     }
-                    ClassExpression::DataMinCardinality(prop, card) |
-                    ClassExpression::DataMaxCardinality(prop, card) |
-                    ClassExpression::DataExactCardinality(prop, card) => {
+                    ClassExpression::DataMinCardinality(prop, card)
+                    | ClassExpression::DataMaxCardinality(prop, card)
+                    | ClassExpression::DataExactCardinality(prop, card) => {
                         self.validate_data_property_expression(prop, result);
                         self.validate_cardinality(*card, result);
                     }
@@ -839,7 +848,8 @@ impl SyntaxValidator {
             // Handle other cases
             ClassExpression::ObjectOneOf(_) => {
                 result.warnings.push(ValidationWarning {
-                    message: "ObjectOneOf in SWRL rules may not be supported by all reasoners".to_string(),
+                    message: "ObjectOneOf in SWRL rules may not be supported by all reasoners"
+                        .to_string(),
                     location: None,
                     code: WarningCode::UnimplementedFeature,
                 });
@@ -855,13 +865,29 @@ impl SyntaxValidator {
 
     /// Check if an annotation property is a built-in OWL annotation property
     fn is_builtin_annotation_property(&self, property: &str) -> bool {
-        matches!(property,
-            "rdfs:label" | "rdfs:comment" | "rdfs:seeAlso" | "rdfs:isDefinedBy" |
-            "owl:versionInfo" | "owl:priorVersion" | "owl:backwardCompatibleWith" |
-            "owl:incompatibleWith" | "owl:deprecated" | "dc:creator" | "dc:date" |
-            "dc:description" | "dc:title" | "dc:source" | "dc:subject" |
-            "dcterms:creator" | "dcterms:date" | "dcterms:description" |
-            "dcterms:title" | "dcterms:source" | "dcterms:subject"
+        matches!(
+            property,
+            "rdfs:label"
+                | "rdfs:comment"
+                | "rdfs:seeAlso"
+                | "rdfs:isDefinedBy"
+                | "owl:versionInfo"
+                | "owl:priorVersion"
+                | "owl:backwardCompatibleWith"
+                | "owl:incompatibleWith"
+                | "owl:deprecated"
+                | "dc:creator"
+                | "dc:date"
+                | "dc:description"
+                | "dc:title"
+                | "dc:source"
+                | "dc:subject"
+                | "dcterms:creator"
+                | "dcterms:date"
+                | "dcterms:description"
+                | "dcterms:title"
+                | "dcterms:source"
+                | "dcterms:subject"
         )
     }
 
@@ -1015,7 +1041,10 @@ impl SyntaxValidator {
         for class in &classes {
             if negated_classes.contains(class) {
                 result.errors.push(ValidationError {
-                    message: format!("Rule head contains contradiction: {} and not {}", class, class),
+                    message: format!(
+                        "Rule head contains contradiction: {} and not {}",
+                        class, class
+                    ),
                     location: None,
                     code: ErrorCode::TypeMismatch,
                 });
@@ -1025,7 +1054,8 @@ impl SyntaxValidator {
         // Check for owl:Nothing in head (rule would never be satisfiable)
         if classes.contains(&"owl:Nothing".to_string()) {
             result.errors.push(ValidationError {
-                message: "Rule head contains owl:Nothing - rule would never be satisfiable".to_string(),
+                message: "Rule head contains owl:Nothing - rule would never be satisfiable"
+                    .to_string(),
                 location: None,
                 code: ErrorCode::TypeMismatch,
             });
@@ -1611,18 +1641,30 @@ impl ValidationContext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::syntax::{Annotation, AnnotationValue};
+    use super::*;
     use smallvec::smallvec;
 
     /// Helper function to create a validator with common prefixes
     fn create_validator_with_prefixes() -> SyntaxValidator {
         let mut validator = SyntaxValidator::new();
-        validator.add_prefix("rdfs".to_string(), "http://www.w3.org/2000/01/rdf-schema#".to_string());
-        validator.add_prefix("owl".to_string(), "http://www.w3.org/2002/07/owl#".to_string());
+        validator.add_prefix(
+            "rdfs".to_string(),
+            "http://www.w3.org/2000/01/rdf-schema#".to_string(),
+        );
+        validator.add_prefix(
+            "owl".to_string(),
+            "http://www.w3.org/2002/07/owl#".to_string(),
+        );
         validator.add_prefix("ex".to_string(), "http://example.org/".to_string());
-        validator.add_prefix("dc".to_string(), "http://purl.org/dc/elements/1.1/".to_string());
-        validator.add_prefix("dcterms".to_string(), "http://purl.org/dc/terms/".to_string());
+        validator.add_prefix(
+            "dc".to_string(),
+            "http://purl.org/dc/elements/1.1/".to_string(),
+        );
+        validator.add_prefix(
+            "dcterms".to_string(),
+            "http://purl.org/dc/terms/".to_string(),
+        );
         validator
     }
 
@@ -1668,7 +1710,10 @@ mod tests {
         let result = validator.validate_ast(&invalid_annotation);
         assert!(!result.is_valid);
         assert!(!result.errors.is_empty());
-        assert!(result.errors.iter().any(|e| e.message.contains("cannot be empty")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("cannot be empty")));
     }
 
     #[test]
@@ -1695,12 +1740,12 @@ mod tests {
 
         let valid_rule = ManchesterAST::RuleDeclaration {
             name: Some("ex:TestRule".to_string()),
-            body: Box::new(smallvec![
-                Box::new(ClassExpression::NamedClass("ex:Person".to_string())),
-            ]),
-            head: Box::new(smallvec![
-                Box::new(ClassExpression::NamedClass("ex:Human".to_string())),
-            ]),
+            body: Box::new(smallvec![Box::new(ClassExpression::NamedClass(
+                "ex:Person".to_string()
+            )),]),
+            head: Box::new(smallvec![Box::new(ClassExpression::NamedClass(
+                "ex:Human".to_string()
+            )),]),
             annotations: Box::new(smallvec![]),
         };
 
@@ -1723,7 +1768,10 @@ mod tests {
         let result = validator.validate_ast(&empty_rule);
         assert!(!result.is_valid);
         assert!(!result.errors.is_empty());
-        assert!(result.errors.iter().any(|e| e.message.contains("at least one atom")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("at least one atom")));
     }
 
     #[test]
@@ -1732,21 +1780,22 @@ mod tests {
 
         let rule_with_negation_in_head = ManchesterAST::RuleDeclaration {
             name: Some("ex:InvalidRule".to_string()),
-            body: Box::new(smallvec![
-                Box::new(ClassExpression::NamedClass("ex:Person".to_string())),
-            ]),
-            head: Box::new(smallvec![
-                Box::new(ClassExpression::ObjectComplement(
-                    Box::new(ClassExpression::NamedClass("ex:Student".to_string()))
-                )),
-            ]),
+            body: Box::new(smallvec![Box::new(ClassExpression::NamedClass(
+                "ex:Person".to_string()
+            )),]),
+            head: Box::new(smallvec![Box::new(ClassExpression::ObjectComplement(
+                Box::new(ClassExpression::NamedClass("ex:Student".to_string()))
+            )),]),
             annotations: Box::new(smallvec![]),
         };
 
         let result = validator.validate_ast(&rule_with_negation_in_head);
         assert!(!result.is_valid);
         assert!(!result.errors.is_empty());
-        assert!(result.errors.iter().any(|e| e.message.contains("only allowed in rule body")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("only allowed in rule body")));
     }
 
     #[test]
@@ -1757,13 +1806,13 @@ mod tests {
             name: Some("ex:ValidRule".to_string()),
             body: Box::new(smallvec![
                 Box::new(ClassExpression::NamedClass("ex:Person".to_string())),
-                Box::new(ClassExpression::ObjectComplement(
-                    Box::new(ClassExpression::NamedClass("ex:Student".to_string()))
-                )),
+                Box::new(ClassExpression::ObjectComplement(Box::new(
+                    ClassExpression::NamedClass("ex:Student".to_string())
+                ))),
             ]),
-            head: Box::new(smallvec![
-                Box::new(ClassExpression::NamedClass("ex:Adult".to_string())),
-            ]),
+            head: Box::new(smallvec![Box::new(ClassExpression::NamedClass(
+                "ex:Adult".to_string()
+            )),]),
             annotations: Box::new(smallvec![]),
         };
 
@@ -1779,14 +1828,14 @@ mod tests {
 
         let contradictory_rule = ManchesterAST::RuleDeclaration {
             name: Some("ex:ContradictoryRule".to_string()),
-            body: Box::new(smallvec![
-                Box::new(ClassExpression::NamedClass("ex:Person".to_string())),
-            ]),
+            body: Box::new(smallvec![Box::new(ClassExpression::NamedClass(
+                "ex:Person".to_string()
+            )),]),
             head: Box::new(smallvec![
                 Box::new(ClassExpression::NamedClass("ex:Student".to_string())),
-                Box::new(ClassExpression::ObjectComplement(
-                    Box::new(ClassExpression::NamedClass("ex:Student".to_string()))
-                )),
+                Box::new(ClassExpression::ObjectComplement(Box::new(
+                    ClassExpression::NamedClass("ex:Student".to_string())
+                ))),
             ]),
             annotations: Box::new(smallvec![]),
         };
@@ -1794,7 +1843,10 @@ mod tests {
         let result = validator.validate_ast(&contradictory_rule);
         assert!(!result.is_valid);
         assert!(!result.errors.is_empty());
-        assert!(result.errors.iter().any(|e| e.message.contains("contradiction")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("contradiction")));
     }
 
     #[test]
