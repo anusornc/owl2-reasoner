@@ -157,7 +157,7 @@ fn test_same_individual_rule_via_public_api() {
     }
 
     // Apply same individual rule through the public API
-    let rules = ExpansionRules::new();
+    let mut rules = ExpansionRules::new();
     let result = rules.apply_rule(
         ExpansionRule::SameIndividual,
         &mut graph,
@@ -211,7 +211,7 @@ fn test_different_individuals_rule_via_public_api() {
     }
 
     // Apply different individuals rule through the public API
-    let rules = ExpansionRules::new();
+    let mut rules = ExpansionRules::new();
     let result = rules.apply_rule(
         ExpansionRule::DifferentIndividuals,
         &mut graph,
@@ -263,7 +263,7 @@ fn test_different_individuals_clash_detection_via_public_api() {
     }
 
     // Apply different individuals rule through the public API - should detect a clash
-    let rules = ExpansionRules::new();
+    let mut rules = ExpansionRules::new();
     let result = rules.apply_rule(
         ExpansionRule::DifferentIndividuals,
         &mut graph,
@@ -307,7 +307,7 @@ fn test_functional_property_rule_via_public_api() {
     graph.add_edge(source, &property_iri, target2);
 
     // Apply functional property rule through the public API
-    let rules = ExpansionRules::new();
+    let mut rules = ExpansionRules::new();
     let result = rules.apply_rule(
         ExpansionRule::FunctionalProperty,
         &mut graph,
@@ -351,7 +351,7 @@ fn test_functional_property_rule_with_single_target() {
     graph.add_edge(source, &property_iri, target);
 
     // Apply functional property rule through the public API
-    let rules = ExpansionRules::new();
+    let mut rules = ExpansionRules::new();
     let result = rules.apply_rule(
         ExpansionRule::FunctionalProperty,
         &mut graph,

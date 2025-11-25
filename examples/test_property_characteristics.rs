@@ -71,7 +71,7 @@ fn test_transitive() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = TransitivePropertyAxiom::new(ancestor_of.clone());
     let _ = ontology.add_axiom(Axiom::TransitiveProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with transitive property 'ancestorOf'");
     println!("  Rule: If (x,y) ∈ ancestorOf and (y,z) ∈ ancestorOf, then (x,z) ∈ ancestorOf");
 
@@ -85,7 +85,7 @@ fn test_symmetric() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = SymmetricPropertyAxiom::new(sibling_of.clone());
     let _ = ontology.add_axiom(Axiom::SymmetricProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with symmetric property 'siblingOf'");
     println!("  Rule: If (x,y) ∈ siblingOf, then (y,x) ∈ siblingOf");
 
@@ -99,7 +99,7 @@ fn test_reflexive() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = ReflexivePropertyAxiom::new(knows.clone());
     let _ = ontology.add_axiom(Axiom::ReflexiveProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with reflexive property 'knows'");
     println!("  Rule: For all x, (x,x) ∈ knows");
 
@@ -113,7 +113,7 @@ fn test_functional() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = FunctionalPropertyAxiom::new(has_mother.clone());
     let _ = ontology.add_axiom(Axiom::FunctionalProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with functional property 'hasMother'");
     println!("  Rule: If (x,y) ∈ hasMother and (x,z) ∈ hasMother, then y = z");
     println!("  Note: Requires equality reasoning for full clash detection");
@@ -128,7 +128,7 @@ fn test_inverse_functional() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = InverseFunctionalPropertyAxiom::new(is_mother_of.clone());
     let _ = ontology.add_axiom(Axiom::InverseFunctionalProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with inverse functional property 'isMotherOf'");
     println!("  Rule: If (x,z) ∈ isMotherOf and (y,z) ∈ isMotherOf, then x = y");
     println!("  Note: Requires equality reasoning for full clash detection");
@@ -143,7 +143,7 @@ fn test_irreflexive() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = IrreflexivePropertyAxiom::new(parent_of.clone());
     let _ = ontology.add_axiom(Axiom::IrreflexiveProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with irreflexive property 'parentOf'");
     println!("  Rule: For all x, (x,x) ∉ parentOf (clash if found)");
 
@@ -157,7 +157,7 @@ fn test_asymmetric() -> Result<(), Box<dyn std::error::Error>> {
     let axiom = AsymmetricPropertyAxiom::new(child_of.clone());
     let _ = ontology.add_axiom(Axiom::AsymmetricProperty(Box::new(axiom)));
 
-    let reasoner = TableauxReasoner::new(ontology);
+    let _reasoner = TableauxReasoner::new(ontology);
     println!("✓ Created ontology with asymmetric property 'childOf'");
     println!("  Rule: If (x,y) ∈ childOf, then (y,x) ∉ childOf (clash if both found)");
 

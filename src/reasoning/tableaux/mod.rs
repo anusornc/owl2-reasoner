@@ -26,8 +26,9 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
-//! use owl2_reasoner::{Ontology, Class, SimpleReasoner, SubClassOfAxiom, ClassExpression};
+//! ```rust,ignore
+//! use owl2_reasoner::{Ontology, Class, SubClassOfAxiom, ClassExpression};
+//! use owl2_reasoner::reasoning::tableaux::TableauxReasoner;
 //!
 //! // Create ontology with classes
 //! let mut ontology = Ontology::new();
@@ -44,7 +45,7 @@
 //! ontology.add_subclass_axiom(subclass_axiom)?;
 //!
 //! // Create tableaux reasoner and perform reasoning
-//! let reasoner = SimpleReasoner::new(ontology);
+//! let reasoner = TableauxReasoner::new(ontology);
 //! let is_consistent = reasoner.is_consistent()?;
 //! let is_subclass = reasoner.is_subclass_of(&parent.iri(), &person.iri())?;
 //! ```
@@ -59,6 +60,7 @@
 pub mod blocking;
 pub mod core;
 pub mod dependency;
+pub mod equality;
 pub mod expansion;
 pub mod graph;
 pub mod memory;

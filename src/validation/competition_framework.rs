@@ -46,15 +46,13 @@ pub struct CompetitionResults {
 }
 
 /// Compliance level
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ComplianceLevel {
     #[default]
     FullyCompliant,
     PartiallyCompliant,
     NeedsWork,
 }
-
 
 // Supporting placeholder types
 pub struct BenchmarkOntology;

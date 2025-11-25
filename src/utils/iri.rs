@@ -1,7 +1,7 @@
 //! Performance-optimized IRI utilities
 //!
 //! This module provides optimized utilities for working with IRIs,
-//! focusing on reducing Arc<IRI> cloning operations and improving memory efficiency.
+//! focusing on reducing `Arc<IRI>` cloning operations and improving memory efficiency.
 
 use crate::iri::IRI;
 use std::sync::Arc;
@@ -31,7 +31,7 @@ impl IriUtils {
         entities.into_iter().map(|e| Arc::clone(e.iri())).collect()
     }
 
-    /// Convert Arc<IRI> collection to IRI collection with optimized cloning
+    /// Convert `Arc<IRI>` collection to IRI collection with optimized cloning
     ///
     /// Uses Arc::into_inner when possible to avoid double cloning,
     /// falls back to standard cloning for shared references.
@@ -42,7 +42,7 @@ impl IriUtils {
             .collect()
     }
 
-    /// Create a Vec<IRI> from entity references with single cloning step
+    /// Create a `Vec<IRI>` from entity references with single cloning step
     pub fn entities_to_iris<'a, I, E>(entities: I) -> Vec<IRI>
     where
         I: IntoIterator<Item = &'a E>,
@@ -68,14 +68,14 @@ impl IriUtils {
         }
     }
 
-    /// Pre-allocate a Vec with reasonable capacity for IRI collections
+    /// Pre-allocate a `Vec` with reasonable capacity for IRI collections
     ///
     /// Helps reduce reallocations during IRI collection operations.
     pub fn preallocate_iri_vec(size_hint: usize) -> Vec<Arc<IRI>> {
         Vec::with_capacity(size_hint.max(8)) // Minimum capacity to avoid tiny allocations
     }
 
-    /// Clone Arc<IRI> using the most efficient method available
+    /// Clone `Arc<IRI>` using the most efficient method available
     ///
     /// This is a convenience function that ensures optimal Arc cloning.
     pub fn clone_arc_iri(iri: &Arc<IRI>) -> Arc<IRI> {

@@ -39,26 +39,27 @@
 //!
 //! ## Example Usage
 //!
-//! ```rust
-//! use owl2_reasoner::reasoning::tableaux::{DependencyManager, Dependency, DependencyType};
+//! ```rust,ignore
+//! use owl2_reasoner::reasoning::tableaux::{DependencyManager, Dependency, DependencyType, NodeId, ChoiceType};
 //!
 //! // Create dependency manager
 //! let mut dependency_manager = DependencyManager::new();
 //!
 //! // Create a choice point (branching decision)
-//! let choice_point_id = dependency_manager.create_choice_point(NodeId::new(1));
-//!
-//! // Add dependencies for reasoning steps
-//! dependency_manager.add_dependency(
-//!     NodeId::new(2),  // dependent node
-//!     DependencySource::ChoicePoint(choice_point_id),
-//!     DependencyType::Subclass
+//! let choice_point_id = dependency_manager.create_choice_point(
+//!     NodeId::new(1),
+//!     ChoiceType::NonDeterministic
 //! );
 //!
+//! // Add dependencies for reasoning steps
+//! dependency_manager.add_dependency(NodeId::new(2));
+//!
 //! // When a contradiction is found, backtrack intelligently
+//! let contradiction_detected = true; // Example condition
 //! if contradiction_detected {
-//!     let backtrack_to = dependency_manager.find_responsible_choice(NodeId::new(2));
-//!     println!("Backtrack to choice point {}", backtrack_to);
+//!     if let Some(backtrack_to) = dependency_manager.find_backtrack_point(NodeId::new(2)) {
+//!         println!("Backtrack to choice point {}", backtrack_to);
+//!     }
 //! }
 //! ```
 

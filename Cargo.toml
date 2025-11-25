@@ -167,6 +167,10 @@ harness = false
 name = "memory_tracking_bench"
 harness = false
 
+[[bench]]
+name = "parallel_query_bench"
+harness = false
+
 [lib]
 name = "owl2_reasoner"
 path = "src/lib.rs"
@@ -223,6 +227,10 @@ path = "examples/import_resolution_example.rs"
 name = "web_service_example"
 path = "examples/web_service_example.rs"
 required-features = ["web-service"]
+
+[[example]]
+name = "parallel_query_demo"
+path = "examples/parallel_query_demo.rs"
 
 [[bin]]
 name = "owl2_validation"

@@ -249,7 +249,7 @@ impl ImportSource for FileSystemImportSource {
 /// HTTP import source
 pub struct HttpImportSource {
     /// HTTP client
-    client: reqwest::Client,
+    client: reqwest::blocking::Client,
 }
 
 impl HttpImportSource {
@@ -261,7 +261,8 @@ impl HttpImportSource {
             })
         });
 
-        let client = reqwest::Client::builder()
+        // Try to create a blocking client to avoid async runtime issues
+        let client = reqwest::blocking::Client::builder()
             .user_agent("OWL2-Reasoner/0.1.0")
             .timeout(Duration::from_secs(30))
             .redirect(reqwest::redirect::Policy::limited(5))
@@ -275,7 +276,7 @@ impl HttpImportSource {
     }
 
     /// Extract content type from response
-    fn extract_content_type(response: &reqwest::Response) -> Option<String> {
+    fn extract_content_type(response: &reqwest::blocking::Response) -> Option<String> {
         response
             .headers()
             .get(reqwest::header::CONTENT_TYPE)
@@ -288,11 +289,11 @@ impl Default for HttpImportSource {
     fn default() -> Self {
         Self::new().unwrap_or_else(|_| {
             // Fallback to basic client if configured client fails
-            let client = reqwest::Client::builder()
+            let client = reqwest::blocking::Client::builder()
                 .user_agent("OWL2-Reasoner/0.1.0")
                 .timeout(Duration::from_secs(30))
                 .build()
-                .unwrap_or_else(|_| reqwest::Client::new());
+                .unwrap_or_else(|_| reqwest::blocking::Client::new());
             Self { client }
         })
     }
@@ -305,37 +306,31 @@ impl ImportSource for HttpImportSource {
     }
 
     fn resolve(&self, iri: &IRI, config: &ImportResolverConfig) -> OwlResult<Ontology> {
-        let (content, content_type) = futures::executor::block_on(async {
-            let response = self
-                .client
-                .get(iri.as_str())
-                .header("User-Agent", &config.user_agent)
-                .timeout(config.timeout)
-                .send()
-                .await
-                .map_err(|e| OwlError::ImportResolutionError {
-                    iri: iri.clone(),
-                    message: format!("HTTP request failed: {}", e),
-                })?;
+        let response = self
+            .client
+            .get(iri.as_str())
+            .header("User-Agent", &config.user_agent)
+            .timeout(config.timeout)
+            .send()
+            .map_err(|e| OwlError::ImportResolutionError {
+                iri: iri.clone(),
+                message: format!("HTTP request failed: {}", e),
+            })?;
 
-            if !response.status().is_success() {
-                return Err(OwlError::ImportResolutionError {
-                    iri: iri.clone(),
-                    message: format!("HTTP request failed with status: {}", response.status()),
-                });
-            }
+        if !response.status().is_success() {
+            return Err(OwlError::ImportResolutionError {
+                iri: iri.clone(),
+                message: format!("HTTP request failed with status: {}", response.status()),
+            });
+        }
 
-            let content_type = Self::extract_content_type(&response);
-            let content = response
-                .text()
-                .await
-                .map_err(|e| OwlError::ImportResolutionError {
-                    iri: iri.clone(),
-                    message: format!("Failed to read response content: {}", e),
-                })?;
-
-            Ok::<(String, Option<String>), OwlError>((content, content_type))
-        })?;
+        let content_type = Self::extract_content_type(&response);
+        let content = response
+            .text()
+            .map_err(|e| OwlError::ImportResolutionError {
+                iri: iri.clone(),
+                message: format!("Failed to read response content: {}", e),
+            })?;
 
         // Try to determine content type
         let content_type = content_type.or_else(|| {
@@ -507,7 +502,13 @@ impl ImportResolver {
         // Try to add HTTP source if reqwest is available
         #[cfg(feature = "http")]
         {
-            sources.push(Box::new(HttpImportSource::default()));
+            if let Ok(http_source) = HttpImportSource::new() {
+                sources.push(Box::new(http_source));
+            } else {
+                log::warn!(
+                    "HTTP import source initialization failed, continuing without HTTP support"
+                );
+            }
         }
 
         Ok(Self {

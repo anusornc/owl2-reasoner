@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Perform reasoning
     println!("\n🧠 Performing reasoning...");
-    let _reasoner = SimpleReasoner::new(ontology);
+    let reasoner = SimpleReasoner::new(ontology);
 
     // Check consistency
     let is_consistent = reasoner.is_consistent()?;

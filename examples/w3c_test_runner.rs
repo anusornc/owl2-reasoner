@@ -164,7 +164,7 @@ fn run_consistency_test(
     }
 
     // Try to parse and check consistency
-    match parse_ontology_from_rdf(&test.premise_ontology.as_ref().unwrap()) {
+    match parse_ontology_from_rdf(test.premise_ontology.as_ref().unwrap()) {
         Ok(ontology) => {
             // Create reasoner and check consistency
             match check_consistency(&ontology) {

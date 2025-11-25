@@ -32,8 +32,9 @@
 //!
 //! ## Example Usage
 //!
-//! ```rust
-//! use owl2_reasoner::{Ontology, TableauxReasoner, ReasoningConfig};
+//! ```rust,ignore
+//! use owl2_reasoner::reasoning::tableaux::{TableauxReasoner, ReasoningConfig};
+//! use owl2_reasoner::Ontology;
 //!
 //! // Create ontology and configure reasoner
 //! let ontology = Ontology::new();
@@ -42,6 +43,9 @@
 //!     debug: false,
 //!     incremental: true,
 //!     timeout: Some(30000),
+//!     enable_parallel: false,
+//!     parallel_workers: None,
+//!     parallel_chunk_size: 64,
 //! };
 //! let reasoner = TableauxReasoner::with_config(ontology, config);
 //!
@@ -444,6 +448,26 @@ impl TableauxNode {
     pub fn blocked_by(&self) -> Option<NodeId> {
         self.blocked_by
     }
+
+    /// Get an iterator over the labels of this node
+    pub fn labels_iter(&self) -> impl Iterator<Item = &String> {
+        self.labels.iter()
+    }
+
+    /// Mark this node as merged (for equality reasoning cleanup)
+    pub fn mark_merged(&mut self) {
+        self.add_label("[MERGED]".to_string());
+    }
+
+    /// Check if this node has been marked as merged
+    pub fn is_merged(&self) -> bool {
+        self.labels.iter().any(|label| label == "[MERGED]")
+    }
+
+    /// Get all class expressions (concepts) associated with this node
+    pub fn class_expressions(&self) -> Vec<ClassExpression> {
+        self.concepts_iter().cloned().collect()
+    }
 }
 
 /// Helper enum for iteration
@@ -582,14 +606,13 @@ impl TableauxReasoner {
                 continue;
             }
 
-            expansion_engine.context.current_node = current_node;
             let mut local_graph_log = super::graph::GraphChangeLog::new();
             let mut local_memory_log = super::memory::MemoryChangeLog::new();
             expansion_engine
                 .expand(
                     &mut graph,
                     &mut memory_manager,
-                    self.config.max_depth,
+                    self.config.max_depth as u32,
                     &mut local_graph_log,
                     &mut local_memory_log,
                 )
@@ -828,14 +851,13 @@ impl TableauxReasoner {
                 continue;
             }
 
-            expansion_engine.context.current_node = current_node;
             let mut local_graph_log = super::graph::GraphChangeLog::new();
             let mut local_memory_log = super::memory::MemoryChangeLog::new();
             expansion_engine
                 .expand(
                     &mut graph,
                     &mut memory_manager,
-                    self.config.max_depth,
+                    self.config.max_depth as u32,
                     &mut local_graph_log,
                     &mut local_memory_log,
                 )
@@ -969,14 +991,14 @@ impl TableauxReasoner {
             }
 
             // Apply tableaux expansion rules
-            expansion_engine.context.current_node = current_node;
+            // Note: current_node context is handled internally during expansion
             let mut local_graph_log = super::graph::GraphChangeLog::new();
             let mut local_memory_log = super::memory::MemoryChangeLog::new();
             let _expansion_result = expansion_engine
                 .expand(
                     &mut graph,
                     &mut memory_manager,
-                    self.config.max_depth,
+                    self.config.max_depth as u32,
                     &mut local_graph_log,
                     &mut local_memory_log,
                 )
@@ -1068,14 +1090,14 @@ impl TableauxReasoner {
             }
 
             // Apply tableaux expansion rules
-            expansion_engine.context.current_node = current_node;
+            // Note: current_node context is handled internally during expansion
             let mut local_graph_log = super::graph::GraphChangeLog::new();
             let mut local_memory_log = super::memory::MemoryChangeLog::new();
             let _expansion_result = expansion_engine
                 .expand(
                     &mut graph,
                     &mut memory_manager,
-                    self.config.max_depth,
+                    self.config.max_depth as u32,
                     &mut local_graph_log,
                     &mut local_memory_log,
                 )

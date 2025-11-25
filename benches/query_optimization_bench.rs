@@ -3,7 +3,7 @@ use owl2_reasoner::axioms::*;
 use owl2_reasoner::iri::IRI;
 use owl2_reasoner::ontology::Ontology;
 use owl2_reasoner::reasoning::query::*;
-use owl2_reasoner::{Class, DataProperty, NamedIndividual, ObjectProperty};
+use owl2_reasoner::{Class, NamedIndividual, ObjectProperty};
 use std::sync::Arc;
 
 fn create_test_ontology(size: usize) -> Ontology {
@@ -47,7 +47,7 @@ fn create_test_ontology(size: usize) -> Ontology {
 
     // Add individuals and assertions
     for i in 0..size {
-        let individual_iri = IRI::new(&format!("http://example.org/person{}", i)).unwrap();
+        let individual_iri = IRI::new(format!("http://example.org/person{}", i)).unwrap();
         let individual = NamedIndividual::new(Arc::new(individual_iri.clone()));
         ontology.add_named_individual(individual).unwrap();
 
@@ -71,7 +71,7 @@ fn create_test_ontology(size: usize) -> Ontology {
         // Add property assertions
         if i > 0 && i % 5 == 0 {
             let department_iri =
-                IRI::new(&format!("http://example.org/department{}", i / 5)).unwrap();
+                IRI::new(format!("http://example.org/department{}", i / 5)).unwrap();
             let department_individual = NamedIndividual::new(Arc::new(department_iri.clone()));
             ontology
                 .add_named_individual(department_individual)
@@ -92,7 +92,7 @@ fn create_test_ontology(size: usize) -> Ontology {
         }
 
         if i > 10 && i % 7 == 0 {
-            let manager_iri = IRI::new(&format!("http://example.org/person{}", i - 5)).unwrap();
+            let manager_iri = IRI::new(format!("http://example.org/person{}", i - 5)).unwrap();
             let prop_axiom = PropertyAssertionAxiom::new(
                 Arc::new(individual_iri.clone()),
                 Arc::new(reports_to_prop.clone()),
@@ -184,6 +184,8 @@ fn benchmark_query_performance(c: &mut Criterion) {
             enable_caching: true,
             cache_size: Some(1000),
             enable_parallel: false, // Disabled due to Sync trait issues
+            max_parallel_threads: Some(4),
+            parallel_threshold: 10,
             use_memory_pool: true,
         };
 
@@ -195,6 +197,8 @@ fn benchmark_query_performance(c: &mut Criterion) {
             enable_caching: false,
             cache_size: None,
             enable_parallel: false,
+            max_parallel_threads: Some(4),
+            parallel_threshold: 10,
             use_memory_pool: false,
         };
 
@@ -241,6 +245,8 @@ fn benchmark_cache_performance(c: &mut Criterion) {
         enable_caching: true,
         cache_size: Some(1000),
         enable_parallel: false,
+        max_parallel_threads: Some(4),
+        parallel_threshold: 10,
         use_memory_pool: true,
     };
 
@@ -251,6 +257,8 @@ fn benchmark_cache_performance(c: &mut Criterion) {
         enable_caching: false,
         cache_size: None,
         enable_parallel: false,
+        max_parallel_threads: Some(4),
+        parallel_threshold: 10,
         use_memory_pool: true,
     };
 

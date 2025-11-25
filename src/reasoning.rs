@@ -14,7 +14,10 @@ pub mod tableaux;
 pub use classification::*;
 pub use consistency::*;
 pub use profile_optimized::*;
-pub use query::*;
+pub use query::{
+    FilterExpression, PatternTerm, QueryBinding, QueryConfig, QueryEngine, QueryEngineStats,
+    QueryPattern, QueryResult, QueryValue, TriplePattern,
+};
 pub use rules::*;
 pub use simple::*;
 pub use tableaux::*;
@@ -115,10 +118,10 @@ impl OwlReasoner {
 
     /// Execute a SPARQL-like query
     pub fn query(&mut self, query: &str) -> OwlResult<QueryResult> {
-        let mut engine = self.query_engine();
+        let engine = self.query_engine();
         // Parse the query string into a query pattern
         let pattern = self.parse_sparql_query(query)?;
-        engine.execute_query(&pattern)
+        engine.execute(&pattern)
     }
 
     /// Parse a simple SPARQL-like query string

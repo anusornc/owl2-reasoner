@@ -4,9 +4,6 @@
 //! in the OWL2 reasoning engine, including multi-layer cache behavior.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use owl2_reasoner::entities::*;
-use owl2_reasoner::iri::IRI;
-use owl2_reasoner::ontology::*;
 use std::time::Duration;
 
 // Include our test data generation utilities

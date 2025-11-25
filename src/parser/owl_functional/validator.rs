@@ -399,7 +399,8 @@ impl FunctionalSyntaxValidator {
     fn validate_axiom_consistency(&self, ontology: &Ontology) -> FunctionalSyntaxResult<()> {
         // Check for obvious inconsistencies
         let mut class_pairs = std::collections::HashSet::new();
-        let empty_iri = Arc::new(IRI::new("http://example.org/empty").unwrap());
+        let empty_iri =
+            Arc::new(IRI::new("http://example.org/empty").expect("Valid example.org empty IRI"));
 
         for axiom in ontology.axioms() {
             match &**axiom {

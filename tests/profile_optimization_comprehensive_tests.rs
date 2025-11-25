@@ -33,14 +33,14 @@ fn test_el_profile_patterns() {
 
     // Add classes that would be in EL profile
     for i in 0..5 {
-        let class_iri = IRI::new(&format!("http://example.org/ELClass{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/ELClass{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add EL class");
     }
 
     // Add properties (object properties for EL)
     for i in 0..3 {
-        let prop_iri = IRI::new(&format!("http://example.org/elProp{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/elProp{}", i)).unwrap();
         let prop = ObjectProperty::new(Arc::new(prop_iri));
         ontology
             .add_object_property(prop)
@@ -48,8 +48,8 @@ fn test_el_profile_patterns() {
     }
 
     // Verify EL-like structure
-    assert_eq!(ontology.classes().into_iter().count(), 5);
-    assert_eq!(ontology.object_properties().into_iter().count(), 3);
+    assert_eq!(ontology.classes().iter().count(), 5);
+    assert_eq!(ontology.object_properties().iter().count(), 3);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);
@@ -83,8 +83,8 @@ fn test_ql_profile_patterns() {
         .expect("Failed to add hasName property");
 
     // Verify QL-like structure
-    assert_eq!(ontology.classes().into_iter().count(), 2);
-    assert_eq!(ontology.data_properties().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 2);
+    assert_eq!(ontology.data_properties().iter().count(), 1);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);
@@ -112,8 +112,8 @@ fn test_rl_profile_patterns() {
         .expect("Failed to add hasChild property");
 
     // Verify RL-like structure
-    assert_eq!(ontology.classes().into_iter().count(), 1);
-    assert_eq!(ontology.object_properties().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 1);
+    assert_eq!(ontology.object_properties().iter().count(), 1);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);
@@ -128,14 +128,14 @@ fn test_profile_optimization_performance() {
 
     // Create a medium-sized ontology
     for i in 0..50 {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add class");
     }
 
     // Add properties
     for i in 0..20 {
-        let prop_iri = IRI::new(&format!("http://example.org/property{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/property{}", i)).unwrap();
         let prop = ObjectProperty::new(Arc::new(prop_iri));
         ontology
             .add_object_property(prop)

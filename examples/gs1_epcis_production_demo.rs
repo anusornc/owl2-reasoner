@@ -73,7 +73,7 @@ pub struct ProductionEPCISService {
 impl ProductionEPCISService {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let ontology = create_production_gs1_ontology()?;
-        let _reasoner = SimpleReasoner::new(ontology);
+        let reasoner = SimpleReasoner::new(ontology);
 
         let metrics = ProductionMetrics {
             total_events_processed: 0,

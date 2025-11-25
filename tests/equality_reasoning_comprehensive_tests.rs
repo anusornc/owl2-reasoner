@@ -38,7 +38,7 @@ fn test_ontology_with_individuals() {
         .expect("Failed to add Mary");
 
     // Verify individuals were added
-    assert_eq!(ontology.named_individuals().into_iter().count(), 2);
+    assert_eq!(ontology.named_individuals().iter().count(), 2);
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn test_same_individual_axioms() {
 
     // In a full implementation, we would add SameIndividualAxiom here
     // For now, just test that the individuals exist
-    assert_eq!(ontology.named_individuals().into_iter().count(), 2);
+    assert_eq!(ontology.named_individuals().iter().count(), 2);
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_different_individuals_axioms() {
 
     // In a full implementation, we would add DifferentIndividualsAxiom here
     // For now, just test that the individuals exist
-    assert_eq!(ontology.named_individuals().into_iter().count(), 2);
+    assert_eq!(ontology.named_individuals().iter().count(), 2);
 }
 
 #[test]
@@ -140,8 +140,8 @@ fn test_equality_with_classes() {
         .expect("Failed to add John");
 
     // Verify structure
-    assert_eq!(ontology.classes().into_iter().count(), 2);
-    assert_eq!(ontology.named_individuals().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 2);
+    assert_eq!(ontology.named_individuals().iter().count(), 1);
 }
 
 #[test]

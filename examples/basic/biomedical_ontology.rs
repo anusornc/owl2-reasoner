@@ -267,7 +267,7 @@ fn main() -> OwlResult<()> {
 
     // Create reasoner and perform reasoning
     println!("\n=== Biomedical Reasoning Results ===");
-    let _reasoner = SimpleReasoner::new(ontology);
+    let reasoner = SimpleReasoner::new(ontology);
 
     // Check consistency
     let is_consistent = reasoner.is_consistent()?;

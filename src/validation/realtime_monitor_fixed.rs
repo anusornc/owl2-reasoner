@@ -596,7 +596,13 @@ impl RealtimeMonitoringClient {
 
     /// Get current dashboard data
     pub async fn get_dashboard_data(&self) -> DashboardData {
-        self.dashboard_data.read().unwrap().clone()
+        self.dashboard_data.read()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|_| {
+                // Return empty dashboard data if lock is poisoned
+                warn!("Dashboard data lock poisoned, returning empty data");
+                DashboardData::default()
+            })
     }
 
     pub async fn update_progress(&mut self, progress: f64) -> OwlResult<()> {
@@ -653,7 +659,8 @@ impl RealtimeProfiler {
         };
         
         {
-            let mut profiles = self.session_metrics.write().unwrap();
+            let mut profiles = self.session_metrics.write()
+                .map_err(|_| OwlError::ProcessingError("Failed to acquire session metrics write lock".to_string()))?;
             profiles.insert(session_id.to_string(), profile);
         }
         

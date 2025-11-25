@@ -113,7 +113,12 @@ pub fn validate_iri(iri_str: &str) -> Result<(), String> {
     // Check for valid IRI scheme
     if let Some(scheme_end) = iri_str.find(':') {
         let scheme = &iri_str[..scheme_end];
-        if scheme.is_empty() || !scheme.chars().next().unwrap().is_ascii_alphabetic() {
+        if scheme.is_empty()
+            || !scheme
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic())
+        {
             return Err("IRI must start with a valid scheme".to_string());
         }
 

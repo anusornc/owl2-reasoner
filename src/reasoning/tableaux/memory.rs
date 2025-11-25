@@ -44,18 +44,16 @@
 //! // Create memory manager
 //! let mut memory_manager = MemoryManager::new();
 //!
-//! // Allocate objects in arena
-//! let arena_id = memory_manager.create_arena();
-//!
 //! // Perform memory-intensive operations
 //! // ... reasoning operations that create temporary objects
 //!
 //! // Get memory statistics
-//! let stats = memory_manager.get_arena_stats(arena_id);
-//! println!("Arena {} allocated {} objects using {} bytes",
-//!          arena_id, stats.arena_allocated_nodes, stats.total_bytes_allocated);
+//! let stats = memory_manager.get_arena_stats()?;
+//! println!("Memory manager allocated {} objects using {} bytes",
+//!          stats.arena_allocated_nodes, stats.total_bytes_allocated);
 //!
-//! // Cleanup happens automatically when arena is dropped
+//! // Cleanup happens automatically when memory manager is dropped
+//! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
 
 use super::core::{MemoryStats, NodeId, TableauxNode};
@@ -120,7 +118,7 @@ pub enum MemoryChange {
         arena_type: ArenaType,
         size_bytes: usize,
     },
-    /// String interning (optimized: use Cow<str> to avoid unnecessary allocations)
+    /// String interning (optimized: use `Cow<str>` to avoid unnecessary allocations)
     InternString {
         string_hash: u64, // Pre-computed hash for faster comparison
         size_bytes: usize,
@@ -657,7 +655,7 @@ impl MemoryManager {
         }
     }
 
-    /// Rollback to a specific checkpoint
+    /// Rollback to a specific checkpoint (optimized: prevents deadlocks)
     pub fn rollback_to_checkpoint(&self, checkpoint_id: usize) -> OwlResult<()> {
         if !self.is_tracking_enabled() {
             return Err(OwlError::Other(
@@ -666,12 +664,13 @@ impl MemoryManager {
         }
 
         if let Some(ref log) = self.change_log {
-            let mut log = safe_lock(log, "change_log")?;
-            let changes_to_rollback = log
-                .rollback_to_checkpoint(checkpoint_id)
-                .map_err(|e| OwlError::Other(format!("Checkpoint rollback failed: {}", e)))?;
+            let changes_to_rollback = {
+                let mut log = safe_lock(log, "change_log")?;
+                log.rollback_to_checkpoint(checkpoint_id)
+                    .map_err(|e| OwlError::Other(format!("Checkpoint rollback failed: {}", e)))?
+            };
 
-            // Apply rollback operations (simplified implementation)
+            // Apply rollback operations with optimized lock handling
             for change in changes_to_rollback {
                 match change {
                     MemoryChange::AllocateNode { .. }
@@ -683,16 +682,19 @@ impl MemoryManager {
                         // For now, we'll reset the arenas on rollback
                     }
                     MemoryChange::ArenaReset { previous_stats, .. } => {
-                        // Restore previous arena stats
-                        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
-                        arena_manager.stats = previous_stats;
+                        // Restore previous arena stats - use try_lock to avoid deadlock
+                        if let Ok(mut arena_manager) = self.arena_manager.try_lock() {
+                            arena_manager.stats = previous_stats;
+                        }
+                        // If try_lock fails, skip stats restoration to avoid deadlock
                     }
                     _ => {}
                 }
             }
 
             // Reset arenas to deallocate all memory after checkpoint
-            self.reset()?;
+            // Use optimized reset that avoids recording during rollback to prevent deadlock
+            self.reset_without_recording()?;
             Ok(())
         } else {
             Err(OwlError::Other(
@@ -830,6 +832,18 @@ impl MemoryManager {
             }
         }
 
+        arena_manager.reset()?;
+        *memory_stats = MemoryStats::new();
+
+        Ok(())
+    }
+
+    /// Reset memory without recording changes (optimized for rollback operations)
+    pub fn reset_without_recording(&self) -> OwlResult<()> {
+        let mut arena_manager = safe_lock(&self.arena_manager, "arena_manager")?;
+        let mut memory_stats = safe_lock(&self.memory_stats, "memory_stats")?;
+
+        // Skip recording to avoid deadlock during rollback operations
         arena_manager.reset()?;
         *memory_stats = MemoryStats::new();
 

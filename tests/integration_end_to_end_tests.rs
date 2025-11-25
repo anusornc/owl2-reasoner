@@ -48,10 +48,10 @@ fn test_complete_reasoning_workflow() {
         .expect("Failed to add John");
 
     // 5. Verify ontology structure
-    assert_eq!(ontology.classes().into_iter().count(), 2);
-    assert_eq!(ontology.object_properties().into_iter().count(), 1);
-    assert_eq!(ontology.data_properties().into_iter().count(), 1);
-    assert_eq!(ontology.named_individuals().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 2);
+    assert_eq!(ontology.object_properties().iter().count(), 1);
+    assert_eq!(ontology.data_properties().iter().count(), 1);
+    assert_eq!(ontology.named_individuals().iter().count(), 1);
 
     // 6. Create reasoner and test reasoning
     let reasoner = SimpleReasoner::new(ontology);
@@ -208,14 +208,14 @@ fn test_large_scale_integration() {
 
     // Add many classes
     for i in 0..100 {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add class");
     }
 
     // Add many properties
     for i in 0..50 {
-        let prop_iri = IRI::new(&format!("http://example.org/property{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/property{}", i)).unwrap();
         let prop = ObjectProperty::new(Arc::new(prop_iri));
         ontology
             .add_object_property(prop)
@@ -224,7 +224,7 @@ fn test_large_scale_integration() {
 
     // Add many individuals
     for i in 0..200 {
-        let individual_iri = IRI::new(&format!("http://example.org/Individual{}", i)).unwrap();
+        let individual_iri = IRI::new(format!("http://example.org/Individual{}", i)).unwrap();
         let individual = NamedIndividual::new(Arc::new(individual_iri));
         ontology
             .add_named_individual(individual)
@@ -232,9 +232,9 @@ fn test_large_scale_integration() {
     }
 
     // Verify structure
-    assert_eq!(ontology.classes().into_iter().count(), 100);
-    assert_eq!(ontology.object_properties().into_iter().count(), 50);
-    assert_eq!(ontology.named_individuals().into_iter().count(), 200);
+    assert_eq!(ontology.classes().iter().count(), 100);
+    assert_eq!(ontology.object_properties().iter().count(), 50);
+    assert_eq!(ontology.named_individuals().iter().count(), 200);
 
     // Test reasoning performance
     let start_time = std::time::Instant::now();
@@ -308,7 +308,7 @@ fn test_error_handling_integration() {
         .expect("Failed to add second Person class"); // Should be handled gracefully
 
     // Should still only have one class due to duplicate handling
-    assert_eq!(ontology.classes().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 1);
 
     // Test reasoning with valid ontology
     let reasoner = SimpleReasoner::new(ontology);
@@ -326,16 +326,16 @@ fn test_memory_efficiency_integration() {
 
     // Create entities with shared IRIs
     let base_iri = IRI::new("http://example.org/ontology").unwrap();
-    let shared_arc = Arc::new(base_iri);
+    let _shared_arc = Arc::new(base_iri);
 
     for i in 0..50 {
-        let class_iri = IRI::new(&format!("http://example.org/ontology#Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/ontology#Class{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add class");
     }
 
     // Verify all classes were added
-    assert_eq!(ontology.classes().into_iter().count(), 50);
+    assert_eq!(ontology.classes().iter().count(), 50);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);

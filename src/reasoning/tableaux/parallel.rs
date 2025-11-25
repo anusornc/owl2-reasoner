@@ -24,10 +24,8 @@
 //! ## Usage Example
 //!
 //! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! use owl2_reasoner::{Ontology, ParallelTableauxReasoner};
-//! use owl2_reasoner::reasoning::tableaux::ReasoningConfig;
+//! use owl2_reasoner::Ontology;
+//! use owl2_reasoner::reasoning::tableaux::{ParallelTableauxReasoner, ReasoningConfig};
 //!
 //! // Create ontology and configure parallel reasoner
 //! let ontology = Ontology::new();
@@ -42,8 +40,7 @@
 //! // Perform parallel reasoning
 //! let is_consistent = reasoner.is_consistent_parallel()?;
 //! let classification = reasoner.classify_parallel()?;
-//! # Ok(())
-//! # }
+//! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
 
 use crate::axioms::*;

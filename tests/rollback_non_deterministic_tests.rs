@@ -33,13 +33,13 @@ fn test_memory_management() {
 
     // Add multiple classes
     for i in 0..10 {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add class");
     }
 
     // Verify all classes were added
-    assert_eq!(ontology.classes().into_iter().count(), 10);
+    assert_eq!(ontology.classes().iter().count(), 10);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);
@@ -99,7 +99,7 @@ fn test_reasoning_state_management() {
     let mut ontology = Ontology::new();
 
     // Initial state
-    assert_eq!(ontology.classes().into_iter().count(), 0);
+    assert_eq!(ontology.classes().iter().count(), 0);
 
     // Add entities
     let person_iri = IRI::new("http://example.org/Person").unwrap();
@@ -109,7 +109,7 @@ fn test_reasoning_state_management() {
         .expect("Failed to add Person class");
 
     // State changed
-    assert_eq!(ontology.classes().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 1);
 
     // Test reasoning on modified state
     let reasoner = SimpleReasoner::new(ontology);
@@ -144,14 +144,14 @@ fn test_large_scale_reasoning() {
 
     // Add many classes
     for i in 0..100 {
-        let class_iri = IRI::new(&format!("http://example.org/Class{}", i)).unwrap();
+        let class_iri = IRI::new(format!("http://example.org/Class{}", i)).unwrap();
         let class = Class::new(Arc::new(class_iri));
         ontology.add_class(class).expect("Failed to add class");
     }
 
     // Add some properties
     for i in 0..20 {
-        let prop_iri = IRI::new(&format!("http://example.org/property{}", i)).unwrap();
+        let prop_iri = IRI::new(format!("http://example.org/property{}", i)).unwrap();
         let prop = ObjectProperty::new(Arc::new(prop_iri));
         ontology
             .add_object_property(prop)
@@ -159,8 +159,8 @@ fn test_large_scale_reasoning() {
     }
 
     // Verify structure
-    assert_eq!(ontology.classes().into_iter().count(), 100);
-    assert_eq!(ontology.object_properties().into_iter().count(), 20);
+    assert_eq!(ontology.classes().iter().count(), 100);
+    assert_eq!(ontology.object_properties().iter().count(), 20);
 
     // Test reasoning
     let reasoner = SimpleReasoner::new(ontology);

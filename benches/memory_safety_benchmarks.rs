@@ -2,7 +2,6 @@
 //!
 //! This benchmark suite measures the performance impact of memory safety features
 //! and validates that they don't significantly degrade system performance.
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use owl2_reasoner::memory::*;
 use owl2_reasoner::test_helpers::MemorySafeTestConfig;
@@ -31,7 +30,7 @@ fn bench_memory_stats_collection(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark memory guard overhead (disabled - requires complex implementation)
+// /// Benchmark memory guard overhead (disabled - requires complex implementation)
 // // fn bench_memory_guard_overhead(c: &mut Criterion) {
 //     let mut group = c.benchmark_group("memory_guard_overhead");
 //

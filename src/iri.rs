@@ -376,7 +376,7 @@ impl IRI {
         Ok(iri)
     }
 
-    /// Create a new optimized IRI with zero-copy operations and Arc<IRI> return
+    /// Create a new optimized IRI with zero-copy operations and `Arc<IRI>` return
     pub fn new_optimized<S: AsRef<str>>(iri_str: S) -> OwlResult<Arc<IRI>> {
         let iri_str = iri_str.as_ref();
 
@@ -445,7 +445,7 @@ impl IRI {
         &self.iri
     }
 
-    /// Get the IRI as an Arc<str> reference - avoids cloning when sharing is needed
+    /// Get the IRI as an `Arc<str>` reference - avoids cloning when sharing is needed
     #[inline(always)]
     pub fn as_arc_str(&self) -> &Arc<str> {
         &self.iri

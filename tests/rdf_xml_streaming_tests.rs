@@ -18,10 +18,12 @@ fn test_rdf_xml_streaming_parser_creation() {
 
 #[test]
 fn test_rdf_xml_streaming_parser_with_custom_config() {
-    let mut config = ParserConfig::default();
-    config.use_arena_allocation = true;
-    config.arena_capacity = 1000;
-    config.strict_validation = false;
+    let config = ParserConfig {
+        use_arena_allocation: true,
+        arena_capacity: 1000,
+        strict_validation: false,
+        ..Default::default()
+    };
 
     let parser = RdfXmlStreamingParser::new(config);
 
@@ -83,7 +85,7 @@ fn test_rdf_xml_simple_parsing() {
             // Basic ontology should be created
             println!(
                 "Successfully parsed ontology with {} classes",
-                ontology.classes().into_iter().count()
+                ontology.classes().iter().count()
             );
         }
         Err(e) => {
@@ -99,14 +101,15 @@ fn test_rdf_xml_simple_parsing() {
 #[test]
 fn test_parser_config_options() {
     // Test that config options work as expected
-    let mut config = ParserConfig::default();
-
-    config.max_file_size = 50 * 1024 * 1024; // 50MB
-    config.strict_validation = true;
-    config.resolve_base_iri = true;
-    config.use_arena_allocation = false;
-    config.resolve_imports = false;
-    config.ignore_import_errors = true;
+    let config = ParserConfig {
+        max_file_size: 50 * 1024 * 1024, // 50MB
+        strict_validation: true,
+        resolve_base_iri: true,
+        use_arena_allocation: false,
+        resolve_imports: false,
+        ignore_import_errors: true,
+        ..Default::default()
+    };
 
     // Create parser with custom config
     let parser = RdfXmlStreamingParser::new(config);

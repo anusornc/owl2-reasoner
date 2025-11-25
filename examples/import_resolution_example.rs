@@ -1,10 +1,17 @@
 //! Example demonstrating OWL2 Import Resolution functionality
 //!
-//! This example shows how to create ontologies with import statements.
-//! Note: The actual import resolution functionality is under development.
+//! This example shows how to create ontologies with import statements and use
+//! the comprehensive import resolution system that supports:
+//! - Local file and HTTP-based imports
+//! - Circular dependency detection
+//! - Configurable caching and timeouts
+//! - Multi-format ontology parsing
 
-use owl2_reasoner::{entities::*, iri::IRI, ontology::Ontology, OwlResult};
+use owl2_reasoner::{
+    entities::*, iri::IRI, ontology::Ontology, ImportResolver, ImportResolverConfig, OwlResult,
+};
 use std::sync::Arc;
+use std::time::Duration;
 
 fn main() -> OwlResult<()> {
     // Initialize logging
@@ -61,21 +68,43 @@ fn create_import_example() -> OwlResult<()> {
 
 fn configure_import_resolver() -> OwlResult<()> {
     println!("\n2. Configuring Import Resolver");
-    println!("Note: Import resolver functionality is under development");
-    println!("This example demonstrates the intended API design");
 
-    // TODO: Implement ImportResolver when the module is available
-    println!("  - Max depth: 5");
-    println!("  - Timeout: 15 seconds");
-    println!("  - Cache size: 50 ontologies");
-    println!("  - Concurrent resolution: enabled");
+    // Create a custom import resolver configuration
+    let config = ImportResolverConfig {
+        max_depth: 5,
+        timeout: Duration::from_secs(15),
+        max_cache_size: 50,
+        enable_concurrent_resolution: true,
+        user_agent: "OWL2-Reasoner-Example/0.1.0".to_string(),
+        ..Default::default()
+    };
+
+    println!("Creating import resolver with custom configuration:");
+    println!("  - Max depth: {}", config.max_depth);
+    println!("  - Timeout: {:?}", config.timeout);
+    println!("  - Cache size: {}", config.max_cache_size);
+    println!(
+        "  - Concurrent resolution: {}",
+        config.enable_concurrent_resolution
+    );
+
+    // Create the import resolver
+    let resolver = ImportResolver::with_config(config)?;
+    println!("✅ ImportResolver created successfully");
+
+    // Show resolver statistics
+    let stats = resolver.stats();
+    println!("Initial resolver statistics:");
+    println!("  - Imports resolved: {}", stats.imports_resolved);
+    println!("  - Cache hits: {}", stats.cache_hits);
+    println!("  - Cache misses: {}", stats.cache_misses);
+    println!("  - Failed resolutions: {}", stats.failed_resolutions);
 
     Ok(())
 }
 
 fn handle_circular_dependencies() -> OwlResult<()> {
     println!("\n3. Handling Circular Dependencies");
-    println!("Note: Circular dependency detection is planned for future implementation");
 
     // Create ontologies that would have circular imports
     let mut ontology_a = Ontology::new();
@@ -89,7 +118,37 @@ fn handle_circular_dependencies() -> OwlResult<()> {
     println!("Created ontologies with circular import structure:");
     println!("  - Ontology A imports: http://example.org/ontology-b");
     println!("  - Ontology B imports: http://example.org/ontology-a");
-    println!("  - Circular dependency detection: not yet implemented");
+
+    // Test circular dependency detection with import resolver
+    let config = ImportResolverConfig::default();
+    let mut resolver = ImportResolver::with_config(config)?;
+
+    println!("Testing circular dependency detection:");
+
+    // Try to resolve imports for ontology A (should detect circular dependency)
+    match resolver.resolve_imports(&mut ontology_a) {
+        Ok(_) => {
+            println!(
+                "  - Import resolution completed (no circular dependency detected in this test)"
+            );
+        }
+        Err(e) => {
+            println!("  - Import resolution failed: {}", e);
+            if e.to_string().contains("circular") {
+                println!("  ✅ Circular dependency correctly detected!");
+            }
+        }
+    }
+
+    // Show final resolver statistics
+    let stats = resolver.stats();
+    println!("Final resolver statistics:");
+    println!("  - Imports resolved: {}", stats.imports_resolved);
+    println!(
+        "  - Circular dependencies detected: {}",
+        stats.circular_dependencies_detected
+    );
+    println!("  - Failed resolutions: {}", stats.failed_resolutions);
 
     Ok(())
 }

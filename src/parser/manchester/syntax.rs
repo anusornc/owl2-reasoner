@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 /// Abstract Syntax Tree for Manchester Syntax
 #[derive(Debug, Clone, PartialEq)]
 pub enum ManchesterAST {
-    /// Prefix declaration: Prefix: prefix: <iri>
+    /// Prefix declaration: Prefix: prefix: `<iri>`
     PrefixDeclaration { prefix: String, iri: String },
 
     /// Class declaration: Class: className

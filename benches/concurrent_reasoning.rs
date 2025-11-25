@@ -298,9 +298,9 @@ fn bench_concurrent_memory_allocation(c: &mut Criterion) {
                                 barrier.wait(); // Synchronize start
 
                                 // Perform classification (memory intensive)
-                                let result = reasoner.classify().unwrap();
+                                reasoner.classify().unwrap();
                                 completed_operations.fetch_add(1, Ordering::Relaxed);
-                                black_box(result)
+                                black_box(())
                             })
                         })
                         .collect();
@@ -321,6 +321,7 @@ fn bench_concurrent_memory_allocation(c: &mut Criterion) {
 }
 
 /// Test cache behavior under concurrent access
+#[allow(dead_code)]
 fn bench_concurrent_cache_access(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_cache_access");
 
@@ -388,6 +389,7 @@ fn bench_concurrent_cache_access(c: &mut Criterion) {
 }
 
 /// Stress test with high concurrency
+#[allow(dead_code)]
 fn bench_high_concurrency_stress(c: &mut Criterion) {
     let mut group = c.benchmark_group("high_concurrency_stress");
     group.measurement_time(Duration::from_secs(30));
@@ -593,6 +595,7 @@ fn analyze_concurrent_performance() {
 }
 
 /// Test thread safety and race conditions
+#[allow(dead_code)]
 fn bench_thread_safety(c: &mut Criterion) {
     let mut group = c.benchmark_group("thread_safety");
 
@@ -638,11 +641,11 @@ fn bench_thread_safety(c: &mut Criterion) {
 
 criterion_group!(
     concurrent_benchmarks,
-    bench_concurrent_consistency_checking,
-    bench_concurrent_satisfiability_checking,
-    bench_concurrent_classification,
-    bench_cache_contention,
-    bench_reasoner_isolation
+    bench_concurrent_consistency,
+    bench_concurrent_satisfiability,
+    bench_concurrent_mixed_operations,
+    bench_resource_contention,
+    bench_concurrent_memory_allocation
 );
 
 criterion_main!(concurrent_benchmarks);

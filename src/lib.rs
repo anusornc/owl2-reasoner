@@ -152,6 +152,7 @@ pub use epcis_test_generator::*;
 pub use error::{OwlError, OwlResult};
 pub use iri::IRI;
 pub use ontology::Ontology;
+pub use parser::{ImportResolver, ImportResolverConfig, OntologyParser, ParserFactory};
 pub use reasoning::{
     OwlReasoner, PatternTerm, QueryEngine, QueryPattern, Reasoner, SimpleReasoner, TriplePattern,
 };

@@ -52,10 +52,12 @@
 //! if let Some(node) = graph.get_node(node1) {
 //!     println!("Node {} has {} concepts", node1.as_usize(), node.concepts_iter().count());
 //! }
+//! # Ok::<(), owl2_reasoner::OwlError>(())
 //! ```
 
 use super::core::{NodeId, TableauxNode};
 use crate::axioms::class_expressions::ClassExpression;
+use crate::error::OwlResult;
 use crate::iri::IRI;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
@@ -222,6 +224,33 @@ impl EdgeStorage {
 
     pub fn is_empty(&self) -> bool {
         self.edges.is_empty()
+    }
+
+    /// Retain only edges that satisfy the given predicate
+    pub fn retain_edges<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut(&(NodeId, IRI, NodeId)) -> bool,
+    {
+        // Remove edges that don't satisfy the predicate
+        self.edges.retain(|edge| predicate(edge));
+
+        // Rebuild indices
+        self.index.clear();
+        self.reverse_index.clear();
+
+        for (from, property, to) in &self.edges {
+            let forward_key = (*from, property.clone());
+            self.index
+                .entry(forward_key)
+                .or_insert_with(SmallVec::new)
+                .push(*to);
+
+            let reverse_key = (*to, property.clone());
+            self.reverse_index
+                .entry(reverse_key)
+                .or_insert_with(SmallVec::new)
+                .push(*from);
+        }
     }
 }
 
@@ -398,17 +427,96 @@ impl TableauxGraph {
         0 // Placeholder implementation
     }
 
-    pub fn is_node_blocked(&self, _node: NodeId) -> bool {
-        false // Placeholder implementation
+    /// Add a label to a node (for identifying individuals)
+    pub fn add_label(&mut self, node_id: NodeId, label: String) {
+        if let Some(node) = self.get_node_mut(node_id) {
+            node.add_label(label);
+        }
     }
 
+    /// Add a label to a node with change logging
     pub fn add_label_logged(&mut self, node_id: NodeId, label: String, log: &mut GraphChangeLog) {
-        if let Some(node) = self.get_node_mut(node_id) {
-            if !node.labels.contains(&label) {
-                node.add_label(label.clone());
-                log.record(GraphChange::AddLabel { node_id, label });
+        self.add_label(node_id, label.clone());
+        log.record(GraphChange::AddLabel { node_id, label });
+    }
+
+    /// Get all nodes with their IDs for iteration
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeId, &TableauxNode)> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(idx, node)| (NodeId::new(idx), node))
+    }
+
+    /// Get the root node of the tableau graph (first node or NodeId(0) if empty)
+    pub fn get_root_node(&self) -> Option<NodeId> {
+        if self.nodes.is_empty() {
+            None
+        } else {
+            Some(NodeId::new(0))
+        }
+    }
+
+    /// Get all outgoing edges from a node
+    pub fn get_outgoing_edges(&self, from: NodeId) -> Vec<(IRI, NodeId)> {
+        let mut result = Vec::new();
+        for (from_node, property, to_node) in self.edges.get_all_edges() {
+            if from == *from_node {
+                result.push((property.clone(), *to_node));
             }
         }
+        result
+    }
+
+    /// Get all incoming edges to a node
+    pub fn get_incoming_edges(&self, to: NodeId) -> Vec<(NodeId, IRI)> {
+        let mut result = Vec::new();
+        for (from, property, target) in self.edges.get_all_edges() {
+            if to == *target {
+                result.push((*from, property.clone()));
+            }
+        }
+        result
+    }
+
+    /// Remove a node from the graph (used during merging)
+    pub fn remove_node(&mut self, node_id: NodeId) -> Option<TableauxNode> {
+        if node_id.as_usize() < self.nodes.len() {
+            let node = self.nodes.swap_remove(node_id.as_usize());
+
+            // Remove all edges involving this node
+            self.edges
+                .retain_edges(|&(from, _, to)| from != node_id && to != node_id);
+
+            Some(node)
+        } else {
+            None
+        }
+    }
+
+    /// Check if a node exists in the graph
+    pub fn has_node(&self, node_id: NodeId) -> bool {
+        node_id.as_usize() < self.nodes.len()
+    }
+
+    /// Get the total number of concepts across all nodes
+    pub fn total_concepts(&self) -> usize {
+        self.nodes
+            .iter()
+            .map(|node| node.concepts_iter().count())
+            .sum()
+    }
+
+    /// Get the total number of labels across all nodes
+    pub fn total_labels(&self) -> usize {
+        self.nodes
+            .iter()
+            .map(|node| node.labels_iter().count())
+            .sum()
+    }
+
+    pub fn is_node_blocked(&self, _node: NodeId) -> bool {
+        false // Placeholder implementation
     }
 
     pub fn remove_node_if_last(&mut self, node_id: NodeId) {
@@ -429,6 +537,34 @@ impl TableauxGraph {
         self.edges.pop_edge(from, property, to);
     }
 
+    /// Get class expressions associated with a node
+    pub fn get_node_class_expressions(&self, node_id: NodeId) -> Vec<ClassExpression> {
+        self.get_node(node_id)
+            .map(|node| node.class_expressions().to_vec())
+            .unwrap_or_default()
+    }
+
+    /// Associate a node with an individual (add label)
+    pub fn associate_node_with_individual(
+        &mut self,
+        node_id: NodeId,
+        individual_iri: &IRI,
+    ) -> OwlResult<()> {
+        self.add_label(node_id, individual_iri.as_str().to_string());
+        Ok(())
+    }
+
+    /// Get the node ID associated with an individual, if any
+    pub fn get_node_for_individual(&self, individual_iri: &IRI) -> Option<NodeId> {
+        let individual_str = individual_iri.as_str();
+        for (node_id, node) in self.nodes_iter() {
+            if node.labels_iter().any(|label| label == individual_str) {
+                return Some(node_id);
+            }
+        }
+        None
+    }
+
     pub fn remove_label(&mut self, node_id: NodeId, label: &str) {
         if let Some(node) = self.get_node_mut(node_id) {
             node.remove_label(label);
@@ -437,6 +573,27 @@ impl TableauxGraph {
 
     pub fn get_memory_usage_summary(&self) -> String {
         "Memory usage summary placeholder".to_string()
+    }
+
+    /// Check if a node has a specific class expression
+    pub fn node_has_class_expression(&self, node_id: NodeId, class_expr: &ClassExpression) -> bool {
+        self.get_node(node_id)
+            .map(|node| node.class_expressions().contains(class_expr))
+            .unwrap_or(false)
+    }
+
+    /// Add a class expression to a node
+    pub fn add_class_expression_to_node(
+        &mut self,
+        node_id: NodeId,
+        class_expr: ClassExpression,
+    ) -> OwlResult<()> {
+        if let Some(node) = self.get_node_mut(node_id) {
+            if !node.class_expressions().contains(&class_expr) {
+                node.add_concept(class_expr);
+            }
+        }
+        Ok(())
     }
 }
 

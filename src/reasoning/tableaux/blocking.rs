@@ -48,19 +48,22 @@
 //! ## Example Usage
 //!
 //! ```rust
-//! use owl2_reasoner::reasoning::tableaux::{BlockingManager, BlockingStrategy};
+//! use owl2_reasoner::reasoning::tableaux::{BlockingManager, BlockingStrategy, NodeId, TableauxGraph};
 //!
 //! // Create blocking manager with optimized strategy
 //! let mut blocking_manager = BlockingManager::new(BlockingStrategy::Optimized);
 //!
+//! // Create a graph for the example (normally this would be created by the reasoner)
+//! let mut graph = TableauxGraph::new();
+//! let node_id = graph.add_node();
+//!
 //! // Check if a node should be blocked
-//! let node_id = NodeId::new(42);
 //! let should_block = blocking_manager.should_block_node(node_id, &graph);
 //!
 //! if should_block {
 //!     println!("Node {} is blocked by ancestor", node_id.as_usize());
-//!     // Add blocking constraint
-//!     blocking_manager.add_blocking_constraint(node_id, blocking_ancestor, blocking_type);
+//!     // Add blocking constraint (example)
+//!     // blocking_manager.add_blocking_constraint(node_id, blocking_ancestor, blocking_type);
 //! }
 //! ```
 

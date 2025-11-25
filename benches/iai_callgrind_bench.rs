@@ -87,14 +87,14 @@ fn satisfiability_check_medium() {
 fn classification_small() {
     let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
-    let _ = reasoner.classify().unwrap();
+    reasoner.classify().unwrap();
 }
 
 #[library_benchmark]
 fn classification_medium() {
     let ontology = owl2_reasoner::Ontology::new();
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
-    let _ = reasoner.classify().unwrap();
+    reasoner.classify().unwrap();
 }
 
 #[library_benchmark]
@@ -140,7 +140,7 @@ fn complex_reasoning_workflow() {
         let _ = reasoner.is_class_satisfiable(&class_iri).unwrap();
     }
 
-    let _ = reasoner.classify().unwrap();
+    reasoner.classify().unwrap();
 }
 
 #[library_benchmark]
@@ -153,10 +153,12 @@ fn reasoning_with_different_complexities() {
     ];
 
     for complexity in complexities {
-        let mut config = OntologyConfig::default();
-        config.num_classes = 50;
-        config.num_subclass_axioms = 100;
-        config.complexity = complexity;
+        let config = OntologyConfig {
+            num_classes: 50,
+            num_axioms: 100,
+            complexity,
+            ..Default::default()
+        };
 
         let mut generator = OntologyGenerator::new(config);
         let ontology = generator.generate();
@@ -172,7 +174,7 @@ fn memory_intensive_operations() {
     let reasoner = owl2_reasoner::SimpleReasoner::new(ontology);
 
     // Classification is memory intensive
-    let _ = reasoner.classify().unwrap();
+    reasoner.classify().unwrap();
 
     // Multiple satisfiability checks
     let classes: Vec<_> = reasoner.ontology.classes().iter().take(10).collect();
@@ -255,12 +257,14 @@ fn repeated_operations() {
 #[library_benchmark]
 fn stress_test_large_ontology() {
     // Stress test with larger ontologies
-    let mut config = OntologyConfig::default();
-    config.num_classes = 200;
-    config.num_subclass_axioms = 400;
-    config.num_object_properties = 40;
-    config.num_individuals = 100;
-    config.complexity = ComplexityLevel::Medium;
+    let config = OntologyConfig {
+        num_classes: 200,
+        num_axioms: 400,
+        num_properties: 40,
+        num_individuals: 100,
+        complexity: ComplexityLevel::Medium,
+        ..Default::default()
+    };
 
     let mut generator = OntologyGenerator::new(config);
     let ontology = generator.generate();
@@ -268,7 +272,7 @@ fn stress_test_large_ontology() {
 
     // Multiple operations
     let _ = reasoner.is_consistent().unwrap();
-    let _ = reasoner.classify().unwrap();
+    reasoner.classify().unwrap();
 
     // Multiple satisfiability checks
     let classes: Vec<_> = reasoner.ontology.classes().iter().take(20).collect();
@@ -296,7 +300,7 @@ fn run_instruction_level_analysis() {
         match name {
             "Small Ontology Creation" => {
                 let (_result, measurement) =
-                    measure_performance(name, || owl2_reasoner::Ontology::new());
+                    measure_performance(name, owl2_reasoner::Ontology::new);
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
                 println!(
                     "  Memory delta: {:.2} MB",
@@ -305,7 +309,7 @@ fn run_instruction_level_analysis() {
             }
             "Medium Ontology Creation" => {
                 let (_result, measurement) =
-                    measure_performance(name, || owl2_reasoner::Ontology::new());
+                    measure_performance(name, owl2_reasoner::Ontology::new);
                 println!("  Duration: {:.2} ms", measurement.duration_ms);
                 println!(
                     "  Memory delta: {:.2} MB",
@@ -351,4 +355,10 @@ fn run_instruction_level_analysis() {
             _ => unreachable!(),
         };
     }
+}
+
+fn main() {
+    // This main function is required for IAI benchmarks
+    // The actual benchmarks are defined above with #[library_benchmark]
+    run_instruction_level_analysis();
 }

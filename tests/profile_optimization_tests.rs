@@ -10,11 +10,11 @@ use std::sync::Arc;
 #[test]
 fn test_el_optimizer_basic_functionality() {
     // Create a simple ontology for testing
-    let mut ontology = Ontology::new();
+    let ontology = Ontology::new();
 
     // Add some basic classes
-    let person_iri = IRI::new("http://example.org/Person".to_string()).unwrap();
-    let animal_iri = IRI::new("http://example.org/Animal".to_string()).unwrap();
+    let _person_iri = IRI::new("http://example.org/Person".to_string()).unwrap();
+    let _animal_iri = IRI::new("http://example.org/Animal".to_string()).unwrap();
 
     // Note: This is a basic test - in practice you'd add axioms through the ontology API
     // For now, we just test that the optimizer can be created and basic methods work
@@ -26,9 +26,8 @@ fn test_el_optimizer_basic_functionality() {
     let result = optimizer.analyze_optimization_opportunities();
     assert!(result.is_ok());
 
-    let hints = result.unwrap();
+    let _hints = result.unwrap();
     // For an empty ontology, we should get minimal or no hints
-    assert!(hints.len() >= 0);
 
     // Test that the optimizer can generate a report
     let report_result = optimizer.generate_optimization_report();
@@ -41,7 +40,7 @@ fn test_el_optimizer_basic_functionality() {
 #[test]
 fn test_ql_optimizer_basic_functionality() {
     // Create a simple ontology for testing
-    let mut ontology = Ontology::new();
+    let ontology = Ontology::new();
 
     let ontology_arc = Arc::new(ontology);
     let optimizer = QlOptimizer::new(ontology_arc);
@@ -50,9 +49,8 @@ fn test_ql_optimizer_basic_functionality() {
     let result = optimizer.analyze_optimization_opportunities();
     assert!(result.is_ok());
 
-    let hints = result.unwrap();
+    let _hints = result.unwrap();
     // For an empty ontology, we should get minimal or no hints
-    assert!(hints.len() >= 0);
 
     // Test that the optimizer can generate a report
     let report_result = optimizer.generate_optimization_report();
@@ -65,7 +63,7 @@ fn test_ql_optimizer_basic_functionality() {
 #[test]
 fn test_rl_optimizer_basic_functionality() {
     // Create a simple ontology for testing
-    let mut ontology = Ontology::new();
+    let ontology = Ontology::new();
 
     let ontology_arc = Arc::new(ontology);
     let optimizer = RlOptimizer::new(ontology_arc);
@@ -74,9 +72,8 @@ fn test_rl_optimizer_basic_functionality() {
     let result = optimizer.analyze_optimization_opportunities();
     assert!(result.is_ok());
 
-    let hints = result.unwrap();
+    let _hints = result.unwrap();
     // For an empty ontology, we should get minimal or no hints
-    assert!(hints.len() >= 0);
 
     // Test that the optimizer can generate a report
     let report_result = optimizer.generate_optimization_report();
@@ -89,7 +86,7 @@ fn test_rl_optimizer_basic_functionality() {
 #[test]
 fn test_all_optimizers_compatibility() {
     // Test that all three optimizers can work with the same ontology
-    let mut ontology = Ontology::new();
+    let ontology = Ontology::new();
     let ontology_arc = Arc::new(ontology);
 
     // Create all three optimizers
@@ -108,15 +105,12 @@ fn test_all_optimizers_compatibility() {
     assert_eq!(rl_report.total_violations, 0);
 
     // All should have some optimization hints (even if empty)
-    assert!(el_report.optimization_hints.len() >= 0);
-    assert!(ql_report.optimization_hints.len() >= 0);
-    assert!(rl_report.optimization_hints.len() >= 0);
 }
 
 #[test]
 fn test_optimization_report_structure() {
     // Test the structure of optimization reports
-    let mut ontology = Ontology::new();
+    let ontology = Ontology::new();
     let ontology_arc = Arc::new(ontology);
     let optimizer = ElOptimizer::new(ontology_arc);
 

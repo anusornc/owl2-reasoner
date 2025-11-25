@@ -56,12 +56,17 @@
 //!
 //! ## Example Usage
 //!
-//! ```rust
-//! use owl2_reasoner::reasoning::tableaux::{ExpansionEngine, ExpansionRules, ExpansionContext};
+//! ```rust,ignore
+//! use owl2_reasoner::reasoning::tableaux::{ExpansionEngine, ExpansionRules, ExpansionContext, NodeId, TableauxGraph, MemoryManager};
+//! use std::collections::{HashSet, VecDeque};
 //!
 //! // Create expansion engine with rules
 //! let mut expansion_engine = ExpansionEngine::new();
 //! let rules = ExpansionRules::new();
+//!
+//! // Create graph and memory manager for the example
+//! let mut graph = TableauxGraph::new();
+//! let mut memory_manager = MemoryManager::new();
 //!
 //! // Set up expansion context
 //! let mut context = ExpansionContext {
@@ -79,6 +84,7 @@
 //! ```
 
 use super::core::{NodeId, ReasoningRules};
+use super::equality::EqualityReasoner;
 use super::graph::{GraphChangeLog, TableauxGraph};
 use super::memory::{MemoryChangeLog, MemoryManager};
 use crate::axioms::class_expressions::ClassExpression;
@@ -179,6 +185,7 @@ pub struct ExpansionRules {
     pub rules: Vec<ExpansionRule>,
     pub rule_order: Vec<ExpansionRule>,
     pub max_applications: HashMap<ExpansionRule, usize>,
+    pub equality_reasoner: EqualityReasoner,
 }
 
 impl ExpansionRules {
@@ -244,6 +251,7 @@ impl ExpansionRules {
             rules,
             rule_order,
             max_applications,
+            equality_reasoner: EqualityReasoner::new(),
         }
     }
 
@@ -266,7 +274,7 @@ impl ExpansionRules {
     }
 
     pub fn apply_rule(
-        &self,
+        &mut self,
         rule: ExpansionRule,
         graph: &mut TableauxGraph,
         memory: &mut MemoryManager,
@@ -1094,16 +1102,16 @@ impl ExpansionRules {
         Ok((tasks, change_log))
     }
 
-    /// Apply functional property rule (clash detection)
+    /// Apply functional property rule with proper equality clash detection
     /// If r is functional and we have (x,y) and (x,z) via r where y ≠ z, then clash
     fn apply_functional_property_rule(
-        &self,
+        &mut self,
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let change_log = GraphChangeLog::new();
-        let tasks = Vec::new();
+        let mut change_log = GraphChangeLog::new();
+        let mut tasks = Vec::new();
 
         // Get all functional properties from reasoning rules
         let functional_properties = match &context.reasoning_rules {
@@ -1122,27 +1130,54 @@ impl ExpansionRules {
 
             for (from, p, to) in all_edges {
                 if p == property.as_ref() {
-                    edges_by_source
-                        .entry(*from)
-                        .or_default()
-                        .push(*to);
+                    edges_by_source.entry(*from).or_default().push(*to);
                 }
             }
 
-            // Check for functional property violations
+            // Check for functional property violations using equality reasoning
             for (source, targets) in edges_by_source {
                 if targets.len() > 1 {
-                    // Functional property violation: same source has multiple different targets
-                    // In a complete implementation, we should check if targets are known to be different
-                    // For now, we assume different NodeIds might be the same individual (via equality)
-                    // So we don't immediately clash, but this is a simplification
+                    // Use the equality reasoner to detect actual clashes
+                    let equality_reasoner = &mut self.equality_reasoner;
 
-                    // TODO: Implement proper equality reasoning to detect actual clashes
-                    // For now, we just detect the potential violation but don't crash
-                    eprintln!(
-                        "Warning: Functional property {:?} has multiple targets from node {:?}: {:?}",
-                        property, source, targets
-                    );
+                    // First, ensure all nodes are tracked in the equality system
+                    for &target in &targets {
+                        equality_reasoner.equality_tracker_mut().add_node(target);
+                    }
+
+                    // Detect functional property clash
+                    if let Some(clash) = equality_reasoner
+                        .detect_functional_property_clash(property, source, &targets)
+                    {
+                        match clash.clash_type {
+                            crate::reasoning::tableaux::equality::FunctionalClashType::DifferentValues => {
+                                // This is a genuine clash - the ontology is inconsistent
+                                return Err(format!(
+                                    "Functional property clash: {:?} has different values {:?} and {:?} from source {:?}",
+                                    property, clash.conflicting_targets[0], clash.conflicting_targets[1], source
+                                ));
+                            }
+                            crate::reasoning::tableaux::equality::FunctionalClashType::NeedsMerge => {
+                                // The targets should be merged - create merge tasks
+                                let representative = targets[0];
+                                for &target_to_merge in &clash.conflicting_targets[1..] {
+                                    if equality_reasoner.equality_tracker_mut().can_merge(representative, target_to_merge) {
+                                        // Create a task to merge these nodes
+                                        let merge_task = ExpansionTask {
+                                            node_id: representative,
+                                            concept: ClassExpression::Class(Class::new("http://example.org/MergeOperation")),
+                                            rule_type: ExpansionRule::SameIndividual,
+                                            priority: 5, // High priority for merge operations
+                                        };
+                                        tasks.push(merge_task);
+
+                                        // Perform the merge immediately
+                                        equality_reasoner.merge_nodes(graph, representative, target_to_merge, &mut change_log)?;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1150,16 +1185,16 @@ impl ExpansionRules {
         Ok((tasks, change_log))
     }
 
-    /// Apply inverse functional property rule (clash detection)
+    /// Apply inverse functional property rule with proper equality clash detection
     /// If r is inverse functional and we have (x,z) and (y,z) via r where x ≠ y, then clash
     fn apply_inverse_functional_property_rule(
-        &self,
+        &mut self,
         graph: &mut TableauxGraph,
         _memory: &mut MemoryManager,
         context: &mut ExpansionContext,
     ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let change_log = GraphChangeLog::new();
-        let tasks = Vec::new();
+        let mut change_log = GraphChangeLog::new();
+        let mut tasks = Vec::new();
 
         // Get all inverse functional properties from reasoning rules
         let inverse_functional_properties = match &context.reasoning_rules {
@@ -1178,26 +1213,174 @@ impl ExpansionRules {
 
             for (from, p, to) in all_edges {
                 if p == property.as_ref() {
-                    edges_by_target
-                        .entry(*to)
-                        .or_default()
-                        .push(*from);
+                    edges_by_target.entry(*to).or_default().push(*from);
                 }
             }
 
-            // Check for inverse functional property violations
+            // Check for inverse functional property violations using equality reasoning
             for (target, sources) in edges_by_target {
                 if sources.len() > 1 {
-                    // Inverse functional property violation: same target has multiple different sources
-                    // Similar to functional property, we need equality reasoning for proper clash detection
+                    // Use the equality reasoner to detect actual clashes
+                    let equality_reasoner = &mut self.equality_reasoner;
 
-                    // TODO: Implement proper equality reasoning to detect actual clashes
-                    eprintln!(
-                        "Warning: Inverse functional property {:?} has multiple sources to node {:?}: {:?}",
-                        property, target, sources
-                    );
+                    // First, ensure all nodes are tracked in the equality system
+                    for &source in &sources {
+                        equality_reasoner.equality_tracker_mut().add_node(source);
+                    }
+
+                    // Detect inverse functional property clash
+                    if let Some(clash) = equality_reasoner
+                        .detect_inverse_functional_property_clash(property, target, &sources)
+                    {
+                        match clash.clash_type {
+                            crate::reasoning::tableaux::equality::InverseFunctionalClashType::DifferentSources => {
+                                // This is a genuine clash - the ontology is inconsistent
+                                return Err(format!(
+                                    "Inverse functional property clash: {:?} has different sources {:?} and {:?} for target {:?}",
+                                    property, clash.conflicting_sources[0], clash.conflicting_sources[1], target
+                                ));
+                            }
+                            crate::reasoning::tableaux::equality::InverseFunctionalClashType::NeedsMerge => {
+                                // The sources should be merged - create merge tasks
+                                let representative = sources[0];
+                                for &source_to_merge in &clash.conflicting_sources[1..] {
+                                    if equality_reasoner.equality_tracker_mut().can_merge(representative, source_to_merge) {
+                                        // Create a task to merge these nodes
+                                        let merge_task = ExpansionTask {
+                                            node_id: representative,
+                                            concept: ClassExpression::Class(Class::new("http://example.org/MergeOperation")),
+                                            rule_type: ExpansionRule::SameIndividual,
+                                            priority: 5, // High priority for merge operations
+                                        };
+                                        tasks.push(merge_task);
+
+                                        // Perform the merge immediately
+                                        equality_reasoner.merge_nodes(graph, representative, source_to_merge, &mut change_log)?;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Apply same individual rule with proper node merging
+    /// Merge nodes representing the same individual
+    fn apply_same_individual_rule(
+        &mut self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
+        let mut tasks = Vec::new();
+
+        // Get same individual axioms from reasoning rules
+        let same_individual_axioms = match &context.reasoning_rules {
+            Some(rules) => &rules.same_individual_axioms,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // Process each same individual axiom
+        for axiom in same_individual_axioms {
+            let individuals = axiom.individuals();
+            if individuals.len() < 2 {
+                continue;
+            }
+
+            // Use the equality reasoner to handle the axiom
+            let merged_nodes = self.equality_reasoner.add_same_individual_axiom(
+                graph,
+                individuals,
+                &mut change_log,
+            )?;
+
+            // Create tasks for any additional processing needed
+            if merged_nodes.len() > 1 {
+                let representative = merged_nodes[0];
+                for &_node_id in &merged_nodes[1..] {
+                    let merge_task = ExpansionTask {
+                        node_id: representative,
+                        concept: ClassExpression::Class(Class::new(
+                            "http://example.org/SameIndividualMerge",
+                        )),
+                        rule_type: ExpansionRule::SameIndividual,
+                        priority: 1, // Highest priority for equality axioms
+                    };
+                    tasks.push(merge_task);
+                }
+            }
+        }
+
+        Ok((tasks, change_log))
+    }
+
+    /// Apply different individuals rule with inequality clash detection
+    /// Check if individuals that should be different are identified as the same
+    fn apply_different_individuals_rule(
+        &mut self,
+        graph: &mut TableauxGraph,
+        _memory: &mut MemoryManager,
+        context: &mut ExpansionContext,
+    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
+        let mut change_log = GraphChangeLog::new();
+        let tasks = Vec::new();
+
+        // Get different individuals axioms from reasoning rules
+        let different_individuals_axioms = match &context.reasoning_rules {
+            Some(rules) => &rules.different_individuals_axioms,
+            None => return Ok((tasks, change_log)),
+        };
+
+        // Process each different individuals axiom
+        for axiom in different_individuals_axioms {
+            let individuals = axiom.individuals();
+            if individuals.len() < 2 {
+                continue;
+            }
+
+            // Find nodes for all individuals in the axiom
+            let mut nodes = Vec::new();
+            for individual_iri in individuals {
+                if let Some(node_id) = self
+                    .equality_reasoner
+                    .find_individual_node(graph, individual_iri)
+                {
+                    nodes.push(node_id);
+                } else {
+                    // Create a new node for this individual
+                    let node_id = graph.add_node();
+                    graph.add_label_logged(node_id, individual_iri.to_string(), &mut change_log);
+                    nodes.push(node_id);
+                    self.equality_reasoner
+                        .equality_tracker_mut()
+                        .add_node(node_id);
+                }
+            }
+
+            // Check if any two different individuals are in the same equivalence class
+            for i in 0..nodes.len() {
+                for j in (i + 1)..nodes.len() {
+                    if self
+                        .equality_reasoner
+                        .equality_tracker_mut()
+                        .are_equal(nodes[i], nodes[j])
+                    {
+                        return Err(format!(
+                            "Different individuals clash: {:?} and {:?} are both equal and different",
+                            individuals[i], individuals[j]
+                        ));
+                    }
+                }
+            }
+
+            // Add inequality constraints between all pairs
+            self.equality_reasoner
+                .add_different_individuals_axiom(individuals, &nodes)?;
         }
 
         Ok((tasks, change_log))
@@ -1652,125 +1835,6 @@ impl ExpansionRules {
             }
         }
         None
-    }
-
-    /// Apply same individual rule (equality propagation)
-    /// Merge nodes representing the same individual
-    fn apply_same_individual_rule(
-        &self,
-        graph: &mut TableauxGraph,
-        _memory: &mut MemoryManager,
-        context: &mut ExpansionContext,
-    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let change_log = GraphChangeLog::new();
-        let tasks = Vec::new();
-
-        // Get same individual axioms from reasoning rules
-        let same_individual_axioms = match &context.reasoning_rules {
-            Some(rules) => &rules.same_individual_axioms,
-            None => return Ok((tasks, change_log)),
-        };
-
-        // For each same individual axiom
-        for axiom in same_individual_axioms {
-            let individuals = axiom.individuals();
-
-            // Find nodes for all individuals in the axiom
-            let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
-            for individual_iri in individuals {
-                if let Some(node_id) = self.find_individual_node_by_iri(graph, individual_iri) {
-                    nodes.push((node_id, individual_iri.clone()));
-                }
-            }
-
-            // If we have multiple nodes for the same individuals, they should be merged
-            // For now, we'll mark them as equivalent by adding labels
-            // A full implementation would merge the nodes and propagate all properties/concepts
-            if nodes.len() >= 2 {
-                let (canonical_node, _canonical_iri) = &nodes[0];
-
-                // Add all individual IRIs as labels to the canonical node
-                if let Some(node) = graph.nodes.get_mut(canonical_node.as_usize()) {
-                    for (_, iri) in &nodes[1..] {
-                        let iri_str = iri.as_str().to_string();
-                        if !node.labels.contains(&iri_str) {
-                            node.labels.push(iri_str);
-                        }
-                    }
-                }
-
-                // TODO: Full implementation should:
-                // 1. Merge all concepts from other nodes into canonical node
-                // 2. Redirect all edges pointing to other nodes to canonical node
-                // 3. Copy all outgoing edges from other nodes to canonical node
-                // 4. Remove redundant nodes
-            }
-        }
-
-        Ok((tasks, change_log))
-    }
-
-    /// Apply different individuals rule (inequality clash detection)
-    /// Check if individuals that should be different are identified as the same
-    fn apply_different_individuals_rule(
-        &self,
-        graph: &mut TableauxGraph,
-        _memory: &mut MemoryManager,
-        context: &mut ExpansionContext,
-    ) -> Result<(Vec<ExpansionTask>, GraphChangeLog), String> {
-        let change_log = GraphChangeLog::new();
-        let tasks = Vec::new();
-
-        // Get different individuals axioms from reasoning rules
-        let different_individuals_axioms = match &context.reasoning_rules {
-            Some(rules) => &rules.different_individuals_axioms,
-            None => return Ok((tasks, change_log)),
-        };
-
-        // For each different individuals axiom
-        for axiom in different_individuals_axioms {
-            let individuals = axiom.individuals();
-
-            // Find nodes for all individuals in the axiom
-            let mut nodes: Vec<(NodeId, Arc<IRI>)> = Vec::new();
-            for individual_iri in individuals {
-                if let Some(node_id) = self.find_individual_node_by_iri(graph, individual_iri) {
-                    nodes.push((node_id, individual_iri.clone()));
-                }
-            }
-
-            // Check if any two different individuals share the same node
-            // This would be a clash
-            for i in 0..nodes.len() {
-                for j in (i + 1)..nodes.len() {
-                    let (node_i, iri_i) = &nodes[i];
-                    let (node_j, iri_j) = &nodes[j];
-
-                    // If two different individuals map to the same node, we have a clash
-                    if node_i == node_j {
-                        return Err(format!(
-                            "Clash: Different individuals {} and {} are identified as the same",
-                            iri_i.as_str(),
-                            iri_j.as_str()
-                        ));
-                    }
-
-                    // Also check if either node has both IRIs as labels
-                    if let Some(node) = graph.get_node(*node_i) {
-                        let has_both = node.labels.iter().any(|l| l == iri_j.as_str());
-                        if has_both {
-                            return Err(format!(
-                                "Clash: Different individuals {} and {} are identified as the same",
-                                iri_i.as_str(),
-                                iri_j.as_str()
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok((tasks, change_log))
     }
 
     /// Check if a data range is empty (unsatisfiable)

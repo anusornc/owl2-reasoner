@@ -38,8 +38,8 @@ fn test_ontology_with_properties() {
         .expect("Failed to add data property");
 
     // Verify properties were added
-    assert_eq!(ontology.object_properties().into_iter().count(), 1);
-    assert_eq!(ontology.data_properties().into_iter().count(), 1);
+    assert_eq!(ontology.object_properties().iter().count(), 1);
+    assert_eq!(ontology.data_properties().iter().count(), 1);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_property_characteristics_validation() {
         .expect("Failed to add transitive property");
 
     // Verify properties exist
-    assert_eq!(ontology.object_properties().into_iter().count(), 2);
+    assert_eq!(ontology.object_properties().iter().count(), 2);
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn test_property_domains_and_ranges() {
         .add_class(person_class)
         .expect("Failed to add Person class");
 
-    let string_iri = IRI::new("http://www.w3.org/2001/XMLSchema#string").unwrap();
+    let _string_iri = IRI::new("http://www.w3.org/2001/XMLSchema#string").unwrap();
 
     // Add properties
     let has_parent_iri = IRI::new("http://example.org/hasParent").unwrap();
@@ -136,9 +136,9 @@ fn test_property_domains_and_ranges() {
         .expect("Failed to add hasName property");
 
     // Verify structure
-    assert_eq!(ontology.classes().into_iter().count(), 1);
-    assert_eq!(ontology.object_properties().into_iter().count(), 1);
-    assert_eq!(ontology.data_properties().into_iter().count(), 1);
+    assert_eq!(ontology.classes().iter().count(), 1);
+    assert_eq!(ontology.object_properties().iter().count(), 1);
+    assert_eq!(ontology.data_properties().iter().count(), 1);
 }
 
 #[test]

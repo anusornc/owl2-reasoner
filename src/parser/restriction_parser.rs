@@ -67,7 +67,9 @@ impl RestrictionParser {
                 false
             }
         }) {
-            let datatype_elem = datatype_elem.as_element().unwrap();
+            let datatype_elem = datatype_elem.as_element().ok_or_else(|| {
+                OwlError::ParseError("Expected datatype element but found non-element".to_string())
+            })?;
             let data_range = Self::parse_datatype_restriction(datatype_elem)?;
             let data_property = DataProperty::new((*property_iri).clone());
             let property_expr = DataPropertyExpression::DataProperty(data_property);

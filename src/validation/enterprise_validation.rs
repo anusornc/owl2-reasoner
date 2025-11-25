@@ -33,8 +33,7 @@ pub struct EnterpriseReadinessReport {
 }
 
 /// Scalability rating
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ScalabilityRating {
     Excellent,
     #[default]
@@ -43,17 +42,14 @@ pub enum ScalabilityRating {
     Poor,
 }
 
-
 /// Security compliance
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SecurityCompliance {
     #[default]
     FullyCompliant,
     PartiallyCompliant,
     NonCompliant,
 }
-
 
 // Supporting placeholder types with Copy trait to fix borrow checker issues
 #[derive(Debug, Clone, Copy)]

@@ -297,7 +297,7 @@ fn demonstrate_gs1_cbv_integration(
     println!("   ✅ EPCIS events integrated into GS1 CBV ontology");
 
     // Create reasoner with advanced configuration
-    let _reasoner = SimpleReasoner::new(ontology);
+    let reasoner = SimpleReasoner::new(ontology);
 
     // Demonstrate property characteristics reasoning
     println!("\n   🔗 **Property Characteristics Reasoning:**");
@@ -575,7 +575,7 @@ fn demonstrate_equality_reasoning(
     ontology.add_object_property(has_gtin.clone())?;
 
     // Create reasoner
-    let _reasoner = SimpleReasoner::new(ontology);
+    let reasoner = SimpleReasoner::new(ontology);
 
     println!("\n   🔍 **Equality Reasoning Results:**");
 
@@ -945,7 +945,7 @@ fn demonstrate_recall_analysis(
     // Analyze impact from events
     for event in events {
         for epc in &event.epcs {
-            if epc.contains(&recalled_batch) {
+            if epc.contains(recalled_batch) {
                 affected_products += 1;
 
                 // Track affected locations
@@ -1243,7 +1243,7 @@ fn demonstrate_performance_benchmarking(
 
     // Test 2: Reasoner Initialization
     let reasoner_start = Instant::now();
-    let _reasoner = SimpleReasoner::new(ontology);
+    let reasoner = SimpleReasoner::new(ontology);
     let reasoner_time = reasoner_start.elapsed();
     println!("      • Reasoner initialization: {:?}", reasoner_time);
 
@@ -1266,7 +1266,7 @@ fn demonstrate_performance_benchmarking(
     // Simulate multiple classification queries
     for i in 0..10 {
         let _ = reasoner.is_subclass_of(
-            &IRI::new(&format!("http://example.org/Class{}", i))?,
+            &IRI::new(format!("http://example.org/Class{}", i))?,
             &IRI::new("http://example.org/Thing")?,
         );
     }

@@ -549,8 +549,13 @@ impl TurtleParser {
             }
 
             // RDFS subclass relationships
+            // RDFS subclass relationships
             "http://www.w3.org/2000/01/rdf-schema#subClassOf" => {
                 if let ObjectValue::IRI(super_class_iri) = object {
+                    // Automatically add both subject and super class to the ontology
+                    ontology.add_class(Class::new(subject.clone()))?;
+                    ontology.add_class(Class::new(super_class_iri.clone()))?;
+
                     let subclass_axiom = SubClassOfAxiom::new(
                         ClassExpression::Class(Class::new(subject)),
                         ClassExpression::Class(Class::new(super_class_iri)),
@@ -699,8 +704,9 @@ impl TurtleParser {
                 "http://www.w3.org/2002/07/owl#Ontology" => {
                     ontology.set_iri(subject);
                 }
-                "http://www.w3.org/2002/07/owl#Class" => {
-                    ontology.add_class(Class::new(subject))?;
+                "http://www.w3.org/2002/07/owl#Class"
+                | "http://www.w3.org/2000/01/rdf-schema#Class" => {
+                    ontology.add_class(Class::new(subject.clone()))?;
                 }
                 "http://www.w3.org/2002/07/owl#ObjectProperty" => {
                     ontology.add_object_property(ObjectProperty::new(subject))?;

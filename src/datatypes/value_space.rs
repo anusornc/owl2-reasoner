@@ -16,9 +16,11 @@
 /// # Examples
 ///
 /// ```
-/// use owl2_reasoner::datatypes::next_float;
+/// use owl2_reasoner::datatypes::value_space::next_float;
 ///
-/// assert_eq!(next_float(0.0), f32::MIN_POSITIVE);
+/// let result = next_float(0.0);
+/// assert!(result > 0.0);
+/// assert!(result < f32::MIN_POSITIVE);
 /// assert!(next_float(1.0) > 1.0);
 /// assert_eq!(next_float(f32::INFINITY), f32::INFINITY);
 /// ```

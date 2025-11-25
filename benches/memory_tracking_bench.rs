@@ -4,8 +4,6 @@
 //! of memory tracking in the OWL2 tableaux reasoning system.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use owl2_reasoner::axioms::class_expressions::ClassExpression;
-use owl2_reasoner::entities::Class;
 use owl2_reasoner::reasoning::core::TableauxNode;
 use owl2_reasoner::reasoning::tableaux::core::NodeId;
 use owl2_reasoner::reasoning::tableaux::memory::{
@@ -242,7 +240,7 @@ fn bench_tracking_overhead_comparison(c: &mut Criterion) {
 
     // Expression allocation comparison (simplified to avoid IRI issues)
     group.bench_function("expressions_without_tracking", |b| {
-        let memory_manager = MemoryManager::new();
+        let _memory_manager = MemoryManager::new();
         b.iter(|| {
             for i in 0..100 {
                 // Create a simple expression - we'll skip complex IRI creation for now
@@ -253,7 +251,7 @@ fn bench_tracking_overhead_comparison(c: &mut Criterion) {
     });
 
     group.bench_function("expressions_with_tracking", |b| {
-        let memory_manager = MemoryManager::with_tracking();
+        let _memory_manager = MemoryManager::with_tracking();
         b.iter(|| {
             for i in 0..100 {
                 // Create a simple expression - we'll skip complex IRI creation for now

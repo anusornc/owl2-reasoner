@@ -4,7 +4,7 @@
 //! for external comparison with established reasoners.
 
 use owl2_reasoner::{
-    parser::{OntologyParser, ParserFactory},
+    parser::ParserFactory,
     reasoning::{OwlReasoner, Reasoner},
     OwlResult,
 };

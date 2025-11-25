@@ -221,14 +221,6 @@ fn test_memory_tracking() {
 
     // Test memory stats
     let memory_stats = reasoner.get_memory_stats();
-    assert!(
-        memory_stats.peak_memory_bytes >= 0,
-        "Should track peak memory"
-    );
-    assert!(
-        memory_stats.total_arena_bytes >= 0,
-        "Should track total memory"
-    );
 
     println!(
         "Memory stats - Peak: {} bytes, Total: {} bytes",
@@ -250,15 +242,7 @@ fn test_ontology_memory_usage() {
     let _is_consistent = reasoner.check_consistency().unwrap();
 
     // Test memory statistics after operations
-    let memory_stats = reasoner.get_memory_stats();
-    assert!(
-        memory_stats.peak_memory_bytes >= 0,
-        "Should track peak memory after reasoning"
-    );
-    assert!(
-        memory_stats.total_arena_bytes >= 0,
-        "Should track total memory after reasoning"
-    );
+    let _memory_stats = reasoner.get_memory_stats();
 
     println!("✓ Ontology Memory Usage test passed");
 }
@@ -287,8 +271,8 @@ fn test_validation_framework() {
     match validation_result {
         Ok(report) => {
             assert!(
-                report.w3c_compliance_score >= 0.0,
-                "Compliance score should be valid"
+                report.w3c_compliance_score >= 0.0 && report.w3c_compliance_score <= 100.0,
+                "Compliance score should be valid (0-100)"
             );
             println!(
                 "Validation completed with score: {:.2}",
@@ -455,10 +439,6 @@ fn test_end_to_end_workflow() {
     // Step 5: Test memory tracking
     let tableaux_reasoner = TableauxReasoner::new(create_test_ontology());
     let memory_stats = tableaux_reasoner.get_memory_stats();
-    assert!(
-        memory_stats.total_arena_bytes >= 0,
-        "Should track memory usage"
-    );
 
     println!("End-to-End Workflow Results:");
     println!("  Ontology consistent: {}", is_consistent);

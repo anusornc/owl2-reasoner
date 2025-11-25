@@ -139,7 +139,12 @@ impl ManchesterParser {
 
         let prefix = self.expect_identifier()?;
         self.expect_token(TokenType::IRI)?;
-        let iri = self.current_token.as_ref().unwrap().lexeme.clone();
+        let iri = self
+            .current_token
+            .as_ref()
+            .ok_or_else(|| ParseError::syntax_error("Expected IRI token but none found", 0, 0))?
+            .lexeme
+            .clone();
         self.advance_token();
 
         // Add prefix to context
