@@ -110,6 +110,6 @@ pub use dependency::{ChoicePoint, Dependency, DependencyManager};
 pub use expansion::{ExpansionEngine, ExpansionRules};
 pub use graph::{EdgeStorage, TableauxGraph};
 pub use memory::{
-    ArenaEdgeStorage, ArenaManager, ArenaStats, ArenaTableauxGraph, MemoryManager,
-    MemoryOptimizationStats,
+    ArenaEdgeStorage, ArenaManager, ArenaStats, ArenaTableauxGraph, LockFreeArenaNode,
+    LockFreeMemoryManager, LockFreeMemoryStats, MemoryManager, MemoryOptimizationStats,
 };

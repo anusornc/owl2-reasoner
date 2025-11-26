@@ -9,6 +9,7 @@ pub mod cache;
 pub mod config;
 pub mod engine;
 pub mod executor;
+pub mod optimized_engine;
 pub mod types;
 
 // Re-export public types
@@ -16,6 +17,7 @@ pub use cache::*;
 pub use config::*;
 pub use engine::*;
 pub use executor::*;
+pub use optimized_engine::*;
 pub use types::*;
 
 /// Helper function to avoid unnecessary (**arc_iri).clone() operations

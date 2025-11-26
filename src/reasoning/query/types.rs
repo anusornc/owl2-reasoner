@@ -62,7 +62,7 @@ pub struct QueryStats {
 }
 
 /// Query pattern
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum QueryPattern {
     BasicGraphPattern(Vec<TriplePattern>),
     Optional {
