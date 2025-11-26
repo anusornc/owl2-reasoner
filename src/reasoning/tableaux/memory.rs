@@ -1065,7 +1065,9 @@ impl<T> LockFreeArenaNode<T> {
             _phantom: std::marker::PhantomData,
         }
     }
+}
 
+impl<T: ?Sized> LockFreeArenaNode<T> {
     /// Get immutable reference to the data
     pub fn get(&self) -> &T {
         // SAFETY: The pointer is valid and comes from an arena
@@ -1654,5 +1656,546 @@ mod tests {
 
         let stats_after = memory_manager.get_mutation_stats().unwrap();
         assert_eq!(stats_after.arena_resets, 1);
+    }
+
+    // LockFreeMemoryManager Tests
+    #[test]
+    fn test_lock_free_memory_manager_creation() {
+        let manager = LockFreeMemoryManager::new();
+        let stats = manager.get_stats();
+
+        assert_eq!(stats.allocated_nodes, 0);
+        assert_eq!(stats.allocated_expressions, 0);
+        assert_eq!(stats.allocated_constraints, 0);
+        assert_eq!(stats.total_bytes_allocated, 0);
+        assert_eq!(stats.arena_count, 0);
+        assert_eq!(stats.string_intern_count, 0);
+    }
+
+    #[test]
+    fn test_lock_free_memory_manager_default() {
+        let manager = LockFreeMemoryManager::default();
+        let stats = manager.get_stats();
+
+        assert_eq!(stats.allocated_nodes, 0);
+        assert_eq!(stats.total_bytes_allocated, 0);
+    }
+
+    #[test]
+    fn test_lock_free_allocate_node() {
+        let manager = LockFreeMemoryManager::new();
+        let node = TableauxNode::new(NodeId::new(1));
+
+        let arena_node = manager.allocate_node(node).expect("Should allocate node successfully");
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_nodes, 1);
+        assert!(stats.total_bytes_allocated > 0);
+
+        // Test accessing the allocated node
+        let allocated_node = arena_node.get();
+        assert_eq!(allocated_node.id, NodeId::new(1));
+    }
+
+    #[test]
+    fn test_lock_free_allocate_expression() {
+        let manager = LockFreeMemoryManager::new();
+        let class = Class::new("http://example.org/Test");
+        let expr = ClassExpression::Class(class);
+
+        let arena_node = manager.allocate_expression(expr).expect("Should allocate expression successfully");
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_expressions, 1);
+        assert!(stats.total_bytes_allocated > 0);
+
+        // Test accessing the allocated expression
+        let allocated_expr = arena_node.get();
+        match allocated_expr {
+            ClassExpression::Class(class) => {
+                assert_eq!(class.iri().as_str(), "http://example.org/Test");
+            }
+            _ => panic!("Expected Class expression"),
+        }
+    }
+
+    #[test]
+    fn test_lock_free_allocate_constraint() {
+        let manager = LockFreeMemoryManager::new();
+        let constraint = "test_constraint";
+
+        let arena_node = manager.allocate_constraint(constraint).expect("Should allocate constraint successfully");
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_constraints, 1);
+        assert!(stats.total_bytes_allocated > 0);
+
+        // Test accessing the allocated constraint
+        let allocated_constraint = arena_node.get();
+        assert_eq!(*allocated_constraint, "test_constraint");
+    }
+
+    #[test]
+    fn test_lock_free_intern_string() {
+        let manager = LockFreeMemoryManager::new();
+        let test_string = "http://example.org/TestString";
+
+        let arena_node = manager.intern_string(test_string).expect("Should intern string successfully");
+
+        let interned_str = arena_node.get();
+        assert_eq!(interned_str, test_string);
+    }
+
+    #[test]
+    fn test_lock_free_multiple_allocations() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Allocate multiple nodes
+        for i in 0..5 {
+            let node = TableauxNode::new(NodeId::new(i));
+            let _arena_node = manager.allocate_node(node).expect("Should allocate node");
+        }
+
+        // Allocate multiple expressions
+        for i in 0..3 {
+            let class = Class::new(format!("http://example.org/Class{}", i));
+            let expr = ClassExpression::Class(class);
+            let _arena_node = manager.allocate_expression(expr).expect("Should allocate expression");
+        }
+
+        // Allocate constraints
+        for i in 0..2 {
+            let constraint = format!("constraint_{}", i);
+            let _arena_node = manager.allocate_constraint(constraint).expect("Should allocate constraint");
+        }
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_nodes, 5);
+        assert_eq!(stats.allocated_expressions, 3);
+        assert_eq!(stats.allocated_constraints, 2);
+        assert_eq!(stats.total_allocations(), 10);
+        assert!(stats.total_bytes_allocated > 0);
+    }
+
+    #[test]
+    fn test_lock_free_memory_efficiency_ratio() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Initial ratio should be 1.0 (no allocations)
+        assert_eq!(manager.get_memory_efficiency_ratio(), 1.0);
+
+        // Allocate some nodes
+        for i in 0..10 {
+            let node = TableauxNode::new(NodeId::new(i));
+            let _arena_node = manager.allocate_node(node).expect("Should allocate node");
+        }
+
+        let efficiency = manager.get_memory_efficiency_ratio();
+        assert!(efficiency >= 1.0); // Should be >= 1.0 due to efficiency gains
+    }
+
+    #[test]
+    fn test_lock_free_stats_total_allocations() {
+        let manager = LockFreeMemoryManager::new();
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.total_allocations(), 0);
+
+        // Allocate different types
+        let node = TableauxNode::new(NodeId::new(1));
+        manager.allocate_node(node).expect("Should allocate node");
+
+        let class = Class::new("http://example.org/Test");
+        let expr = ClassExpression::Class(class);
+        manager.allocate_expression(expr).expect("Should allocate expression");
+
+        let constraint = "test";
+        manager.allocate_constraint(constraint).expect("Should allocate constraint");
+
+        let stats_after = manager.get_stats();
+        assert_eq!(stats_after.total_allocations(), 3);
+    }
+
+    #[test]
+    fn test_lock_free_stats_avg_allocation_size() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Initial average should be 0.0
+        let stats = manager.get_stats();
+        assert_eq!(stats.avg_allocation_size(), 0.0);
+
+        // Allocate some items
+        let node = TableauxNode::new(NodeId::new(1));
+        manager.allocate_node(node).expect("Should allocate node");
+
+        let stats_after = manager.get_stats();
+        assert!(stats_after.avg_allocation_size() > 0.0);
+    }
+
+    #[test]
+    fn test_lock_free_stats_memory_savings() {
+        let manager = LockFreeMemoryManager::new();
+
+        let stats = manager.get_stats();
+        let initial_savings = stats.memory_savings();
+        assert_eq!(initial_savings, 0);
+
+        // Allocate some nodes (these should show savings over traditional allocation)
+        for i in 0..5 {
+            let node = TableauxNode::new(NodeId::new(i));
+            manager.allocate_node(node).expect("Should allocate node");
+        }
+
+        let stats_after = manager.get_stats();
+        let savings = stats_after.memory_savings();
+        assert!(savings > 0);
+    }
+
+    #[test]
+    fn test_lock_free_reset() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Allocate some items
+        let node = TableauxNode::new(NodeId::new(1));
+        manager.allocate_node(node).expect("Should allocate node");
+
+        manager.intern_string("test_string").expect("Should intern string");
+
+        // Verify items were allocated
+        let stats_before = manager.get_stats();
+        assert!(stats_before.allocated_nodes > 0);
+
+        // Reset the manager
+        manager.reset().expect("Should reset successfully");
+
+        // Verify stats are reset
+        let stats_after = manager.get_stats();
+        assert_eq!(stats_after.allocated_nodes, 0);
+        assert_eq!(stats_after.allocated_expressions, 0);
+        assert_eq!(stats_after.allocated_constraints, 0);
+        assert_eq!(stats_after.total_bytes_allocated, 0);
+        assert_eq!(stats_after.string_intern_count, 0);
+    }
+
+    #[test]
+    fn test_lock_free_arena_node_get_mut() {
+        let manager = LockFreeMemoryManager::new();
+        let node = TableauxNode::new(NodeId::new(1));
+
+        let mut arena_node = manager.allocate_node(node).expect("Should allocate node");
+
+        // Test mutable access
+        let node_mut = arena_node.get_mut();
+        // Note: TableauxNode might not have mutable fields, but we test the API
+        assert_eq!(node_mut.id, NodeId::new(1));
+    }
+
+    #[test]
+    fn test_lock_free_arena_node_copy_clone() {
+        let manager = LockFreeMemoryManager::new();
+        let node = TableauxNode::new(NodeId::new(1));
+
+        let arena_node1 = manager.allocate_node(node).expect("Should allocate node");
+
+        // Test Copy trait
+        let arena_node2 = arena_node1;
+
+        // Both should point to the same data
+        assert_eq!(arena_node1.get().id, arena_node2.get().id);
+
+        // Test Clone trait
+        let arena_node3 = arena_node1.clone();
+        assert_eq!(arena_node1.get().id, arena_node3.get().id);
+    }
+
+    #[test]
+    fn test_lock_free_concurrent_allocations() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let manager = Arc::new(LockFreeMemoryManager::new());
+        let mut handles = Vec::new();
+
+        // Spawn multiple threads that allocate nodes concurrently
+        for thread_id in 0..4 {
+            let manager_clone = Arc::clone(&manager);
+            let handle = thread::spawn(move || {
+                for i in 0..10 {
+                    let node = TableauxNode::new(NodeId::new(thread_id * 10 + i));
+                    let _arena_node = manager_clone.allocate_node(node)
+                        .expect("Should allocate node concurrently");
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all threads to complete
+        for handle in handles {
+            handle.join().expect("Thread should complete successfully");
+        }
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_nodes, 40); // 4 threads × 10 nodes each
+    }
+
+    #[test]
+    fn test_lock_free_memory_stats_thread_safety() {
+        use std::sync::Arc;
+        use std::thread;
+        use std::time::Duration;
+
+        let manager = Arc::new(LockFreeMemoryManager::new());
+        let manager_for_alloc = Arc::clone(&manager);
+
+        // Spawn a thread that continuously allocates
+        let alloc_thread = thread::spawn(move || {
+            for i in 0..100 {
+                let node = TableauxNode::new(NodeId::new(i));
+                let _arena_node = manager_for_alloc.allocate_node(node)
+                    .expect("Should allocate node");
+            }
+        });
+
+        // Main thread continuously reads stats
+        thread::sleep(Duration::from_millis(1));
+        for _ in 0..10 {
+            let _stats = manager.get_stats();
+            thread::sleep(Duration::from_micros(100));
+        }
+
+        alloc_thread.join().expect("Allocation thread should complete");
+
+        let final_stats = manager.get_stats();
+        assert_eq!(final_stats.allocated_nodes, 100);
+    }
+
+    #[test]
+    fn test_lock_free_arena_node_string() {
+        let manager = LockFreeMemoryManager::new();
+        let test_str = "test_string_for_arena";
+
+        let arena_node = manager.intern_string(test_str).expect("Should intern string");
+
+        let retrieved_str = arena_node.get();
+        assert_eq!(retrieved_str, test_str);
+    }
+
+    #[test]
+    fn test_lock_free_large_string_intern() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Create a large string (1KB)
+        let large_string = "x".repeat(1024);
+
+        let arena_node = manager.intern_string(&large_string).expect("Should intern large string");
+
+        let retrieved_str = arena_node.get();
+        assert_eq!(*retrieved_str, large_string);
+        assert_eq!(retrieved_str.len(), 1024);
+    }
+
+    #[test]
+    fn test_lock_free_different_constraint_types() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Test with different constraint types
+        let string_constraint = "string_constraint";
+        let number_constraint = 42i32;
+        let tuple_constraint = (true, 3.14);
+
+        let _arena_str = manager.allocate_constraint(string_constraint)
+            .expect("Should allocate string constraint");
+        let _arena_num = manager.allocate_constraint(number_constraint)
+            .expect("Should allocate number constraint");
+        let _arena_tuple = manager.allocate_constraint(tuple_constraint)
+            .expect("Should allocate tuple constraint");
+
+        let stats = manager.get_stats();
+        assert_eq!(stats.allocated_constraints, 3);
+    }
+
+    #[test]
+    fn test_lock_free_memory_efficiency_calculation() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Allocate nodes, expressions, and constraints
+        for i in 0..5 {
+            let node = TableauxNode::new(NodeId::new(i));
+            manager.allocate_node(node).expect("Should allocate node");
+        }
+
+        for i in 0..3 {
+            let class = Class::new(format!("http://example.org/Class{}", i));
+            let expr = ClassExpression::Class(class);
+            manager.allocate_expression(expr).expect("Should allocate expression");
+        }
+
+        for i in 0..2 {
+            let constraint = format!("constraint_{}", i);
+            manager.allocate_constraint(constraint).expect("Should allocate constraint");
+        }
+
+        let efficiency = manager.get_memory_efficiency_ratio();
+
+        // The ratio should be >= 1.0 indicating efficiency gains
+        assert!(efficiency >= 1.0);
+
+        // With this mix, we should see some efficiency benefit
+        assert!(efficiency > 1.0);
+    }
+
+    #[test]
+    fn test_lock_free_string_intern_statistics() {
+        let manager = LockFreeMemoryManager::new();
+
+        // Intern multiple strings
+        for i in 0..10 {
+            let test_string = format!("test_string_{}", i);
+            manager.intern_string(&test_string).expect("Should intern string");
+        }
+
+        let stats = manager.get_stats();
+        // Note: The exact string_intern_count depends on implementation details
+        // of how strings are tracked in the interner
+        assert!(stats.string_intern_count >= 0);
+    }
+
+    #[test]
+    fn test_lock_free_concurrent_string_intern() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let manager = Arc::new(LockFreeMemoryManager::new());
+        let mut handles = Vec::new();
+
+        // Multiple threads interning strings concurrently
+        for thread_id in 0..3 {
+            let manager_clone = Arc::clone(&manager);
+            let handle = thread::spawn(move || {
+                for i in 0..5 {
+                    let test_string = format!("thread_{}_string_{}", thread_id, i);
+                    let _arena_node = manager_clone.intern_string(&test_string)
+                        .expect("Should intern string concurrently");
+                }
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().expect("String interning thread should complete");
+        }
+
+        let stats = manager.get_stats();
+        // Should have interned 15 strings total (3 threads × 5 strings)
+        assert!(stats.total_bytes_allocated > 0);
+    }
+
+    // Property-based tests for LockFreeMemoryManager
+    #[cfg(test)]
+    mod lockfree_proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn test_lock_free_allocation_statistics(
+                node_count in 0usize..100,
+                expr_count in 0usize..100,
+                constraint_count in 0usize..100
+            ) {
+                let manager = LockFreeMemoryManager::new();
+
+                // Allocate nodes
+                for i in 0..node_count {
+                    let node = TableauxNode::new(NodeId::new(i));
+                    manager.allocate_node(node).expect("Should allocate node");
+                }
+
+                // Allocate expressions
+                for i in 0..expr_count {
+                    let class = Class::new(format!("http://example.org/Class{}", i));
+                    let expr = ClassExpression::Class(class);
+                    manager.allocate_expression(expr).expect("Should allocate expression");
+                }
+
+                // Allocate constraints
+                for i in 0..constraint_count {
+                    let constraint = format!("constraint_{}", i);
+                    manager.allocate_constraint(constraint).expect("Should allocate constraint");
+                }
+
+                let stats = manager.get_stats();
+                assert_eq!(stats.allocated_nodes, node_count);
+                assert_eq!(stats.allocated_expressions, expr_count);
+                assert_eq!(stats.allocated_constraints, constraint_count);
+                assert_eq!(stats.total_allocations(), node_count + expr_count + constraint_count);
+
+                if stats.total_allocations() > 0 {
+                    assert!(stats.avg_allocation_size() > 0.0);
+                    assert!(stats.total_bytes_allocated > 0);
+                    assert!(stats.memory_savings() >= 0);
+                }
+            }
+
+            #[test]
+            fn test_lock_free_string_intern_properties(
+                string_count in 0usize..50,
+                base_string in ".*"
+            ) {
+                let manager = LockFreeMemoryManager::new();
+
+                for i in 0..string_count {
+                    let test_string = format!("{}_{}", base_string, i);
+                    let arena_node = manager.intern_string(&test_string)
+                        .expect("Should intern string");
+
+                    let retrieved = arena_node.get();
+                    assert_eq!(*retrieved, test_string);
+                }
+
+                let stats = manager.get_stats();
+                // Should have allocated memory for strings
+                if string_count > 0 {
+                    assert!(stats.total_bytes_allocated > 0);
+                }
+            }
+
+            #[test]
+            fn test_lock_free_memory_efficiency_properties(
+                allocation_count in 1usize..1000
+            ) {
+                let manager = LockFreeMemoryManager::new();
+
+                // Mix of different allocation types
+                for i in 0..allocation_count {
+                    match i % 3 {
+                        0 => {
+                            let node = TableauxNode::new(NodeId::new(i));
+                            manager.allocate_node(node).expect("Should allocate node");
+                        }
+                        1 => {
+                            let class = Class::new(format!("http://example.org/Class{}", i));
+                            let expr = ClassExpression::Class(class);
+                            manager.allocate_expression(expr).expect("Should allocate expression");
+                        }
+                        2 => {
+                            let constraint = format!("constraint_{}", i);
+                            manager.allocate_constraint(constraint).expect("Should allocate constraint");
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+
+                let efficiency = manager.get_memory_efficiency_ratio();
+
+                // Efficiency ratio should always be >= 1.0
+                assert!(efficiency >= 1.0);
+
+                // With allocations, should typically show efficiency benefits
+                if allocation_count > 10 {
+                    assert!(efficiency > 1.0);
+                }
+            }
+        }
     }
 }

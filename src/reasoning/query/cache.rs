@@ -1230,3 +1230,815 @@ pub fn compute_pattern_hash(pattern: &QueryPattern) -> u64 {
 pub fn create_cache_key(pattern_hash: u64, config_hash: u64) -> QueryCacheKey {
     QueryCacheKey::new(pattern_hash, config_hash)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::iri::IRI;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+
+    fn create_test_iri(s: &str) -> IRI {
+        IRI::new(s).expect("Valid test IRI")
+    }
+
+    fn create_test_query_value(s: &str) -> QueryValue {
+        QueryValue::IRI(create_test_iri(s))
+    }
+
+    fn create_test_binding(variables: Vec<(&str, &str)>) -> QueryBinding {
+        let mut binding = QueryBinding::new();
+        for (var, val) in variables {
+            binding.add_binding(var.to_string(), create_test_query_value(val));
+        }
+        binding
+    }
+
+    fn create_test_bindings(count: usize) -> Vec<QueryBinding> {
+        (0..count).map(|i| {
+            create_test_binding(vec![
+                ("x", &format!("http://example.org/x{}", i)),
+                ("y", &format!("http://example.org/y{}", i)),
+            ])
+        }).collect()
+    }
+
+    #[test]
+    fn test_join_hash_table_pool_creation() {
+        let pool = JoinHashTablePool::new();
+        let stats = pool.stats();
+
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+        assert_eq!(stats.pool_size, 0);
+        assert_eq!(stats.hit_rate, 0.0);
+    }
+
+    #[test]
+    fn test_join_hash_table_pool_default() {
+        let pool = JoinHashTablePool::default();
+        let stats = pool.stats();
+
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+    }
+
+    #[test]
+    fn test_capacity_bucket_selection() {
+        let pool = JoinHashTablePool::new();
+
+        assert_eq!(pool.capacity_bucket(0), 0);   // 0..=32 -> bucket 0 (16)
+        assert_eq!(pool.capacity_bucket(16), 0);  // 0..=32 -> bucket 0 (16)
+        assert_eq!(pool.capacity_bucket(32), 0);  // 0..=32 -> bucket 0 (16)
+        assert_eq!(pool.capacity_bucket(33), 1);  // 33..=128 -> bucket 1 (64)
+        assert_eq!(pool.capacity_bucket(128), 1); // 33..=128 -> bucket 1 (64)
+        assert_eq!(pool.capacity_bucket(129), 2); // 129..=512 -> bucket 2 (256)
+        assert_eq!(pool.capacity_bucket(512), 2); // 129..=512 -> bucket 2 (256)
+        assert_eq!(pool.capacity_bucket(513), 3); // 513..=2048 -> bucket 3 (1024)
+        assert_eq!(pool.capacity_bucket(2048), 3); // 513..=2048 -> bucket 3 (1024)
+        assert_eq!(pool.capacity_bucket(2049), 4); // 2049..=8192 -> bucket 4 (4096)
+        assert_eq!(pool.capacity_bucket(8192), 4); // 2049..=8192 -> bucket 4 (4096)
+        assert_eq!(pool.capacity_bucket(8193), 5); // >8192 -> bucket 5 (16384)
+    }
+
+    #[test]
+    fn test_bucket_capacity() {
+        let pool = JoinHashTablePool::new();
+
+        assert_eq!(pool.bucket_capacity(0), 16);
+        assert_eq!(pool.bucket_capacity(1), 64);
+        assert_eq!(pool.bucket_capacity(2), 256);
+        assert_eq!(pool.bucket_capacity(3), 1024);
+        assert_eq!(pool.bucket_capacity(4), 4096);
+        assert_eq!(pool.bucket_capacity(5), 16384);
+        assert_eq!(pool.bucket_capacity(10), 16384); // Default for unknown buckets
+    }
+
+    #[test]
+    fn test_pooled_hash_table_creation() {
+        let pool = JoinHashTablePool::new();
+        let table = pool.get_table(100);
+
+        assert_eq!(table.len(), 0);
+        assert!(table.is_empty());
+        assert!(!table.contains_key(&vec![]));
+    }
+
+    #[test]
+    fn test_pooled_hash_table_basic_operations() {
+        let pool = JoinHashTablePool::new();
+        let mut table = pool.get_table(10);
+
+        let key = vec![create_test_query_value("test1"), create_test_query_value("test2")];
+        let binding_index = 42;
+
+        // Test insert
+        table.insert(key.clone(), binding_index);
+        assert_eq!(table.len(), 1);
+        assert!(!table.is_empty());
+        assert!(table.contains_key(&key));
+
+        // Test get_indices
+        let indices = table.get_indices(&key);
+        assert_eq!(indices, Some(&[binding_index][..]));
+    }
+
+    #[test]
+    fn test_pooled_hash_table_build_from_bindings() {
+        let pool = JoinHashTablePool::new();
+        let mut table = pool.get_table(10);
+
+        let bindings = create_test_bindings(3);
+        let common_vars = vec!["x".to_string(), "y".to_string()];
+
+        table.build_from_bindings(&bindings, &common_vars);
+
+        assert_eq!(table.len(), 3);
+
+        // Check that we can find each binding by its key
+        for (i, binding) in bindings.iter().enumerate() {
+            let key: Vec<QueryValue> = common_vars.iter()
+                .map(|var| binding.get_value(var).cloned().unwrap_or(QueryValue::Literal("".to_string())))
+                .collect();
+
+            let indices = table.get_indices(&key);
+            assert!(indices.is_some());
+            assert!(indices.unwrap().contains(&i));
+        }
+    }
+
+    #[test]
+    fn test_pooled_hash_table_hash_join() {
+        let pool = JoinHashTablePool::new();
+        let mut table = pool.get_table(10);
+
+        let left_bindings = create_test_bindings(3);
+        let right_bindings = create_test_bindings(3);
+        let common_vars = vec!["x".to_string()];
+
+        // Build hash table from right bindings
+        table.build_from_bindings(&right_bindings, &common_vars);
+
+        // Perform hash join
+        let join_results = table.hash_join(&left_bindings, &right_bindings, &common_vars);
+
+        // Should have 9 join results (3 left × 3 right) since they all have different x values
+        // Actually, since the x values are different, there should be no matches
+        assert_eq!(join_results.len(), 0);
+
+        // Now test with matching bindings
+        let mut matching_right = Vec::new();
+        for i in 0..2 {
+            matching_right.push(create_test_binding(vec![
+                ("x", &format!("http://example.org/x{}", i % 2)), // x0, x1, x0, x1 pattern
+                ("y", &format!("http://example.org/right{}", i)),
+            ]));
+        }
+
+        let mut table2 = pool.get_table(10);
+        table2.build_from_bindings(&matching_right, &common_vars);
+
+        let join_results2 = table2.hash_join(&left_bindings, &matching_right, &common_vars);
+
+        // Should have matches for x0 and x1
+        assert!(join_results2.len() > 0);
+    }
+
+    #[test]
+    fn test_pool_raii_behavior() {
+        let pool = Arc::new(JoinHashTablePool::new());
+        let initial_stats = pool.stats();
+
+        {
+            let _table = pool.get_table(100);
+            // Table should be in use but not returned to pool yet
+        } // Table is dropped here
+
+        // After dropping, the table should be returned to the pool
+        // But the exact behavior depends on pool size limits
+        let final_stats = pool.stats();
+
+        // At minimum, we should see some activity
+        assert!(final_stats.hits + final_stats.misses > initial_stats.hits + initial_stats.misses);
+    }
+
+    #[test]
+    fn test_pool_pre_warm() {
+        let pool = JoinHashTablePool::new();
+
+        pool.pre_warm(3);
+
+        let stats = pool.stats();
+        assert_eq!(stats.pool_size, 18); // 6 buckets × 3 tables each
+
+        // Now test that we get pool hits when requesting tables
+        let _table1 = pool.get_table(16);
+        let _table2 = pool.get_table(64);
+        let _table3 = pool.get_table(256);
+
+        let stats_after = pool.stats();
+        assert!(stats_after.hits >= 3);
+    }
+
+    #[test]
+    fn test_pool_clear() {
+        let pool = JoinHashTablePool::new();
+
+        // Pre-warm the pool
+        pool.pre_warm(2);
+        assert!(pool.stats().pool_size > 0);
+
+        // Clear the pool
+        pool.clear();
+
+        let stats = pool.stats();
+        assert_eq!(stats.pool_size, 0);
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+        assert_eq!(stats.hit_rate, 0.0);
+    }
+
+    #[test]
+    fn test_pool_hit_rate_calculation() {
+        let pool = JoinHashTablePool::new();
+
+        // Initial hit rate should be 0.0
+        assert_eq!(pool.stats().hit_rate, 0.0);
+
+        // Pre-warm to ensure we have tables
+        pool.pre_warm(2);
+
+        // Get some tables to generate hits
+        let _table1 = pool.get_table(16);
+        let _table2 = pool.get_table(64);
+        let _table3 = pool.get_table(32);
+
+        let stats = pool.stats();
+        assert!(stats.hit_rate > 0.0);
+        assert!(stats.hit_rate <= 100.0);
+    }
+
+    #[test]
+    fn test_concurrent_pool_access() {
+        let pool = Arc::new(JoinHashTablePool::new());
+        pool.pre_warm(10);
+
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                let pool_clone = Arc::clone(&pool);
+                thread::spawn(move || {
+                    for _ in 0..10 {
+                        let _table = pool_clone.get_table(i * 100);
+                        // Simulate some work
+                        thread::sleep(Duration::from_micros(1));
+                    }
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().expect("Thread should complete successfully");
+        }
+
+        let stats = pool.stats();
+        assert!(stats.hits > 0);
+        assert!(stats.misses >= 0); // May have misses depending on pool behavior
+    }
+
+    #[test]
+    fn test_adaptive_query_index_creation() {
+        let index = AdaptiveQueryIndex::new();
+        let stats = index.stats();
+
+        assert_eq!(stats.total_accesses, 0);
+        assert_eq!(stats.cache_hits, 0);
+        assert_eq!(stats.cache_misses, 0);
+        assert_eq!(stats.prediction_accuracy, 0.0);
+    }
+
+    #[test]
+    fn test_adaptive_query_index_default() {
+        let index = AdaptiveQueryIndex::default();
+        let stats = index.stats();
+
+        assert_eq!(stats.total_accesses, 0);
+    }
+
+    #[test]
+    fn test_adaptive_query_index_config() {
+        let config = AdaptiveIndexConfig {
+            max_access_patterns: 500,
+            frequency_threshold: 3,
+            warmup_threshold: 5,
+            cleanup_interval: Duration::from_secs(30),
+        };
+
+        let index = AdaptiveQueryIndex::with_config(config);
+        let stats = index.stats();
+
+        assert_eq!(stats.total_accesses, 0);
+    }
+
+    #[test]
+    fn test_adaptive_query_pattern_hash() {
+        let index = AdaptiveQueryIndex::new();
+
+        let pattern1 = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(create_test_iri("http://example.org/type")),
+                PatternTerm::IRI(create_test_iri("http://example.org/Class1")),
+            ),
+        ]);
+
+        let pattern2 = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(create_test_iri("http://example.org/type")),
+                PatternTerm::IRI(create_test_iri("http://example.org/Class2")),
+            ),
+        ]);
+
+        let hash1 = index.compute_pattern_hash(&pattern1);
+        let hash2 = index.compute_pattern_hash(&pattern2);
+
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_adaptive_query_record_access() {
+        let index = AdaptiveQueryIndex::new();
+        let pattern_hash = 12345u64;
+        let execution_time = Duration::from_millis(10);
+
+        index.record_access(&pattern_hash, execution_time);
+
+        let stats = index.stats();
+        assert_eq!(stats.total_accesses, 1);
+    }
+
+    #[test]
+    fn test_adaptive_query_predictive_preload() {
+        let index = AdaptiveQueryIndex::new();
+
+        // Record some access patterns
+        for i in 0..20 {
+            let pattern_hash = (i % 5) as u64; // Create repeating pattern
+            index.record_access(&pattern_hash, Duration::from_millis(i as u64));
+        }
+
+        let predictions = index.predictive_preload();
+
+        // Should predict some patterns based on frequency
+        assert!(!predictions.is_empty());
+    }
+
+    #[test]
+    fn test_adaptive_query_get_hot_patterns() {
+        let index = AdaptiveQueryIndex::new();
+
+        // Add some hot patterns directly to primary index
+        let pattern = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(create_test_iri("http://example.org/type")),
+                PatternTerm::IRI(create_test_iri("http://example.org/HotClass")),
+            ),
+        ]);
+
+        // Force promotion by creating index entry
+        if let Some(_entry) = index.get_or_create(&pattern) {
+            // Record multiple accesses to make it hot
+            for _ in 0..10 {
+                let pattern_hash = index.compute_pattern_hash(&pattern);
+                index.record_access(&pattern_hash, Duration::from_millis(1));
+            }
+        }
+
+        let hot_patterns = index.get_hot_patterns();
+
+        // Should have at least one hot pattern
+        assert!(!hot_patterns.is_empty());
+    }
+
+    #[test]
+    fn test_adaptive_query_cleanup() {
+        let index = AdaptiveQueryIndex::new();
+
+        // Record some access patterns
+        for i in 0..5 {
+            let pattern_hash = i as u64;
+            index.record_access(&pattern_hash, Duration::from_millis(1));
+        }
+
+        let before_stats = index.stats();
+        assert!(before_stats.total_accesses > 0);
+
+        // Run cleanup
+        index.cleanup();
+
+        // Cleanup should not crash and should maintain valid state
+        let after_stats = index.stats();
+        assert!(after_stats.total_accesses >= 0);
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_creation() {
+        let predictor = QueryPatternPredictor::new();
+        let stats = predictor.get_stats();
+
+        assert_eq!(stats.total_predictions, 0);
+        assert_eq!(stats.correct_predictions, 0);
+        assert_eq!(stats.accuracy, 0.0);
+        assert_eq!(stats.precision, 0.0);
+        assert_eq!(stats.recall, 0.0);
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_record_query() {
+        let predictor = QueryPatternPredictor::new();
+        let pattern_key = "test_pattern_1";
+        let execution_time = Duration::from_millis(5);
+
+        predictor.record_query(pattern_key, execution_time);
+
+        let stats = predictor.get_stats();
+        // Recording queries doesn't affect prediction stats directly
+        assert_eq!(stats.total_predictions, 0);
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_predictions() {
+        let predictor = QueryPatternPredictor::new();
+
+        // Record some query sequence
+        let patterns = ["pattern_A", "pattern_B", "pattern_C"];
+        for (i, pattern) in patterns.iter().enumerate() {
+            predictor.record_query(pattern, Duration::from_millis(i as u64));
+        }
+
+        // Record some more to build correlation data
+        for pattern in patterns.iter() {
+            predictor.record_query(pattern, Duration::from_millis(1));
+        }
+
+        let predictions = predictor.predict_next_queries("pattern_A", 3);
+
+        // Should return some predictions (even if empty vector)
+        assert!(predictions.len() <= 3);
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_hot_patterns() {
+        let predictor = QueryPatternPredictor::new();
+
+        // Record high-frequency pattern
+        for _ in 0..10 {
+            predictor.record_query("hot_pattern", Duration::from_millis(1));
+        }
+
+        let hot_patterns = predictor.get_hot_patterns(5.0);
+
+        // Should detect the hot pattern
+        assert!(!hot_patterns.is_empty());
+
+        // Check that hot patterns have high scores
+        for (_, score) in hot_patterns {
+            assert!(score >= 5.0);
+        }
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_accuracy_update() {
+        let predictor = QueryPatternPredictor::new();
+
+        let predicted = vec!["pattern_A".to_string(), "pattern_B".to_string()];
+        let actual = "pattern_A";
+
+        predictor.update_prediction_accuracy(&predicted, actual);
+
+        let stats = predictor.get_stats();
+        assert_eq!(stats.total_predictions, 1);
+        assert_eq!(stats.correct_predictions, 1);
+        assert_eq!(stats.accuracy, 1.0);
+        assert_eq!(stats.precision, 0.5); // 1 correct out of 2 predicted
+    }
+
+    #[test]
+    fn test_query_pattern_predictor_reset() {
+        let predictor = QueryPatternPredictor::new();
+
+        // Record some data
+        predictor.record_query("test", Duration::from_millis(1));
+        predictor.update_prediction_accuracy(&["test".to_string()], "test");
+
+        let before_stats = predictor.get_stats();
+        assert!(before_stats.total_predictions > 0);
+
+        // Reset
+        predictor.reset();
+
+        let after_stats = predictor.get_stats();
+        assert_eq!(after_stats.total_predictions, 0);
+        assert_eq!(after_stats.correct_predictions, 0);
+        assert_eq!(after_stats.accuracy, 0.0);
+    }
+
+    #[test]
+    fn test_query_cache_key() {
+        let key = QueryCacheKey::new(12345, 67890);
+
+        assert_eq!(key.pattern_hash(), 12345);
+        assert_eq!(key.config_hash(), 67890);
+    }
+
+    #[test]
+    fn test_query_cache_key_hash() {
+        let key1 = QueryCacheKey::new(12345, 67890);
+        let key2 = QueryCacheKey::new(12345, 67890);
+        let key3 = QueryCacheKey::new(54321, 67890);
+
+        use std::collections::hash_map::DefaultHasher;
+        let mut hasher1 = DefaultHasher::new();
+        let mut hasher2 = DefaultHasher::new();
+        let mut hasher3 = DefaultHasher::new();
+
+        key1.hash(&mut hasher1);
+        key2.hash(&mut hasher2);
+        key3.hash(&mut hasher3);
+
+        assert_eq!(hasher1.finish(), hasher2.finish());
+        assert_ne!(hasher1.finish(), hasher3.finish());
+    }
+
+    #[test]
+    fn test_compiled_pattern_creation() {
+        let pattern = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(create_test_iri("http://example.org/type")),
+                PatternTerm::IRI(create_test_iri("http://example.org/Class1")),
+            ),
+        ]);
+
+        let execution_plan = ExecutionPlan::SingleTriple {
+            query_type: QueryType::TypeQuery,
+            pattern: TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(create_test_iri("http://example.org/type")),
+                PatternTerm::IRI(create_test_iri("http://example.org/Class1")),
+            ),
+        };
+
+        let compiled = CompiledPattern::new(pattern.clone(), execution_plan);
+
+        assert_eq!(compiled.variable_positions(), vec!["?s"]);
+    }
+
+    #[test]
+    fn test_compiled_pattern_variable_extraction() {
+        let pattern = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::Variable("?p".to_string()),
+                PatternTerm::Variable("?o".to_string()),
+            ),
+        ]);
+
+        let execution_plan = ExecutionPlan::SingleTriple {
+            query_type: QueryType::VariablePredicate,
+            pattern: TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::Variable("?p".to_string()),
+                PatternTerm::Variable("?o".to_string()),
+            ),
+        };
+
+        let compiled = CompiledPattern::new(pattern, execution_plan);
+
+        let vars = compiled.variable_positions();
+        assert!(vars.contains(&"?s".to_string()));
+        assert!(vars.contains(&"?p".to_string()));
+        assert!(vars.contains(&"?o".to_string()));
+        assert_eq!(vars.len(), 3);
+    }
+
+    #[test]
+    fn test_result_pool_creation() {
+        let pool = ResultPool::new();
+        let (binding_count, result_count) = pool.stats();
+
+        assert_eq!(binding_count, 0);
+        assert_eq!(result_count, 0);
+    }
+
+    #[test]
+    fn test_result_pool_binding_operations() {
+        let pool = ResultPool::new();
+
+        // Get a binding
+        let binding = pool.get_binding();
+        assert_eq!(binding.variables().count(), 0);
+
+        // Add some data to the binding
+        let mut binding = binding;
+        binding.add_binding("test".to_string(), create_test_query_value("http://example.org/test"));
+
+        // Return it to the pool
+        pool.return_binding(binding);
+
+        let (binding_count, _) = pool.stats();
+        assert!(binding_count > 0);
+    }
+
+    #[test]
+    fn test_result_pool_clear() {
+        let pool = ResultPool::new();
+
+        // Add some bindings to the pool
+        for _ in 0..5 {
+            let binding = pool.get_binding();
+            pool.return_binding(binding);
+        }
+
+        let (before_count, _) = pool.stats();
+        assert!(before_count > 0);
+
+        pool.clear();
+
+        let (after_count, _) = pool.stats();
+        assert_eq!(after_count, 0);
+    }
+
+    #[test]
+    fn test_query_cache_creation() {
+        let cache = QueryCache::new(NonZeroUsize::new(100).unwrap());
+        let (result_count, pattern_count) = cache.stats();
+
+        assert_eq!(result_count, 0);
+        assert_eq!(pattern_count, 0);
+        assert_eq!(cache.capacity(), 100);
+    }
+
+    #[test]
+    fn test_query_cache_operations() {
+        let cache = QueryCache::new(NonZeroUsize::new(10).unwrap());
+
+        let key = QueryCacheKey::new(123, 456);
+        let mut result = QueryResult::new();
+        result.bindings.push(create_test_binding(vec![("x", "http://example.org/test")]));
+
+        // Test put and get
+        cache.put(key.clone(), result.clone());
+        let retrieved = cache.get(&key);
+
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().bindings.len(), 1);
+    }
+
+    #[test]
+    fn test_query_cache_contains() {
+        let cache = QueryCache::new(NonZeroUsize::new(10).unwrap());
+
+        let key = QueryCacheKey::new(123, 456);
+        let result = QueryResult::new();
+
+        assert!(!cache.contains(&key));
+
+        cache.put(key.clone(), result);
+        assert!(cache.contains(&key));
+    }
+
+    #[test]
+    fn test_query_cache_remove() {
+        let cache = QueryCache::new(NonZeroUsize::new(10).unwrap());
+
+        let key = QueryCacheKey::new(123, 456);
+        let result = QueryResult::new();
+
+        cache.put(key.clone(), result.clone());
+        assert!(cache.contains(&key));
+
+        let removed = cache.remove(&key);
+        assert!(removed.is_some());
+        assert!(!cache.contains(&key));
+    }
+
+    #[test]
+    fn test_query_cache_resize() {
+        let cache = QueryCache::new(NonZeroUsize::new(10).unwrap());
+        assert_eq!(cache.capacity(), 10);
+
+        cache.resize(NonZeroUsize::new(20).unwrap());
+        assert_eq!(cache.capacity(), 20);
+    }
+
+    #[test]
+    fn test_query_cache_usage_percentage() {
+        let cache = QueryCache::new(NonZeroUsize::new(10).unwrap());
+        assert_eq!(cache.usage_percentage(), 0.0);
+
+        // Add some items
+        for i in 0..5 {
+            let key = QueryCacheKey::new(i, i);
+            let result = QueryResult::new();
+            cache.put(key, result);
+        }
+
+        let usage = cache.usage_percentage();
+        assert!(usage > 0.0);
+        assert!(usage <= 100.0);
+    }
+
+    #[test]
+    fn test_hash_helper_functions() {
+        let enable_reasoning = true;
+        let enable_parallel = false;
+        let max_results = Some(1000);
+
+        let config_hash = compute_config_hash(enable_reasoning, enable_parallel, max_results);
+
+        // Should produce consistent results
+        let config_hash2 = compute_config_hash(enable_reasoning, enable_parallel, max_results);
+        assert_eq!(config_hash, config_hash2);
+
+        // Different config should produce different hash
+        let different_hash = compute_config_hash(false, enable_parallel, max_results);
+        assert_ne!(config_hash, different_hash);
+    }
+
+    #[test]
+    fn test_create_cache_key_function() {
+        let pattern_hash = 12345u64;
+        let config_hash = 67890u64;
+
+        let key = create_cache_key(pattern_hash, config_hash);
+
+        assert_eq!(key.pattern_hash(), pattern_hash);
+        assert_eq!(key.config_hash(), config_hash);
+    }
+
+    // Property-based tests
+    #[cfg(test)]
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn test_capacity_bucket_roundtrip(size in 0usize..10000) {
+                let pool = JoinHashTablePool::new();
+                let bucket = pool.capacity_bucket(size);
+                let capacity = pool.bucket_capacity(bucket);
+
+                // The capacity should be sufficient for the requested size
+                assert!(capacity >= size || bucket == 5); // Bucket 5 is the largest
+            }
+
+            #[test]
+            fn test_query_cache_key_equality(
+                pattern_hash1 in 0u64..u64::MAX,
+                config_hash1 in 0u64..u64::MAX,
+                pattern_hash2 in 0u64..u64::MAX,
+                config_hash2 in 0u64..u64::MAX
+            ) {
+                let key1 = QueryCacheKey::new(pattern_hash1, config_hash1);
+                let key2 = QueryCacheKey::new(pattern_hash2, config_hash2);
+
+                // Keys with same components should be equal
+                if pattern_hash1 == pattern_hash2 && config_hash1 == config_hash2 {
+                    assert_eq!(key1, key2);
+                } else {
+                    assert_ne!(key1, key2);
+                }
+            }
+
+            #[test]
+            fn test_pool_statistics_consistency(
+                pre_warm_count in 0usize..10,
+                get_operations in 0usize..100
+            ) {
+                let pool = JoinHashTablePool::new();
+                pool.pre_warm(pre_warm_count);
+
+                let initial_stats = pool.stats();
+
+                // Perform get operations
+                for i in 0..get_operations {
+                    let _table = pool.get_table(i * 10);
+                }
+
+                let final_stats = pool.stats();
+
+                // Should have increased activity
+                assert!(final_stats.hits + final_stats.misses >= initial_stats.hits + initial_stats.misses);
+
+                // Hit rate should be between 0 and 100
+                assert!(final_stats.hit_rate >= 0.0 && final_stats.hit_rate <= 100.0);
+            }
+        }
+    }
+}

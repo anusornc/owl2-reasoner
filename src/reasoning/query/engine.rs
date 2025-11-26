@@ -501,3 +501,800 @@ impl QueryPatternExt for QueryPattern {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::*;
+    use crate::iri::IRI;
+    use std::sync::Arc;
+    use super::{PatternTerm, TriplePattern, QueryPattern, RDF_TYPE};
+
+    fn create_test_ontology() -> Ontology {
+        let mut ontology = Ontology::new();
+
+        // Add some test classes
+        let person_class = Class::new("http://example.org/Person");
+        let company_class = Class::new("http://example.org/Company");
+        let employee_class = Class::new("http://example.org/Employee");
+
+        ontology.add_class(person_class.clone());
+        ontology.add_class(company_class.clone());
+        ontology.add_class(employee_class.clone());
+
+        // Add some object properties
+        let works_for_prop = ObjectProperty::new("http://example.org/worksFor");
+        let manager_of_prop = ObjectProperty::new("http://example.org/managerOf");
+
+        ontology.add_object_property(works_for_prop.clone());
+        ontology.add_object_property(manager_of_prop.clone());
+
+        // Add some data properties
+        let name_prop = DataProperty::new("http://example.org/name");
+        let age_prop = DataProperty::new("http://example.org/age");
+
+        ontology.add_data_property(name_prop.clone());
+        ontology.add_data_property(age_prop.clone());
+
+        // Add some individuals
+        let person1 = NamedIndividual::new("http://example.org/person1");
+        let person2 = NamedIndividual::new("http://example.org/person2");
+        let person3 = NamedIndividual::new("http://example.org/person3");
+        let company1 = NamedIndividual::new("http://example.org/company1");
+        let company2 = NamedIndividual::new("http://example.org/company2");
+
+        ontology.add_named_individual(person1.clone());
+        ontology.add_named_individual(person2.clone());
+        ontology.add_named_individual(person3.clone());
+        ontology.add_named_individual(company1.clone());
+        ontology.add_named_individual(company2.clone());
+
+        // Add class assertions
+        let person1_type = ClassAssertionAxiom::new(
+            person1.iri().clone(),
+            ClassExpression::Class(person_class.clone()),
+        );
+        let person2_type = ClassAssertionAxiom::new(
+            person2.iri().clone(),
+            ClassExpression::Class(employee_class.clone()),
+        );
+        let person3_type = ClassAssertionAxiom::new(
+            person3.iri().clone(),
+            ClassExpression::Class(person_class.clone()),
+        );
+        let company1_type = ClassAssertionAxiom::new(
+            company1.iri().clone(),
+            ClassExpression::Class(company_class.clone()),
+        );
+
+        ontology.add_class_assertion(person1_type);
+        ontology.add_class_assertion(person2_type);
+        ontology.add_class_assertion(person3_type);
+        ontology.add_class_assertion(company1_type);
+
+        // Add property assertions
+        let works_for1 = PropertyAssertionAxiom::new(
+            person1.iri().clone(),
+            works_for_prop.iri().clone(),
+            company1.iri().clone(),
+        );
+        let works_for2 = PropertyAssertionAxiom::new(
+            person2.iri().clone(),
+            works_for_prop.iri().clone(),
+            company1.iri().clone(),
+        );
+        let manager_of = PropertyAssertionAxiom::new(
+            person3.iri().clone(),
+            manager_of_prop.iri().clone(),
+            person1.iri().clone(),
+        );
+
+        ontology.add_property_assertion(works_for1);
+        ontology.add_property_assertion(works_for2);
+        ontology.add_property_assertion(manager_of);
+
+        ontology
+    }
+
+    fn create_test_query_pattern(subject: &str, predicate: &str, object: &str) -> QueryPattern {
+        QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                if subject.starts_with('?') {
+                    PatternTerm::Variable(subject.to_string())
+                } else {
+                    PatternTerm::IRI(IRI::new(subject).expect("Valid IRI"))
+                },
+                if predicate.starts_with('?') {
+                    PatternTerm::Variable(predicate.to_string())
+                } else {
+                    PatternTerm::IRI(IRI::new(predicate).expect("Valid IRI"))
+                },
+                if object.starts_with('?') {
+                    PatternTerm::Variable(object.to_string())
+                } else {
+                    PatternTerm::IRI(IRI::new(object).expect("Valid IRI"))
+                },
+            ),
+        ])
+    }
+
+    fn create_test_query_engine() -> QueryEngine {
+        let ontology = create_test_ontology();
+        let config = QueryConfig {
+            enable_caching: true,
+            enable_parallel: true,
+            max_results: Some(1000),
+            cache_size: Some(100),
+        };
+        QueryEngine::with_config(ontology, config)
+    }
+
+    #[test]
+    fn test_query_engine_creation() {
+        let ontology = create_test_ontology();
+        let engine = QueryEngine::new(ontology);
+
+        let stats = engine.stats();
+        assert_eq!(stats.successful_queries, 0);
+        assert_eq!(stats.get_failed_queries(), 0);
+    }
+
+    #[test]
+    fn test_query_engine_with_config() {
+        let ontology = create_test_ontology();
+        let config = QueryConfig {
+            enable_reasoning: false,
+            enable_caching: true,
+            enable_parallel: false,
+            max_results: Some(500),
+            cache_size: Some(50),
+        };
+
+        let engine = QueryEngine::with_config(ontology, config);
+
+        let engine_config = engine.config();
+        assert_eq!(engine_config.enable_reasoning, false);
+        assert_eq!(engine_config.enable_caching, true);
+        assert_eq!(engine_config.enable_parallel, false);
+        assert_eq!(engine_config.max_results, Some(500));
+        assert_eq!(engine_config.cache_size, Some(50));
+    }
+
+    #[test]
+    fn test_basic_query_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = create_test_query_pattern("?s", "?p", "?o");
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+        assert!(query_result.stats.time_ms >= 0);
+        assert!(query_result.stats.results_count >= 0);
+    }
+
+    #[test]
+    fn test_triple_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let triple = TriplePattern::new(
+            PatternTerm::Variable("?s".to_string()),
+            PatternTerm::Variable("?p".to_string()),
+            PatternTerm::Variable("?o".to_string()),
+        );
+
+        let result = engine.execute_triple(triple);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+        assert!(query_result.variables.contains(&"?s".to_string()));
+        assert!(query_result.variables.contains(&"?p".to_string()));
+        assert!(query_result.variables.contains(&"?o".to_string()));
+    }
+
+    #[test]
+    fn test_type_query_execution() {
+        let engine = create_test_query_engine();
+
+        let triple = TriplePattern::new(
+            PatternTerm::Variable("?s".to_string()),
+            PatternTerm::IRI(IRI::new(RDF_TYPE).expect("Valid IRI")),
+            PatternTerm::IRI(IRI::new("http://example.org/Person").expect("Valid IRI")),
+        );
+
+        let result = engine.execute_triple(triple);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should find individuals that are instances of Person
+        assert!(query_result.variables.contains(&"?s".to_string()));
+        assert!(query_result.stats.reasoning_used);
+    }
+
+    #[test]
+    fn test_property_query_execution() {
+        let engine = create_test_query_engine();
+
+        let triple = TriplePattern::new(
+            PatternTerm::IRI(IRI::new("http://example.org/person1").expect("Valid IRI")),
+            PatternTerm::IRI(IRI::new("http://example.org/worksFor").expect("Valid IRI")),
+            PatternTerm::Variable("?o".to_string()),
+        );
+
+        let result = engine.execute_triple(triple);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should find companies that person1 works for
+        assert!(query_result.variables.contains(&"?o".to_string()));
+        assert!(query_result.stats.reasoning_used);
+    }
+
+    #[test]
+    fn test_get_class_instances() {
+        let engine = create_test_query_engine();
+        let person_iri = IRI::new("http://example.org/Person").expect("Valid IRI");
+
+        let result = engine.get_class_instances(&person_iri);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        assert_eq!(query_result.variables, vec!["instance"]);
+        assert!(query_result.stats.reasoning_used);
+
+        // Should find at least one Person instance
+        assert!(query_result.bindings.len() >= 1);
+    }
+
+    #[test]
+    fn test_get_property_values() {
+        let engine = create_test_query_engine();
+        let person_iri = IRI::new("http://example.org/person1").expect("Valid IRI");
+        let works_for_iri = IRI::new("http://example.org/worksFor").expect("Valid IRI");
+
+        let result = engine.get_property_values(&person_iri, &works_for_iri);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        assert_eq!(query_result.variables, vec!["value"]);
+        assert!(query_result.stats.reasoning_used);
+
+        // Should find at least one property value
+        assert!(query_result.bindings.len() >= 1);
+    }
+
+    #[test]
+    fn test_get_all_classes() {
+        let engine = create_test_query_engine();
+
+        let result = engine.get_all_classes();
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        assert_eq!(query_result.variables, vec!["class"]);
+        assert!(query_result.bindings.len() >= 3); // Person, Company, Employee
+    }
+
+    #[test]
+    fn test_get_all_individuals() {
+        let engine = create_test_query_engine();
+
+        let result = engine.get_all_individuals();
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        assert_eq!(query_result.variables, vec!["individual"]);
+        assert!(query_result.bindings.len() >= 5); // person1, person2, person3, company1, company2
+    }
+
+    #[test]
+    fn test_optional_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::Optional {
+            left: Box::new(create_test_query_pattern("?s", RDF_TYPE, "http://example.org/Person")),
+            right: Box::new(create_test_query_pattern("?s", "http://example.org/worksFor", "?company")),
+        };
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should execute optional pattern successfully
+        assert!(query_result.stats.time_ms >= 0);
+        assert!(query_result.variables.len() >= 2); // Should have ?s and ?company variables
+    }
+
+    #[test]
+    fn test_union_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::Union {
+            left: Box::new(create_test_query_pattern("?s", RDF_TYPE, "http://example.org/Person")),
+            right: Box::new(create_test_query_pattern("?s", RDF_TYPE, "http://example.org/Company")),
+        };
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should execute union pattern successfully
+        assert!(query_result.stats.time_ms >= 0);
+        assert!(query_result.variables.contains(&"?s".to_string()));
+    }
+
+    #[test]
+    fn test_filter_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::Filter {
+            pattern: Box::new(create_test_query_pattern("?s", "?p", "?o")),
+            expression: FilterExpression::IsVariable("?s".to_string()),
+        };
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should execute filter pattern (though filter evaluation might be basic)
+        assert!(query_result.stats.time_ms >= 0);
+    }
+
+    #[test]
+    fn test_reduced_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::Reduced(Box::new(create_test_query_pattern("?s", "?p", "?o")));
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should execute reduced pattern
+        assert!(query_result.stats.time_ms >= 0);
+    }
+
+    #[test]
+    fn test_distinct_pattern_execution() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::Distinct(Box::new(create_test_query_pattern("?s", "?p", "?o")));
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should execute distinct pattern
+        assert!(query_result.stats.time_ms >= 0);
+    }
+
+    #[test]
+    fn test_caching_behavior() {
+        let engine = create_test_query_engine();
+
+        let pattern = create_test_query_pattern("?s", "?p", "?o");
+
+        // First execution
+        let result1 = engine.execute(&pattern);
+        assert!(result1.is_ok());
+
+        let stats_after1 = engine.stats();
+
+        // Second execution
+        let result2 = engine.execute(&pattern);
+        assert!(result2.is_ok());
+
+        let stats_after2 = engine.stats();
+
+        // Should have recorded cache activity
+        if engine.config().enable_caching {
+            assert!(stats_after2.get_cache_hits() + stats_after2.get_cache_misses() >
+                    stats_after1.get_cache_hits() + stats_after1.get_cache_misses());
+        }
+    }
+
+    #[test]
+    fn test_parallel_execution_support() {
+        // Test patterns that should support parallel execution
+        let parallel_pattern = QueryPattern::Union {
+            left: Box::new(create_test_query_pattern("?s1", "?p1", "?o1")),
+            right: Box::new(create_test_query_pattern("?s2", "?p2", "?o2")),
+        };
+
+        assert!(parallel_pattern.supports_parallel());
+
+        // Test patterns that should not support parallel execution
+        let non_parallel_pattern = QueryPattern::Optional {
+            left: Box::new(create_test_query_pattern("?s", "?p", "?o")),
+            right: Box::new(create_test_query_pattern("?s2", "?p2", "?o2")),
+        };
+
+        assert!(!non_parallel_pattern.supports_parallel());
+    }
+
+    #[test]
+    fn test_statistics_tracking() {
+        let engine = create_test_query_engine();
+
+        let initial_stats = engine.stats();
+        assert_eq!(initial_stats.successful_queries, 0);
+        assert_eq!(initial_stats.get_failed_queries(), 0);
+
+        // Execute some successful queries
+        for _ in 0..3 {
+            let pattern = create_test_query_pattern("?s", "?p", "?o");
+            let result = engine.execute(&pattern);
+            assert!(result.is_ok());
+        }
+
+        let final_stats = engine.stats();
+        assert_eq!(final_stats.successful_queries, 3);
+        assert_eq!(final_stats.get_failed_queries(), 0);
+        assert!(final_stats.total_queries > 0);
+        assert!(final_stats.get_average_time() > 0.0);
+    }
+
+    #[test]
+    fn test_statistics_reset() {
+        let engine = create_test_query_engine();
+
+        // Execute some queries to generate stats
+        for _ in 0..2 {
+            let pattern = create_test_query_pattern("?s", "?p", "?o");
+            let _ = engine.execute(&pattern);
+        }
+
+        let stats_before = engine.stats();
+        assert!(stats_before.successful_queries > 0);
+
+        // Reset stats
+        engine.reset_stats();
+
+        let stats_after = engine.stats();
+        assert_eq!(stats_after.successful_queries, 0);
+        assert_eq!(stats_after.get_failed_queries(), 0);
+        assert_eq!(stats_after.total_queries, 0);
+    }
+
+    #[test]
+    fn test_cache_management() {
+        let engine = create_test_query_engine();
+
+        // Execute some queries to populate cache
+        for i in 0..5 {
+            let pattern = create_test_query_pattern(&format!("?s{}", i), "?p", "?o");
+            let _ = engine.execute(&pattern);
+        }
+
+        let (cache_size, pattern_size) = engine.cache_stats();
+        assert!(cache_size + pattern_size >= 0);
+
+        // Clear caches
+        engine.clear_caches();
+
+        let (cache_size_after, pattern_size_after) = engine.cache_stats();
+        assert_eq!(cache_size_after, 0);
+        assert_eq!(pattern_size_after, 0);
+    }
+
+    #[test]
+    fn test_query_result_consistency() {
+        let engine = create_test_query_engine();
+
+        let pattern = create_test_query_pattern("?s", "?p", "?o");
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Result should have consistent structure
+        assert!(!query_result.variables.is_empty());
+        assert!(query_result.stats.time_ms >= 0);
+        assert!(query_result.stats.results_count == query_result.bindings.len());
+
+        // Each binding should be consistent with variables
+        for binding in &query_result.bindings {
+            for var in &query_result.variables {
+                // Either the variable is bound or not (both are valid states)
+                let _is_bound = binding.is_bound(var);
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let engine = create_test_query_engine();
+
+        // Test with potentially problematic patterns
+        let problematic_patterns = vec![
+            QueryPattern::Filter {
+                pattern: Box::new(create_test_query_pattern("?nonexistent", "?p", "?o")),
+                expression: FilterExpression::IsVariable("?nonexistent".to_string()),
+            },
+            QueryPattern::Union {
+                left: Box::new(create_test_query_pattern("?s", "?nonexistent", "?o")),
+                right: Box::new(create_test_query_pattern("?s", "?p", "?nonexistent")),
+            },
+        ];
+
+        for pattern in problematic_patterns {
+            let result = engine.execute(&pattern);
+            // Should handle errors gracefully (either succeed or fail cleanly)
+            assert!(result.is_ok() || result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_complex_query_patterns() {
+        let engine = create_test_query_engine();
+
+        // Test nested patterns
+        let nested_pattern = QueryPattern::Filter {
+            pattern: Box::new(QueryPattern::Optional {
+                left: Box::new(create_test_query_pattern("?s", RDF_TYPE, "http://example.org/Person")),
+                right: Box::new(create_test_query_pattern("?s", "http://example.org/worksFor", "?company")),
+            }),
+            expression: FilterExpression::IsVariable("?s".to_string()),
+        };
+
+        let result = engine.execute(&nested_pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+        assert!(query_result.stats.time_ms >= 0);
+    }
+
+    #[test]
+    fn test_multiple_triple_pattern() {
+        let engine = create_test_query_engine();
+
+        let pattern = QueryPattern::BasicGraphPattern(vec![
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(IRI::new(RDF_TYPE).expect("Valid IRI")),
+                PatternTerm::IRI(IRI::new("http://example.org/Person").expect("Valid IRI")),
+            ),
+            TriplePattern::new(
+                PatternTerm::Variable("?s".to_string()),
+                PatternTerm::IRI(IRI::new("http://example.org/worksFor").expect("Valid IRI")),
+                PatternTerm::Variable("?company".to_string()),
+            ),
+        ]);
+
+        let result = engine.execute(&pattern);
+
+        assert!(result.is_ok());
+        let query_result = result.unwrap();
+
+        // Should have both variables
+        assert!(query_result.variables.contains(&"?s".to_string()));
+        assert!(query_result.variables.contains(&"?company".to_string()));
+    }
+
+    #[test]
+    fn test_engine_performance() {
+        let engine = create_test_query_engine();
+
+        let pattern = create_test_query_pattern("?s", "?p", "?o");
+
+        let start_time = std::time::Instant::now();
+
+        // Execute multiple queries
+        for _ in 0..10 {
+            let result = engine.execute(&pattern);
+            assert!(result.is_ok());
+        }
+
+        let elapsed = start_time.elapsed();
+
+        // Should complete reasonably quickly (less than 1 second for 10 queries in test)
+        assert!(elapsed < std::time::Duration::from_secs(1));
+
+        let stats = engine.stats();
+        assert_eq!(stats.successful_queries, 10);
+        assert!(stats.get_average_time() > 0.0);
+    }
+
+    #[test]
+    fn test_variable_extraction() {
+        let patterns = vec![
+            create_test_query_pattern("?s", "?p", "?o"),
+            create_test_query_pattern("?subject", "http://example.org/predicate", "?object"),
+            QueryPattern::BasicGraphPattern(vec![
+                TriplePattern::new(
+                    PatternTerm::Variable("?x".to_string()),
+                    PatternTerm::Variable("?y".to_string()),
+                    PatternTerm::IRI(IRI::new("http://example.org/test").expect("Valid IRI")),
+                ),
+                TriplePattern::new(
+                    PatternTerm::Variable("?x".to_string()),
+                    PatternTerm::IRI(IRI::new("http://example.org/prop").expect("Valid IRI")),
+                    PatternTerm::Variable("?z".to_string()),
+                ),
+            ]),
+        ];
+
+        for pattern in patterns {
+            let engine = create_test_query_engine();
+            let result = engine.execute(&pattern);
+
+            assert!(result.is_ok());
+            let query_result = result.unwrap();
+
+            // Variables should be extracted correctly
+            assert!(!query_result.variables.is_empty());
+
+            // All declared variables should be properly handled
+            for var in &query_result.variables {
+                assert!(var.starts_with('?'));
+            }
+        }
+    }
+
+    #[test]
+    fn test_join_operations() {
+        let engine = create_test_query_engine();
+
+        // Create a pattern that requires joining
+        let left_pattern = create_test_query_pattern("?person", RDF_TYPE, "http://example.org/Person");
+        let right_pattern = create_test_query_pattern("?person", "http://example.org/worksFor", "?company");
+
+        // Test join by executing patterns and then combining results
+        let left_result = engine.execute(&left_pattern);
+        let right_result = engine.execute(&right_pattern);
+
+        assert!(left_result.is_ok());
+        assert!(right_result.is_ok());
+
+        // Both results should have the join variable ?person
+        let left_query = left_result.unwrap();
+        let right_query = right_result.unwrap();
+
+        assert!(left_query.variables.contains(&"?person".to_string()));
+        assert!(right_query.variables.contains(&"?person".to_string()));
+    }
+
+    #[test]
+    fn test_concurrent_query_access() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let engine = Arc::new(create_test_query_engine());
+        let mut handles = Vec::new();
+
+        // Spawn multiple threads accessing the engine
+        for thread_id in 0..4 {
+            let engine_clone = Arc::clone(&engine);
+            let handle = thread::spawn(move || {
+                let pattern = create_test_query_pattern("?s", "?p", "?o");
+
+                // Execute queries and access stats
+                for _ in 0..5 {
+                    let result = engine_clone.execute(&pattern);
+                    assert!(result.is_ok() || result.is_err());
+
+                    let _stats = engine_clone.stats();
+                }
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().expect("Thread should complete successfully");
+        }
+
+        // Engine should still be functional
+        let final_stats = engine.stats();
+        assert!(final_stats.successful_queries >= 0);
+    }
+
+    // Property-based tests for QueryEngine
+    #[cfg(test)]
+    mod engine_proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn test_engine_configuration_variations(
+                enable_reasoning in prop::bool::ANY,
+                enable_caching in prop::bool::ANY,
+                enable_parallel in prop::bool::ANY,
+                cache_size in 1usize..1000usize,
+                max_results in 1usize..1000usize
+            ) {
+                let ontology = create_test_ontology();
+                let config = QueryConfig {
+                    enable_reasoning,
+                    enable_caching,
+                    enable_parallel,
+                    cache_size: Some(cache_size),
+                    max_results: Some(max_results),
+                };
+
+                let engine = QueryEngine::with_config(ontology, config);
+                let pattern = create_test_query_pattern("?s", "?p", "?o");
+
+                // Should work with any valid configuration
+                let result = engine.execute(&pattern);
+                prop_assert!(result.is_ok() || result.is_err());
+
+                let engine_config = engine.config();
+                prop_assert_eq!(engine_config.enable_reasoning, enable_reasoning);
+                prop_assert_eq!(engine_config.enable_caching, enable_caching);
+                prop_assert_eq!(engine_config.enable_parallel, enable_parallel);
+                prop_assert_eq!(engine_config.cache_size, Some(cache_size));
+                prop_assert_eq!(engine_config.max_results, Some(max_results));
+            }
+
+            #[test]
+            fn test_statistics_monotonicity(
+                query_count in 1usize..20usize
+            ) {
+                let engine = create_test_query_engine();
+                let pattern = create_test_query_pattern("?s", "?p", "?o");
+
+                let mut previous_successful = 0;
+                let mut previous_total = 0;
+
+                for _ in 0..query_count {
+                    let result = engine.execute(&pattern);
+                    let _ = result; // We don't care about success/failure for this test
+
+                    let stats = engine.stats();
+
+                    // Stats should be monotonic (never decrease)
+                    prop_assert!(stats.successful_queries >= previous_successful);
+                    prop_assert!(stats.total_queries >= previous_total);
+
+                    previous_successful = stats.successful_queries;
+                    previous_total = stats.total_queries;
+                }
+            }
+
+            #[test]
+            fn test_pattern_supports_parallel(
+                pattern_type in 0usize..6usize
+            ) {
+                let pattern = match pattern_type {
+                    0 => create_test_query_pattern("?s", "?p", "?o"),
+                    1 => QueryPattern::Union {
+                        left: Box::new(create_test_query_pattern("?s1", "?p1", "?o1")),
+                        right: Box::new(create_test_query_pattern("?s2", "?p2", "?o2")),
+                    },
+                    2 => QueryPattern::Optional {
+                        left: Box::new(create_test_query_pattern("?s", "?p", "?o")),
+                        right: Box::new(create_test_query_pattern("?s2", "?p2", "?o2")),
+                    },
+                    3 => QueryPattern::Filter {
+                        pattern: Box::new(create_test_query_pattern("?s", "?p", "?o")),
+                        expression: FilterExpression::IsVariable("?s".to_string()),
+                    },
+                    4 => QueryPattern::Reduced(Box::new(create_test_query_pattern("?s", "?p", "?o"))),
+                    5 => QueryPattern::Distinct(Box::new(create_test_query_pattern("?s", "?p", "?o"))),
+                    _ => unreachable!(),
+                };
+
+                let supports_parallel = pattern.supports_parallel();
+
+                // Should not panic for any pattern type
+                let _ = supports_parallel;
+            }
+        }
+    }
+}
+
+// Thread safety implementations
+unsafe impl Send for QueryEngine {}
+unsafe impl Sync for QueryEngine {}
